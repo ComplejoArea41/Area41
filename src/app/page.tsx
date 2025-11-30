@@ -2,7 +2,6 @@
 
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -18,19 +17,19 @@ export default function WelcomePage() {
     {
       title: 'Reservar Cancha',
       description: 'Asegura tu lugar y diviértete con amigos.',
-      icon: <Goal className="h-8 w-8 text-primary" />,
+      icon: <Goal className="h-10 w-10 text-primary-foreground" />,
       path: '/reservations',
     },
     {
       title: 'Menú del Buffet',
       description: 'Recarga energías con nuestras deliciosas opciones.',
-      icon: <Utensils className="h-8 w-8 text-primary" />,
+      icon: <Utensils className="h-10 w-10 text-primary-foreground" />,
       path: '/buffet',
     },
     {
       title: 'Ver Torneos',
       description: 'Compite por la gloria y siéntete un campeón.',
-      icon: <Trophy className="h-8 w-8 text-primary" />,
+      icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
       path: '/tournaments',
     },
   ];
@@ -54,12 +53,12 @@ export default function WelcomePage() {
               className="bg-card/80 hover:bg-card/95 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
               onClick={() => router.push(option.path)}
             >
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-full">
+              <CardHeader className="flex flex-row items-center gap-4 p-4">
+                <div className="p-4 bg-primary rounded-full">
                     {option.icon}
                 </div>
                 <div className="flex flex-col">
-                  <CardTitle>{option.title}</CardTitle>
+                  <CardTitle className="text-xl">{option.title}</CardTitle>
                   <CardDescription className="text-left">{option.description}</CardDescription>
                 </div>
               </CardHeader>
