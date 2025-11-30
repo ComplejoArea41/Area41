@@ -1,4 +1,6 @@
-import { Button } from "@/components/ui/button";
+'use client';
+
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -6,12 +8,11 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { user, upcomingReservations } from "@/lib/data";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { placeholderImages } from "@/lib/placeholder-images.json";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { placeholderImages } from '@/lib/placeholder-images.json';
 import {
   Table,
   TableBody,
@@ -19,11 +20,71 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
+import { useDoc, useFirestore, useUser } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
-  const userAvatar = placeholderImages.find((p) => p.id === "user-avatar");
-  const userFullName = `${user.firstName} ${user.lastName}`;
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const userRef = useMemo(
+    () => (user ? doc(firestore, 'users', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: userProfile, isLoading } = useDoc(userRef);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  useEffect(() => {
+    if (userProfile) {
+      setFirstName(userProfile.firstName || '');
+      setLastName(userProfile.lastName || '');
+      setPhoneNumber(userProfile.phoneNumber || '');
+    }
+  }, [userProfile]);
+
+  const handleSaveChanges = () => {
+    if (userRef) {
+      setDoc(
+        userRef,
+        {
+          firstName,
+          lastName,
+          phoneNumber,
+        },
+        { merge: true }
+      ).then(() => {
+        toast({
+            title: "¡Éxito!",
+            description: "Tu perfil ha sido actualizado.",
+        })
+      }).catch((error) => {
+        console.error("Error updating profile: ", error);
+         toast({
+            title: "Error",
+            description: "No se pudo actualizar tu perfil.",
+            variant: "destructive"
+        })
+      });
+    }
+  };
+
+  const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');
+  const userFullName = `${firstName} ${lastName}`;
+
+  if (isLoading || !userProfile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center dark bg-background">
+        <p className="text-primary-foreground">Cargando perfil...</p>
+      </div>
+    );
+  }
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -40,36 +101,51 @@ export default function ProfilePage() {
                     width={96}
                     height={96}
                   />
-                  <AvatarFallback>{user.firstName.charAt(0)}{user.lastName.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>
+                    {firstName.charAt(0)}
+                    {lastName.charAt(0)}
+                  </AvatarFallback>
                 </Avatar>
               )}
               <div className="grid gap-1">
                 <CardTitle className="text-2xl">{userFullName}</CardTitle>
-                <CardDescription>{user.email}</CardDescription>
+                <CardDescription>{userProfile.email}</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
-                <form className="grid w-full items-center gap-4">
-                    <div className="flex flex-col space-y-1.5">
-                        <Label htmlFor="firstName">Nombre</Label>
-                        <Input id="firstName" defaultValue={user.firstName} />
-                    </div>
-                     <div className="flex flex-col space-y-1.5">
-                        <Label htmlFor="lastName">Apellido</Label>
-                        <Input id="lastName" defaultValue={user.lastName} />
-                    </div>
-                    <div className="flex flex-col space-y-1.5">
-                        <Label htmlFor="phone">Teléfono</Label>
-                        <Input id="phone" defaultValue={user.phoneNumber} />
-                    </div>
-                    <div className="flex flex-col space-y-1.5">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" defaultValue={user.email} disabled />
-                    </div>
-                </form>
+              <form className="grid w-full items-center gap-4">
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="firstName">Nombre</Label>
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="lastName">Apellido</Label>
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="phone">Teléfono</Label>
+                  <Input
+                    id="phone"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={userProfile.email} disabled />
+                </div>
+              </form>
             </CardContent>
             <CardFooter>
-                 <Button className="w-full">Guardar Cambios</Button>
+              <Button className="w-full" onClick={handleSaveChanges}>Guardar Cambios</Button>
             </CardFooter>
           </Card>
         </div>
@@ -92,27 +168,9 @@ export default function ProfilePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {upcomingReservations.map((res) => (
-                    <TableRow key={res.id}>
-                      <TableCell className="font-medium">
-                        {res.courtName}
-                      </TableCell>
-                      <TableCell>{res.date}</TableCell>
-                      <TableCell>{res.time}</TableCell>
-                      <TableCell className="text-right text-green-600">
-                        Próxima
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {/* Reservation data will be dynamic */}
                   <TableRow>
-                    <TableCell className="font-medium">
-                      Fútbol 5 - Cancha 3
-                    </TableCell>
-                    <TableCell>10 de Agosto, 2024</TableCell>
-                    <TableCell>21:00</TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      Completada
-                    </TableCell>
+                    <TableCell colSpan={4} className="text-center">No hay reservas todavía.</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -123,5 +181,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
-    

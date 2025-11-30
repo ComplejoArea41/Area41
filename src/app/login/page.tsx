@@ -12,16 +12,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import {
   initiateEmailSignIn,
   initiateEmailSignUp,
 } from '@/firebase/non-blocking-login';
+import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function LoginPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -30,9 +32,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
+      // Temporary logic to assign admin role
+      if (user.email === 'matias@vascohogar.com') {
+        const userRef = doc(firestore, 'users', user.uid);
+        setDoc(userRef, { isAdmin: true }, { merge: true });
+      }
       router.push('/');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, firestore]);
 
   const handleAuthAction = () => {
     if (isSigningUp) {
