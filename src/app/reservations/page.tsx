@@ -143,8 +143,11 @@ export default function ReservationPage() {
           description: reservationDetails,
         });
 
-        form.reset();
-        form.setValue("date", new Date());
+        form.reset({
+          courtIds: [],
+          times: [],
+          date: data.date, 
+        });
         setIsFutbol7(false);
     } catch (error) {
         console.error("Error al crear la reserva: ", error);
@@ -166,7 +169,6 @@ export default function ReservationPage() {
     const [hour, minute] = time.split(':').map(Number);
     
     return reservations.some(reservation => {
-        // Check if there's any overlap in the court IDs
         const courtOverlap = reservation.courtIds.some(cid => selectedCourtIds.includes(cid));
         if (!courtOverlap) return false;
 
@@ -235,14 +237,14 @@ export default function ReservationPage() {
                       {isFutbol7 && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                               <Button
-                                  variant={selectedCourts.includes('c1') ? 'default' : 'outline'}
+                                  variant={selectedCourts.includes('c1') && selectedCourts.includes('c2') ? 'default' : 'outline'}
                                   onClick={() => form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })}
                                   type="button"
                               >
                                   Canchas 1 y 2
                               </Button>
                               <Button
-                                  variant={selectedCourts.includes('c3') ? 'default' : 'outline'}
+                                  variant={selectedCourts.includes('c3') && selectedCourts.includes('c4') ? 'default' : 'outline'}
                                   onClick={() => form.setValue("courtIds", ['c3', 'c4'], { shouldValidate: true })}
                                   type="button"
                               >
@@ -316,7 +318,7 @@ export default function ReservationPage() {
                     />
                 </div>
 
-                <Button type="submit" className="w-full mt-8" disabled={form.formState.isSubmitting}>
+                <Button type="submit" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || selectedCourtIds.length === 0}>
                   {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
                   </Button>
               </form>

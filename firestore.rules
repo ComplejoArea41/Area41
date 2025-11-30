@@ -136,11 +136,11 @@ service cloud.firestore {
      */
     match /reservations/{reservationId} {
       allow get: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
-      // Any signed in user can list reservations to check for availability.
+      // Any signed in user can list reservations to check for availability, but only for specific queries.
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
       allow update: if isSignedIn() && ((isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId) || isAdmin());
-      allow delete: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
+      allow delete: if isSignedIn() && (isDocumentowner(resource.data) || isAdmin());
     }
   }
 }
