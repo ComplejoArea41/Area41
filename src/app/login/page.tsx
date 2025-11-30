@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/logo';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import {
   initiateEmailSignIn,
@@ -61,9 +60,6 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background dark p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mb-4 inline-block">
-            <Logo />
-          </div>
           <CardTitle className="text-2xl">
             Bienvenidos a Area 41
           </CardTitle>
