@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar, Utensils, Trophy } from 'lucide-react';
+import LayoutWrapper from '@/components/layout-wrapper';
 
 export default function WelcomePage() {
   const { user, isUserLoading } = useUser();
@@ -25,28 +26,30 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background dark p-4">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="text-4xl font-bold text-primary-foreground">
-          ÁREA 41
-        </h1>
-        <p className="text-lg text-muted-foreground">COMPLEJO DEPORTIVO</p>
-      </div>
+    <LayoutWrapper showBackButton={false}>
+        <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 text-center p-4">
+            <div className='mb-4'>
+                <h1 className="text-5xl font-bold text-primary-foreground tracking-tight">
+                ÁREA 41
+                </h1>
+                <p className="text-xl text-muted-foreground">TU COMPLEJO DEPORTIVO</p>
+            </div>
 
-      <div className="mt-12 grid w-full max-w-xs gap-4">
-        <Button size="lg" onClick={() => router.push('/reservations')}>
-          <Calendar className="mr-2 h-5 w-5" />
-          Reservas
-        </Button>
-        <Button size="lg" onClick={() => router.push('/buffet')}>
-          <Utensils className="mr-2 h-5 w-5" />
-          Buffet
-        </Button>
-        <Button size="lg" onClick={() => router.push('/tournaments')}>
-          <Trophy className="mr-2 h-5 w-5" />
-          Torneos
-        </Button>
-      </div>
-    </div>
+            <div className="grid w-full max-w-md gap-4">
+                <Button size="lg" className="h-16 text-lg" onClick={() => router.push('/reservations')}>
+                    <Calendar className="mr-4 h-6 w-6" />
+                    Reservar Cancha
+                </Button>
+                <Button size="lg" className="h-16 text-lg" onClick={() => router.push('/buffet')}>
+                    <Utensils className="mr-4 h-6 w-6" />
+                    Menú del Buffet
+                </Button>
+                <Button size="lg" className="h-16 text-lg" onClick={() => router.push('/tournaments')}>
+                    <Trophy className="mr-4 h-6 w-6" />
+                    Ver Torneos
+                </Button>
+            </div>
+        </div>
+    </LayoutWrapper>
   );
 }

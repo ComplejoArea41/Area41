@@ -90,13 +90,13 @@ export default function ProfilePage() {
 
   return (
     <LayoutWrapper>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <div className="grid gap-4 md:grid-cols-3">
+      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        <div className="grid gap-8 md:grid-cols-3">
           <div className="md:col-span-1">
             <Card className="bg-card/80 backdrop-blur-sm">
               <CardHeader className="flex flex-col items-center gap-4 text-center">
                 {userAvatar && (
-                  <Avatar className="h-24 w-24">
+                  <Avatar className="h-24 w-24 border-2 border-primary">
                     <AvatarImage
                       src={userAvatar.imageUrl}
                       alt={userFullName}
@@ -157,7 +157,7 @@ export default function ProfilePage() {
               <CardHeader>
                 <CardTitle>Mis Reservas</CardTitle>
                 <CardDescription>
-                  Un historial de tus reservas recientes y futuras.
+                  Aquí encontrarás el historial de todas tus batallas épicas en nuestras canchas. ¡Revisa tus próximos partidos y revive tus victorias!
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -177,11 +177,11 @@ export default function ProfilePage() {
                     </TableRow>
                   </TableBody>
                 </Table>
-              </TableBody>
+              </CardBody>
             </Card>
           </div>
         </div>
-      </main>
+      </div>
     </LayoutWrapper>
   );
 }

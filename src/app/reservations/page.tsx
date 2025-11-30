@@ -138,12 +138,12 @@ export default function ReservationPage() {
 
   return (
     <LayoutWrapper>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <Card className="bg-card/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Crear una Reserva</CardTitle>
+            <CardTitle>Reserva Tu Cancha</CardTitle>
             <CardDescription>
-              Reserva tu cancha. Completa el formulario para asegurar tu lugar.
+              ¿Listos para el partido? Asegura tu lugar en Area41. Selecciona el tipo de cancha, la fecha y la hora. ¡El fútbol te espera!
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -298,7 +298,7 @@ export default function ReservationPage() {
             </Form>
           </CardContent>
         </Card>
-      </main>
+      </div>
     </LayoutWrapper>
   );
 }

@@ -26,13 +26,13 @@ export default function BuffetPage() {
 
   return (
     <LayoutWrapper>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <Card className="bg-card/80 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center">
               <div className="grid gap-2">
-                  <CardTitle>Menú del Buffet</CardTitle>
+                  <CardTitle>Nuestro Menú del Buffet</CardTitle>
                   <CardDescription>
-                      Administra los artículos disponibles en el buffet.
+                      Recarga energías con nuestras opciones. Desde snacks rápidos hasta platos completos, ¡tenemos lo que necesitas para seguir jugando!
                   </CardDescription>
               </div>
               <Button asChild size="sm" className="ml-auto gap-1">
@@ -69,7 +69,7 @@ export default function BuffetPage() {
             </Table>
           </CardContent>
         </Card>
-      </main>
+      </div>
     </LayoutWrapper>
   );
 }
