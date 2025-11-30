@@ -26,13 +26,12 @@ import {
   Calendar,
   Contact,
   Home,
-  LineChart,
   Menu,
-  Package2,
   Search,
-  Sparkles,
+  Shirt,
   Ticket,
-  Users
+  Users,
+  UtensilsCrossed
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -45,11 +44,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { href: "/", label: "Dashboard", icon: Home },
-    { href: "/schedule", label: "Schedule", icon: Calendar },
-    { href: "/reservations", label: "Bookings", icon: Ticket },
-    { href: "/recommendations", label: "For You", icon: Sparkles },
-    { href: "/profile", label: "Profile", icon: Users },
-    { href: "/contacts", label: "Contacts", icon: Contact },
+    { href: "/reservations", label: "Reservas", icon: Calendar },
+    { href: "/buffet", label: "Buffet", icon: UtensilsCrossed },
+    { href: "/tournaments", label: "Torneos", icon: Shirt },
+    { href: "/profile", label: "Mi Perfil", icon: Users },
   ];
 
   const NavLink = ({
@@ -83,7 +81,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link href="/" className="flex items-center gap-2 font-semibold">
               <Logo />
-              <span className="">Sport Center Hub</span>
+              <span className="">Area41</span>
             </Link>
             <Button variant="outline" size="icon" className="ml-auto h-8 w-8">
               <Bell className="h-4 w-4" />
@@ -96,21 +94,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <NavLink key={link.href} {...link} />
               ))}
             </nav>
-          </div>
-          <div className="mt-auto p-4">
-            <Card x-chunk="dashboard-02-chunk-0">
-              <CardHeader className="p-2 pt-0 md:p-4">
-                <CardTitle>Special Offer</CardTitle>
-                <CardDescription>
-                  Summer pass now available. Get unlimited access.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                <Button size="sm" className="w-full">
-                  Upgrade
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
@@ -134,27 +117,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                   <Logo />
-                  <span className="sr-only">Sport Center Hub</span>
+                  <span className="sr-only">Area41</span>
                 </Link>
                 {navLinks.map((link) => (
                   <NavLink key={link.href} {...link} isMobile />
                 ))}
               </nav>
-               <div className="mt-auto">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Special Offer</CardTitle>
-                    <CardDescription>
-                      Summer pass now available. Get unlimited access.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button size="sm" className="w-full">
-                      Upgrade
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
             </SheetContent>
           </Sheet>
 
@@ -164,7 +132,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search activities..."
+                  placeholder="Buscar..."
                   className="w-full appearance-none bg-background pl-8 md:w-2/3 lg:w-1/3"
                 />
               </div>
@@ -182,21 +150,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       width={36}
                       height={36}
                     />
-                    <AvatarFallback>AD</AvatarFallback>
+                    <AvatarFallback>JP</AvatarFallback>
                   </Avatar>
                 )}
                 <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/profile">Profile</Link>
+                <Link href="/profile">Perfil</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
+              <DropdownMenuItem>Soporte</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              <DropdownMenuItem>Cerrar Sesión</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
@@ -206,49 +174,4 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Dummy components for layout structure
-function Card({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)}>{children}</div>;
-}
-function CardHeader({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn("flex flex-col space-y-1.5 p-6", className)}>{children}</div>;
-}
-function CardTitle({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <h3 className={cn("text-2xl font-semibold leading-none tracking-tight", className)}>{children}</h3>;
-}
-function CardDescription({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <p className={cn("text-sm text-muted-foreground", className)}>{children}</p>;
-}
-function CardContent({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn("p-6 pt-0", className)}>{children}</div>;
-}
+    

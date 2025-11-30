@@ -1,36 +1,56 @@
 export interface User {
-  name: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
   email: string;
-  avatarUrl: string;
-  preferences: string;
 }
 
-export interface Activity {
+export interface Court {
   id: string;
-  name: string;
-  type: "Class" | "Facility";
-  instructor: string;
-  instructorAvatar?: string;
-  location: string;
-  time: string;
-  day: string;
-  availability: "Available" | "Full" | "Limited";
+  courtType: 'Futbol 5' | 'Futbol 7';
+  courtNumber: number;
+  isAvailable: boolean;
 }
 
 export interface Reservation {
   id: string;
-  activityName: string;
-  type: "Class" | "Court Booking";
-  location: string;
-  date: string;
-  time: string;
+  userId: string;
+  courtIds: string[];
+  reservationDateTime: string; // ISO 8601 format
+  durationMinutes: number;
+  // For display purposes, will be constructed
+  date?: string;
+  time?: string;
 }
 
-export interface Staff {
+export interface MenuItem {
   id: string;
   name: string;
-  role: string;
-  email: string;
-  phone: string;
-  avatarId: string;
+  description: string;
+  price: number;
+  type: 'Bebida' | 'Comida';
 }
+
+export interface Tournament {
+  id: string;
+  name: string;
+  startDate: string; // ISO 8601 format
+  endDate: string;   // ISO 8601 format
+  teamIds: string[];
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  memberIds: string[];
+}
+
+export interface RecentMember {
+    id: string;
+    name: string;
+    email: string;
+    avatarId: string;
+}
+
+    

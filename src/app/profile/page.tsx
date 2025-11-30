@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { user, upcomingReservations } from "@/lib/data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { placeholderImages } from "@/lib/placeholder-images.json";
@@ -24,6 +23,7 @@ import {
 
 export default function ProfilePage() {
   const userAvatar = placeholderImages.find((p) => p.id === "user-avatar");
+  const userFullName = `${user.firstName} ${user.lastName}`;
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -35,101 +35,83 @@ export default function ProfilePage() {
                 <Avatar className="h-24 w-24">
                   <AvatarImage
                     src={userAvatar.imageUrl}
-                    alt={user.name}
+                    alt={userFullName}
                     data-ai-hint={userAvatar.imageHint}
                     width={96}
                     height={96}
                   />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>{user.firstName.charAt(0)}{user.lastName.charAt(0)}</AvatarFallback>
                 </Avatar>
               )}
               <div className="grid gap-1">
-                <CardTitle className="text-2xl">{user.name}</CardTitle>
+                <CardTitle className="text-2xl">{userFullName}</CardTitle>
                 <CardDescription>{user.email}</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
-                <form>
-                    <div className="grid w-full items-center gap-4">
-                        <div className="flex flex-col space-y-1.5">
-                            <Label htmlFor="name">Name</Label>
-                            <Input id="name" defaultValue={user.name} />
-                        </div>
-                        <div className="flex flex-col space-y-1.5">
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" defaultValue={user.email} disabled />
-                        </div>
+                <form className="grid w-full items-center gap-4">
+                    <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="firstName">Nombre</Label>
+                        <Input id="firstName" defaultValue={user.firstName} />
+                    </div>
+                     <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="lastName">Apellido</Label>
+                        <Input id="lastName" defaultValue={user.lastName} />
+                    </div>
+                    <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="phone">Teléfono</Label>
+                        <Input id="phone" defaultValue={user.phoneNumber} />
+                    </div>
+                    <div className="flex flex-col space-y-1.5">
+                        <Label htmlFor="email">Email</Label>
+                        <Input id="email" defaultValue={user.email} disabled />
                     </div>
                 </form>
             </CardContent>
             <CardFooter>
-                 <Button className="w-full">Save Changes</Button>
-            </CardFooter>
-          </Card>
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>My Preferences</CardTitle>
-              <CardDescription>
-                Help us tailor suggestions for you.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea defaultValue={user.preferences} className="min-h-32"/>
-            </CardContent>
-             <CardFooter>
-                 <Button className="w-full" variant="secondary">Update Preferences</Button>
+                 <Button className="w-full">Guardar Cambios</Button>
             </CardFooter>
           </Card>
         </div>
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>My Reservations</CardTitle>
+              <CardTitle>Mis Reservas</CardTitle>
               <CardDescription>
-                A history of your recent and upcoming bookings.
+                Un historial de tus reservas recientes y futuras.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Activity</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead className="text-right">Status</TableHead>
+                    <TableHead>Cancha</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Hora</TableHead>
+                    <TableHead className="text-right">Estado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {upcomingReservations.map((res) => (
                     <TableRow key={res.id}>
                       <TableCell className="font-medium">
-                        {res.activityName}
+                        {res.courtName}
                       </TableCell>
                       <TableCell>{res.date}</TableCell>
                       <TableCell>{res.time}</TableCell>
                       <TableCell className="text-right text-green-600">
-                        Upcoming
+                        Próxima
                       </TableCell>
                     </TableRow>
                   ))}
                   <TableRow>
                     <TableCell className="font-medium">
-                      Lap Swimming
+                      Fútbol 5 - Cancha 3
                     </TableCell>
-                    <TableCell>June 15, 2024</TableCell>
-                    <TableCell>7:00 AM</TableCell>
+                    <TableCell>10 de Agosto, 2024</TableCell>
+                    <TableCell>21:00</TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      Completed
-                    </TableCell>
-                  </TableRow>
-                   <TableRow>
-                    <TableCell className="font-medium">
-                      HIIT Fusion
-                    </TableCell>
-                    <TableCell>June 12, 2024</TableCell>
-                    <TableCell>9:00 AM</TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      Completed
+                      Completada
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -141,3 +123,5 @@ export default function ProfilePage() {
     </main>
   );
 }
+
+    

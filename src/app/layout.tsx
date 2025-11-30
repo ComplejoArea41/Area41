@@ -3,10 +3,11 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppLayout } from "@/components/app-layout";
 import { Toaster } from "@/components/ui/toaster";
+import { FirebaseClientProvider } from "@/firebase";
 
 export const metadata: Metadata = {
-  title: "Sport Center Hub",
-  description: "Your one-stop destination for sports and fitness.",
+  title: "Complejo Deportivo Area41",
+  description: "Tu centro de deportes y más.",
 };
 
 export default function RootLayout({
@@ -15,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -25,11 +26,15 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AppLayout>
-          {children}
-        </AppLayout>
+        <FirebaseClientProvider>
+          <AppLayout>
+            {children}
+          </AppLayout>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>
   );
 }
+
+    

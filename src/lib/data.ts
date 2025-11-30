@@ -1,47 +1,38 @@
-import type { User, Activity, Reservation, Staff } from './types';
+import type { User, Court, Reservation, MenuItem, Tournament, Team, RecentMember } from './types';
 
 export const user: User = {
-  name: "Alex Doe",
-  email: "alex.doe@example.com",
-  avatarUrl: "/avatars/01.png",
-  preferences: "I enjoy high-energy cardio workouts in the morning and team sports like basketball. I'm also interested in learning yoga for flexibility.",
+  id: "user-1",
+  firstName: "Juan",
+  lastName: "Perez",
+  phoneNumber: "1122334455",
+  email: "juan.perez@example.com",
 };
 
-export const activities: Activity[] = [
-  { id: "act1", name: "Morning Yoga", type: "Class", instructor: "Emily White", instructorAvatar: "staff-3", location: "Studio A", day: "Monday", time: "8:00 AM", availability: "Available" },
-  { id: "act2", name: "Advanced Tennis Clinic", type: "Class", instructor: "John Smith", instructorAvatar: "staff-2", location: "Court 1", day: "Monday", time: "10:00 AM", availability: "Limited" },
-  { id: "act3", name: "HIIT Fusion", type: "Class", instructor: "Sarah Green", instructorAvatar: "staff-5", location: "Fitness Zone", day: "Tuesday", time: "9:00 AM", availability: "Available" },
-  { id: "act4", name: "Lap Swimming", type: "Facility", instructor: "N/A", location: "Main Pool", day: "Tuesday", time: "11:00 AM - 1:00 PM", availability: "Available" },
-  { id: "act5", name: "Basketball Court", type: "Facility", instructor: "N/A", location: "Indoor Arena", day: "Wednesday", time: "All Day", availability: "Limited" },
-  { id: "act6", name: "Zumba Dance Party", type: "Class", instructor: "Maria Rodriguez", location: "Studio B", day: "Wednesday", time: "6:00 PM", availability: "Full" },
-  { id: "act7", name: "Beginner Swim Lessons", type: "Class", instructor: "Michael Brown", instructorAvatar: "staff-4", location: "Lesson Pool", day: "Thursday", time: "4:00 PM", availability: "Available" },
-  { id: "act8", name: "Open Gym", type: "Facility", instructor: "N/A", location: "Fitness Zone", day: "Friday", time: "All Day", availability: "Available" },
+export const courts: Court[] = [
+  { id: "c1", courtType: "Futbol 5", courtNumber: 1, isAvailable: true },
+  { id: "c2", courtType: "Futbol 5", courtNumber: 2, isAvailable: true },
+  { id: "c3", courtType: "Futbol 5", courtNumber: 3, isAvailable: true },
+  { id: "c4", courtType: "Futbol 5", courtNumber: 4, isAvailable: true },
 ];
 
-export const upcomingReservations: Reservation[] = [
-    { id: "res1", activityName: "Advanced Tennis Clinic", type: "Class", location: "Court 1", date: "June 24, 2024", time: "10:00 AM" },
-    { id: "res2", activityName: "Basketball Court", type: "Court Booking", location: "Indoor Arena", date: "June 25, 2024", time: "5:00 PM" },
-    { id: "res3", activityName: "Morning Yoga", type: "Class", location: "Studio A", date: "June 26, 2024", time: "8:00 AM" },
+export const upcomingReservations: (Reservation & { customerName: string; customerEmail: string; courtName: string })[] = [
+    { id: "res1", userId: "user-2", courtIds: ["c1"], reservationDateTime: "2024-08-15T19:00:00Z", durationMinutes: 60, customerName: "Carlos Gomez", customerEmail: "carlos.g@example.com", courtName: "Fútbol 5 - Cancha 1", date: "15 de Agosto, 2024", time: "19:00" },
+    { id: "res2", userId: "user-3", courtIds: ["c3", "c4"], reservationDateTime: "2024-08-15T20:00:00Z", durationMinutes: 60, customerName: "Laura Nuñez", customerEmail: "laura.n@example.com", courtName: "Fútbol 7 - Cancha 2", date: "15 de Agosto, 2024", time: "20:00" },
+    { id: "res3", userId: "user-4", courtIds: ["c2"], reservationDateTime: "2024-08-16T18:00:00Z", durationMinutes: 90, customerName: "Pedro Pascal", customerEmail: "pedro.p@example.com", courtName: "Fútbol 5 - Cancha 2", date: "16 de Agosto, 2024", time: "18:00" },
 ];
 
-export const todaysClasses: Pick<Activity, 'id' | 'name' | 'instructor' | 'instructorAvatar' | 'time' | 'availability'>[] = [
-    { id: "act1", name: "Morning Yoga", instructor: "Emily White", instructorAvatar: "staff-3", time: "8:00 AM", availability: "Available" },
-    { id: "act2", name: "Advanced Tennis", instructor: "John Smith", instructorAvatar: "staff-2", time: "10:00 AM", availability: "Limited" },
-    { id: "act6", name: "Zumba Dance", instructor: "Maria Rodriguez", time: "6:00 PM", availability: "Full" },
+export const menuItems: MenuItem[] = [
+  { id: "item1", name: "Hamburguesa Clásica", description: "Carne, queso, lechuga, tomate", price: 12.50, type: "Comida" },
+  { id: "item2", name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella, aceitunas", price: 15.00, type: "Comida" },
+  { id: "item3", name: "Gaseosa", description: "Línea Coca-Cola", price: 3.50, type: "Bebida" },
+  { id: "item4", name: "Agua Mineral", description: "Con o sin gas", price: 2.50, type: "Bebida" },
+  { id: "item5", name: "Cerveza", description: "Quilmes, Stella Artois", price: 5.00, type: "Bebida" },
+];
+
+export const recentMembers: RecentMember[] = [
+    { id: "user-5", name: "Maria Garcia", email: "maria.g@example.com", avatarId: "staff-1" },
+    { id: "user-6", name: "Roberto Diaz", email: "roberto.d@example.com", avatarId: "staff-2" },
+    { id: "user-7", name: "Ana Martinez", email: "ana.m@example.com", avatarId: "staff-3" },
 ]
 
-export const staffList: Staff[] = [
-  { id: "staff1", name: "Jane Doe", role: "General Manager", email: "jane.doe@sportshub.com", phone: "(123) 456-7890", avatarId: "staff-1" },
-  { id: "staff2", name: "John Smith", role: "Head Tennis Pro", email: "john.smith@sportshub.com", phone: "(123) 456-7891", avatarId: "staff-2" },
-  { id: "staff3", name: "Emily White", role: "Yoga & Wellness Coordinator", email: "emily.white@sportshub.com", phone: "(123) 456-7892", avatarId: "staff-3" },
-  { id: "staff4", name: "Michael Brown", role: "Aquatics Director", email: "michael.brown@sportshub.com", phone: "(123) 456-7893", avatarId: "staff-4" },
-  { id: "staff5", name: "Sarah Green", role: "Head Fitness Trainer", email: "sarah.green@sportshub.com", phone: "(123) 456-7894", avatarId: "staff-5" },
-];
-
-export const availability: string = `
-- Tennis Courts: Available Monday-Friday 9am-5pm. Fully booked on weekends.
-- Basketball Court: Available weekdays after 6pm.
-- Swimming Pool: Open for lap swimming 6am-10am daily.
-- Yoga Classes: Morning Yoga on Mon/Wed/Fri at 8am (Available). Evening Flow on Tue/Thu at 7pm (Limited spots).
-- HIIT Classes: Daily at 12pm (Available).
-`;
+    
