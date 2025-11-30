@@ -171,51 +171,56 @@ export default function ReservationPage() {
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col items-center">
-                      <FormLabel className="text-base mb-4">2. Elige la Fecha</FormLabel>
-                      <FormControl>
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                          className="rounded-md border"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 
-                <FormField
-                  control={form.control}
-                  name="time"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un horario disponible" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {availableTimes.map(time => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    <FormField
+                      control={form.control}
+                      name="date"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col items-center">
+                          <FormLabel className="text-base mb-4">2. Elige la Fecha</FormLabel>
+                          <FormControl>
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                              className="rounded-md border"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
+                            <FormDescription>
+                                Elige una hora para tu partido.
+                            </FormDescription>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un horario disponible" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {availableTimes.map(time => (
+                                <SelectItem key={time} value={time}>
+                                  {time}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
 
                 <Button type="submit" className="w-full mt-8">Confirmar Reserva</Button>
               </form>
