@@ -1,0 +1,168 @@
+/**
+ * @file firestore.rules
+ * @description Security rules for the "Complejo deportivo Area41" Firestore database.
+ *
+ * @version 1.0.0
+ *
+ * @philosophy
+ * This ruleset implements a mixed security model tailored for a sports complex application.
+ * - User-Private Data: Data like user profiles and reservations are strictly private, accessible only by the document owner.
+ * - Public Data: Shared information like court availability, buffet menus, and tournaments are publicly readable by any user, signed in or not.
+ * - Write Restrictions: All write operations are tightly controlled. Users can only write to their own data. All publicly accessible data is read-only from the client-side, presuming that an admin or a backend process manages it.
+ *
+ * @structure
+ * The data is organized into logical top-level collections for each major entity (users, courts, reservations, etc.).
+ * User-specific data is secured by checking an ownership field (e.g., `userId`) within the document itself. This denormalization is critical for performant and secure access control.
+ *
+ * @decisions
+ * - User Enumeration: Listing users from the top-level `/users` collection is explicitly disallowed to protect user privacy.
+ * - Reservation Privacy: Listing all reservations is disallowed to prevent users from seeing each other's bookings. Clients must fetch their reservations by specific IDs.
+ * - Public Data Management: All public collections (`/courts`, `/menu_items`, `/tournaments`, `/teams`) are configured to be read-only for clients. This is a secure default, assuming content is managed via the Firebase Admin SDK or a trusted server environment.
+ * - Flexible Schemas: In this prototyping phase, rules focus strictly on authorization (who can access what) and do not enforce the specific shape or data types of documents, allowing for rapid front-end development. Only fields critical for authorization (like `userId`) are validated.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks if a user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the given userId.
+     * Used for path-based security, like in /users/{userId}.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the 'userId' field
+     * on a document. Used for field-based security.
+     */
+    function isDocumentOwner(doc) {
+      return isSignedIn() && request.auth.uid == doc.userId;
+    }
+
+    // -------------------------------------------------------------------------
+    // User Profiles (/users)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Rules for a user's own profile document.
+     * @path /users/{userId}
+     * @allow A user (uid: 'user_abc') can (create) their own profile at /users/user_abc.
+     * @deny A user (uid: 'user_xyz') cannot (get) or (update) the profile at /users/user_abc.
+     * @principle Restricts access to a user's own data tree and enforces self-creation.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Disallow user enumeration for privacy.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Courts (/courts)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Rules for the collection of sports courts.
+     * @path /courts/{courtId}
+     * @allow Any user, authenticated or not, can (get) or (list) all available courts.
+     * @deny Any client user cannot (create), (update), or (delete) court information.
+     * @principle Provides public read access for shared data, while protecting it from client modification. Assumes admin-level management.
+     */
+    match /courts/{courtId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // Admin-only operation
+      allow update: if false; // Admin-only operation
+      allow delete: if false; // Admin-only operation
+    }
+
+    // -------------------------------------------------------------------------
+    // Reservations (/reservations)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Rules for court reservations made by users.
+     * @path /reservations/{reservationId}
+     * @allow A user (uid: 'user_abc') can (create) a reservation with `userId: 'user_abc'`.
+     * @deny A user (uid: 'user_xyz') cannot (get) a reservation where `userId` is 'user_abc'. Listing all reservations is also denied.
+     * @principle Enforces document ownership for all operations based on a `userId` field denormalized onto the reservation document.
+     */
+    match /reservations/{reservationId} {
+      allow get: if isSignedIn() && resource != null && isDocumentOwner(resource.data);
+      allow list: if false; // Deny listing to prevent leaking all users' reservation data.
+      allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
+      allow update: if isSignedIn() && resource != null && isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && resource != null && isDocumentOwner(resource.data);
+    }
+
+    // -------------------------------------------------------------------------
+    // Menu Items (/menu_items)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Rules for the collection of buffet menu items.
+     * @path /menu_items/{menuItemId}
+     * @allow Any user, authenticated or not, can (get) or (list) all menu items.
+     * @deny Any client user cannot (create), (update), or (delete) menu items.
+     * @principle Provides public read access for shared data, while protecting it from client modification. Assumes admin-level management.
+     */
+    match /menu_items/{menuItemId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // Admin-only operation
+      allow update: if false; // Admin-only operation
+      allow delete: if false; // Admin-only operation
+    }
+
+    // -------------------------------------------------------------------------
+    // Tournaments (/tournaments)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Rules for the collection of tournaments.
+     * @path /tournaments/{tournamentId}
+     * @allow Any user, authenticated or not, can (get) or (list) all tournaments.
+     * @deny Any client user cannot (create), (update), or (delete) tournament information.
+     * @principle Provides public read access for shared data, while protecting it from client modification. Assumes admin-level management.
+     */
+    match /tournaments/{tournamentId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // Admin-only operation
+      allow update: if false; // Admin-only operation
+      allow delete: if false; // Admin-only operation
+    }
+
+    // -------------------------------------------------------------------------
+    // Teams (/teams)
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Rules for the collection of teams participating in tournaments.
+     * @path /teams/{teamId}
+     * @allow Any user, authenticated or not, can (get) or (list) all teams.
+     * @deny Any client user cannot (create), (update), or (delete) team information.
+     * @principle Provides public read access for shared data, while protecting it from client modification. Assumes admin-level management.
+     */
+    match /teams/{teamId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // Admin-only operation
+      allow update: if false; // Admin-only operation
+      allow delete: if false; // Admin-only operation
+    }
+  }
+}
