@@ -26,6 +26,10 @@
           "type": "string",
           "description": "Email address of the user.",
           "format": "email"
+        },
+        "isAdmin": {
+            "type": "boolean",
+            "description": "Indicates if the user is an administrator."
         }
       },
       "required": [
