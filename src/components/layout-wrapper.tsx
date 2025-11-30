@@ -1,29 +1,18 @@
 'use client';
 
-import { Button } from "./ui/button";
-import { ArrowLeft } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import dynamic from 'next/dynamic';
+import React from 'react';
+
+// Dynamically import the component that uses client-side hooks
+const LayoutWrapperContent = dynamic(
+  () => import('./layout-wrapper-content'),
+  { ssr: false } // This is the key: disable server-side rendering
+);
 
 export default function LayoutWrapper({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const showBackButton = pathname !== '/';
-
-  return (
-    <div className="flex flex-1 flex-col">
-      {showBackButton && (
-        <header className="p-4 absolute top-0 left-0 z-20">
-          <Button variant="ghost" onClick={() => router.back()} className="bg-transparent hover:bg-white/10">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Volver
-          </Button>
-        </header>
-      )}
-      <main className="flex-1 flex flex-col">{children}</main>
-    </div>
-  );
+  return <LayoutWrapperContent>{children}</LayoutWrapperContent>;
 }
