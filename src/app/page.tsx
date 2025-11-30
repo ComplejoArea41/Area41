@@ -37,15 +37,6 @@ export default function WelcomePage() {
   return (
     <LayoutWrapper showBackButton={false}>
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
-        {/* Capa de fondo con imagen */}
-        <div
-          className="absolute inset-0 z-0 bg-cover bg-center"
-          style={{
-            backgroundImage: "linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://storage.googleapis.com/aif-public-images/soccer-ball-on-field.jpg')",
-          }}
-          data-ai-hint="soccer ball field"
-        ></div>
-        
         {/* Contenido principal, que se mostrará sobre la imagen */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full">
             <div className="text-center mb-12">
