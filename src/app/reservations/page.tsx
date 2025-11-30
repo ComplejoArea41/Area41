@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,8 +36,8 @@ const reservationFormSchema = z.object({
   date: z.date({
     required_error: "La fecha es requerida.",
   }),
-  time: z.string({
-    required_error: "Debes seleccionar un horario.",
+  times: z.array(z.string()).refine((value) => value.length > 0, {
+    message: "Debes seleccionar al menos un horario.",
   }),
 });
 
@@ -50,16 +51,25 @@ export default function ReservationPage() {
     resolver: zodResolver(reservationFormSchema),
     defaultValues: {
       courtIds: [],
+      times: [],
     },
   });
 
   const selectedCourts = form.watch("courtIds");
-  const selectedTime = form.watch("time");
+  const selectedTimes = form.watch("times");
 
   const handleCourtTypeChange = (is7: boolean) => {
     setIsFutbol7(is7);
     form.setValue("courtIds", [], { shouldValidate: true });
   }
+
+  const handleTimeClick = (time: string) => {
+    const currentTimes = form.getValues("times");
+    const newTimes = currentTimes.includes(time)
+      ? currentTimes.filter((t) => t !== time)
+      : [...currentTimes, time];
+    form.setValue("times", newTimes.sort(), { shouldValidate: true });
+  };
 
   function onSubmit(data: ReservationFormValues) {
     let courtDescription = "";
@@ -74,9 +84,15 @@ export default function ReservationPage() {
         courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
     }
 
+    const reservationDetails = `Has reservado ${courtDescription} el ${format(data.date, "PPP")} en los siguientes horarios: ${data.times.join(", ")}.`;
+
     toast({
       title: "¡Reserva Exitosa!",
-      description: `Has reservado ${courtDescription} el ${format(data.date, "PPP")} a las ${data.time}.`,
+      description: reservationDetails,
+    });
+    console.log({
+      ...data,
+      reservationDetails,
     });
     form.reset();
     setIsFutbol7(false);
@@ -189,20 +205,20 @@ export default function ReservationPage() {
                     
                     <FormField
                       control={form.control}
-                      name="time"
+                      name="times"
                       render={() => (
                         <FormItem>
                           <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
                             <FormDescription>
-                                Elige una hora para tu partido.
+                                Elige una o más horas para tu partido.
                             </FormDescription>
                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                                 {availableTimes.map(time => (
                                     <Button
                                         key={time}
                                         type="button"
-                                        variant={selectedTime === time ? "default" : "outline"}
-                                        onClick={() => form.setValue("time", time, { shouldValidate: true })}
+                                        variant={selectedTimes.includes(time) ? "default" : "outline"}
+                                        onClick={() => handleTimeClick(time)}
                                     >
                                         {time}
                                     </Button>
