@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/card";
 import { courts } from "@/lib/data";
 import { Checkbox } from "@/components/ui/checkbox";
+import LayoutWrapper from "@/components/layout-wrapper";
+
 
 const reservationFormSchema = z.object({
   courtIds: z.array(z.string()).refine((value) => value.length > 0, {
@@ -135,168 +137,168 @@ export default function ReservationPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Crear una Reserva</CardTitle>
-          <CardDescription>
-            Reserva tu cancha. Completa el formulario para asegurar tu lugar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <FormField
-                control={form.control}
-                name="courtIds"
-                render={() => (
-                  <FormItem>
-                    <div className="mb-4">
-                      <FormLabel className="text-base">Tipo de Cancha</FormLabel>
-                      <FormDescription>
-                        Selecciona Fútbol 5 para una cancha o elige dos canchas contiguas (1-2 o 3-4) para jugar Fútbol 7.
-                      </FormDescription>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-2">
-                            <Checkbox 
-                                id="f5" 
-                                checked={!isFutbol7 && selectedCourts.length > 0} 
-                                onCheckedChange={(checked) => {
-                                    if(checked) {
-                                        form.setValue("courtIds", selectedCourts.length > 0 ? [selectedCourts[0]] : [], { shouldValidate: true })
-                                    }
-                                }}
-                            />
-                            <label htmlFor="f5" className="text-sm font-medium leading-none">Fútbol 5</label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                             <Checkbox 
-                                id="f7" 
-                                checked={isFutbol7}
-                                onCheckedChange={(checked) => {
-                                   if(checked) {
-                                     // Default to 1&2 if user wants futbol 7
-                                     form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })
-                                   } else {
-                                     form.setValue("courtIds", [], { shouldValidate: true })
-                                   }
-                                }}
-                            />
-                            <label htmlFor="f7" className="text-sm font-medium leading-none">Fútbol 7</label>
-                        </div>
-                    </div>
-
-                    {!isFutbol7 && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                        {futbol5Courts.map((court) => (
-                            <Button
-                            key={court.id}
-                            variant={selectedCourts.includes(court.id) ? "default" : "outline"}
-                            onClick={() => form.setValue("courtIds", [court.id], { shouldValidate: true })}
-                            type="button"
-                            >
-                            Cancha {court.courtNumber}
-                            </Button>
-                        ))}
-                        </div>
-                    )}
-                    
-                    {isFutbol7 && (
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                            <Button
-                                variant={selectedCourts.includes('c1') ? 'default' : 'outline'}
-                                onClick={() => form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })}
-                                type="button"
-                            >
-                                Canchas 1 y 2
-                            </Button>
-                            <Button
-                                variant={selectedCourts.includes('c3') ? 'default' : 'outline'}
-                                onClick={() => form.setValue("courtIds", ['c3', 'c4'], { shouldValidate: true })}
-                                type="button"
-                            >
-                                Canchas 3 y 4
-                            </Button>
-                        </div>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <FormField
+    <LayoutWrapper>
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        <Card className="bg-card/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle>Crear una Reserva</CardTitle>
+            <CardDescription>
+              Reserva tu cancha. Completa el formulario para asegurar tu lugar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                  <FormField
                   control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Fecha</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Elige una fecha</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="time"
-                  render={({ field }) => (
+                  name="courtIds"
+                  render={() => (
                     <FormItem>
-                      <FormLabel>Horario</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un horario" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {availableTimes.map(time => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
+                      <div className="mb-4">
+                        <FormLabel className="text-base">Tipo de Cancha</FormLabel>
+                        <FormDescription>
+                          Selecciona Fútbol 5 para una cancha o elige dos canchas contiguas (1-2 o 3-4) para jugar Fútbol 7.
+                        </FormDescription>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                  id="f5" 
+                                  checked={!isFutbol7 && selectedCourts.length > 0} 
+                                  onCheckedChange={(checked) => {
+                                      if(checked) {
+                                          form.setValue("courtIds", selectedCourts.length > 0 ? [selectedCourts[0]] : [], { shouldValidate: true })
+                                      }
+                                  }}
+                              />
+                              <label htmlFor="f5" className="text-sm font-medium leading-none">Fútbol 5</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                  id="f7" 
+                                  checked={isFutbol7}
+                                  onCheckedChange={(checked) => {
+                                    if(checked) {
+                                      // Default to 1&2 if user wants futbol 7
+                                      form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })
+                                    } else {
+                                      form.setValue("courtIds", [], { shouldValidate: true })
+                                    }
+                                  }}
+                              />
+                              <label htmlFor="f7" className="text-sm font-medium leading-none">Fútbol 7</label>
+                          </div>
+                      </div>
+
+                      {!isFutbol7 && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                          {futbol5Courts.map((court) => (
+                              <Button
+                              key={court.id}
+                              variant={selectedCourts.includes(court.id) ? "default" : "outline"}
+                              onClick={() => form.setValue("courtIds", [court.id], { shouldValidate: true })}
+                              type="button"
+                              >
+                              Cancha {court.courtNumber}
+                              </Button>
                           ))}
-                        </SelectContent>
-                      </Select>
+                          </div>
+                      )}
+                      
+                      {isFutbol7 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                              <Button
+                                  variant={selectedCourts.includes('c1') ? 'default' : 'outline'}
+                                  onClick={() => form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })}
+                                  type="button"
+                              >
+                                  Canchas 1 y 2
+                              </Button>
+                              <Button
+                                  variant={selectedCourts.includes('c3') ? 'default' : 'outline'}
+                                  onClick={() => form.setValue("courtIds", ['c3', 'c4'], { shouldValidate: true })}
+                                  type="button"
+                              >
+                                  Canchas 3 y 4
+                              </Button>
+                          </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-              <Button type="submit">Confirmar Reserva</Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </main>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Fecha</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Elige una fecha</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="time"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Horario</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un horario" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {availableTimes.map(time => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <Button type="submit">Confirmar Reserva</Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </main>
+    </LayoutWrapper>
   );
 }
-
-    

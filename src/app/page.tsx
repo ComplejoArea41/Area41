@@ -4,7 +4,6 @@ import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/logo';
 import { Calendar, Utensils, Trophy } from 'lucide-react';
 
 export default function WelcomePage() {
@@ -28,7 +27,6 @@ export default function WelcomePage() {
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background dark p-4">
       <div className="flex flex-col items-center gap-2 text-center">
-        <Logo />
         <h1 className="text-4xl font-bold text-primary-foreground">
           ÁREA 41
         </h1>
