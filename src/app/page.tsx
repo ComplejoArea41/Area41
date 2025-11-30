@@ -36,21 +36,21 @@ export default function WelcomePage() {
             </div>
 
             <div className="grid w-full max-w-md gap-6">
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 rounded-lg bg-card/50 p-4 border border-border">
                     <Button size="lg" className="h-16 text-lg" onClick={() => router.push('/reservations')}>
                         <Calendar className="mr-4 h-6 w-6" />
                         Reservar Cancha
                     </Button>
                     <p className="text-sm text-muted-foreground">Asegura tu lugar y diviértete con amigos.</p>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 rounded-lg bg-card/50 p-4 border border-border">
                     <Button size="lg" className="h-16 text-lg" onClick={() => router.push('/buffet')}>
                         <Utensils className="mr-4 h-6 w-6" />
                         Menú del Buffet
                     </Button>
                     <p className="text-sm text-muted-foreground">Recarga energías con nuestras deliciosas opciones.</p>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 rounded-lg bg-card/50 p-4 border border-border">
                     <Button size="lg" className="h-16 text-lg" onClick={() => router.push('/tournaments')}>
                         <Trophy className="mr-4 h-6 w-6" />
                         Ver Torneos
