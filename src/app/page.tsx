@@ -51,7 +51,7 @@ export default function WelcomePage() {
           {menuOptions.map((option) => (
             <Card
               key={option.title}
-              className="bg-card/60 hover:bg-card/90 cursor-pointer transition-all duration-300 transform hover:-translate-y-1"
+              className="bg-card/80 hover:bg-card/95 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
               onClick={() => router.push(option.path)}
             >
               <CardHeader className="flex flex-row items-center gap-4">
