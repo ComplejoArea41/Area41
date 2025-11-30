@@ -91,14 +91,18 @@ export default function ReservationPage() {
 
     return reservations.some(res => {
       const resDateTime = (res.reservationDateTime as any).toDate().getTime();
-      // Check if the reservation is for the same time and includes the court
       const timeMatches = resDateTime === slotDateTime;
+      
+      // A reservation conflicts if it's for the same time slot and...
+      // 1. It explicitly includes the selected courtId.
+      // 2. The existing reservation is for a Futbol 7 game (2 courts), and the selected court is one of those two.
       const courtIsIncluded = res.courtIds.includes(courtId);
 
-      // If it's a Futbol 7 reservation, both courts are effectively reserved
-      const isFutbol7Conflict = res.courtIds.length > 1 && (res.courtIds.includes(courtId));
+      // If the selected court is part of a Futbol 7 combination, check if any reservation occupies that combination.
+      const isPartofFutbol7 = (courtId === 'c1' || courtId === 'c2') && res.courtIds.includes('c1') && res.courtIds.includes('c2');
+      const isPartofFutbol7_2 = (courtId === 'c3' || courtId === 'c4') && res.courtIds.includes('c3') && res.courtIds.includes('c4');
 
-      return timeMatches && (courtIsIncluded || isFutbol7Conflict);
+      return timeMatches && (courtIsIncluded || isPartofFutbol7 || isPartofFutbol7_2);
     });
   };
 
