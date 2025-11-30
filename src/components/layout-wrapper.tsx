@@ -18,12 +18,12 @@ export default function LayoutWrapper({
     <div className="relative flex min-h-screen w-full flex-col dark">
       <div className="absolute inset-0 z-0">
         <Image
-          src="https://images.unsplash.com/photo-1551958214-2d5b54a43621?q=80&w=2070&auto=format&fit=crop"
-          alt="Cancha de futbol"
+          src="https://images.unsplash.com/photo-1511886121199-75121262a324?q=80&w=2070&auto=format&fit=crop"
+          alt="Estadio de futbol"
           fill
           style={{ objectFit: 'cover' }}
           className="opacity-10"
-          data-ai-hint="soccer field"
+          data-ai-hint="soccer stadium"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
       </div>
