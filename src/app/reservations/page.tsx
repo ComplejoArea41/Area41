@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format, set, startOfDay } from "date-fns";
-import React, { useMemo } from "react";
+import React from "react";
 import { collection, query, where, Timestamp } from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
@@ -68,21 +68,6 @@ export default function ReservationPage() {
   
   const selectedDate = form.watch("date");
   const selectedCourtIds = form.watch("courtIds");
-
-  const reservationsQuery = useMemoFirebase(() => {
-    if (!selectedDate) return null;
-    const start = startOfDay(selectedDate);
-    const end = set(start, { hours: 23, minutes: 59, seconds: 59 });
-    return query(
-      collection(firestore, "reservations"),
-      where("reservationDateTime", ">=", Timestamp.fromDate(start)),
-      where("reservationDateTime", "<=", Timestamp.fromDate(end))
-    );
-  }, [firestore, selectedDate]);
-  
-  const { data: reservations, isLoading: reservationsLoading } = useCollection<Reservation>(reservationsQuery);
-  
-  const selectedCourts = form.watch("courtIds");
   const selectedTimes = form.watch("times");
 
   const handleCourtTypeChange = (is7: boolean) => {
@@ -112,43 +97,58 @@ export default function ReservationPage() {
 
     try {
         const reservationsCollection = collection(firestore, "reservations");
+        let successfulReservations = 0;
+
         for (const time of data.times) {
             const [hour, minute] = time.split(':').map(Number);
             const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
             
-            addDocumentNonBlocking(reservationsCollection, {
-                userId: user.uid,
-                courtIds: data.courtIds,
-                reservationDateTime: Timestamp.fromDate(reservationDateTime),
-                durationMinutes: 60,
-            });
+            try {
+              await addDocumentNonBlocking(reservationsCollection, {
+                  userId: user.uid,
+                  courtIds: data.courtIds,
+                  reservationDateTime: Timestamp.fromDate(reservationDateTime),
+                  durationMinutes: 60,
+              });
+              successfulReservations++;
+            } catch (error) {
+              console.error(`Error al reservar el horario ${time}:`, error);
+            }
         }
         
-        let courtDescription = "";
-        if(isFutbol7) {
-            if(data.courtIds.includes("c1")) {
-                courtDescription = "Fútbol 7 (Canchas 1 y 2)";
+        if (successfulReservations > 0) {
+            let courtDescription = "";
+            if(isFutbol7) {
+                if(data.courtIds.includes("c1")) {
+                    courtDescription = "Fútbol 7 (Canchas 1 y 2)";
+                } else {
+                    courtDescription = "Fútbol 7 (Canchas 3 y 4)";
+                }
             } else {
-                courtDescription = "Fútbol 7 (Canchas 3 y 4)";
+                const court = staticCourts.find(c => c.id === data.courtIds[0]);
+                courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
             }
-        } else {
-            const court = staticCourts.find(c => c.id === data.courtIds[0]);
-            courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
-        }
-    
-        const reservationDetails = `Has reservado ${courtDescription} el ${format(data.date, "PPP")} en los siguientes horarios: ${data.times.join(", ")}.`;
-    
-        toast({
-          title: "¡Reserva Exitosa!",
-          description: reservationDetails,
-        });
+        
+            const reservationDetails = `Has reservado ${courtDescription} el ${format(data.date, "PPP")} en los horarios confirmados.`;
+        
+            toast({
+              title: "¡Reserva Exitosa!",
+              description: reservationDetails,
+            });
 
-        form.reset({
-          courtIds: [],
-          times: [],
-          date: data.date, 
-        });
-        setIsFutbol7(false);
+            form.reset({
+              courtIds: [],
+              times: [],
+              date: data.date, 
+            });
+            setIsFutbol7(false);
+        } else {
+            toast({
+              title: "Error de Reserva",
+              description: "No se pudieron confirmar los horarios seleccionados. Es posible que ya estuvieran ocupados.",
+              variant: "destructive",
+            });
+        }
     } catch (error) {
         console.error("Error al crear la reserva: ", error);
         toast({
@@ -162,20 +162,6 @@ export default function ReservationPage() {
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
   const futbol5Courts = staticCourts.filter(c => c.courtType === "Futbol 5");
-
-  const isTimeSlotReserved = (time: string) => {
-    if (!reservations || selectedCourtIds.length === 0) return false;
-
-    const [hour, minute] = time.split(':').map(Number);
-    
-    return reservations.some(reservation => {
-        const courtOverlap = reservation.courtIds.some(cid => selectedCourtIds.includes(cid));
-        if (!courtOverlap) return false;
-
-        const reservationDate = (reservation.reservationDateTime as any).toDate();
-        return reservationDate.getHours() === hour && reservationDate.getMinutes() === minute;
-    });
-};
 
   return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
@@ -224,7 +210,7 @@ export default function ReservationPage() {
                           {futbol5Courts.map((court) => (
                               <Button
                               key={court.id}
-                              variant={selectedCourts.includes(court.id) ? "default" : "outline"}
+                              variant={selectedCourtIds.includes(court.id) ? "default" : "outline"}
                               onClick={() => form.setValue("courtIds", [court.id], { shouldValidate: true })}
                               type="button"
                               >
@@ -237,14 +223,14 @@ export default function ReservationPage() {
                       {isFutbol7 && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                               <Button
-                                  variant={selectedCourts.includes('c1') && selectedCourts.includes('c2') ? 'default' : 'outline'}
+                                  variant={selectedCourtIds.includes('c1') && selectedCourtIds.includes('c2') ? 'default' : 'outline'}
                                   onClick={() => form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })}
                                   type="button"
                               >
                                   Canchas 1 y 2
                               </Button>
                               <Button
-                                  variant={selectedCourts.includes('c3') && selectedCourts.includes('c4') ? 'default' : 'outline'}
+                                  variant={selectedCourtIds.includes('c3') && selectedCourtIds.includes('c4') ? 'default' : 'outline'}
                                   onClick={() => form.setValue("courtIds", ['c3', 'c4'], { shouldValidate: true })}
                                   type="button"
                               >
@@ -294,24 +280,19 @@ export default function ReservationPage() {
                             </FormDescription>
                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                                 {availableTimes.map(time => {
-                                    const isReserved = isTimeSlotReserved(time);
                                     return (
                                         <Button
                                             key={time}
                                             type="button"
                                             variant={selectedTimes.includes(time) ? "default" : "outline"}
                                             onClick={() => handleTimeClick(time)}
-                                            disabled={isReserved || selectedCourtIds.length === 0}
-                                            className={cn({
-                                              "line-through": isReserved
-                                            })}
+                                            disabled={selectedCourtIds.length === 0}
                                         >
                                             {time}
                                         </Button>
                                     )
                                 })}
                             </div>
-                             {reservationsLoading && selectedCourtIds.length > 0 && <p className="text-sm text-muted-foreground mt-2">Cargando disponibilidad...</p>}
                           <FormMessage />
                         </FormItem>
                       )}
