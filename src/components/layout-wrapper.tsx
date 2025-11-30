@@ -18,7 +18,7 @@ export default function LayoutWrapper({
     <div className="flex flex-1 flex-col">
       {showBackButton && (
         <header className="p-4 absolute top-0 left-0 z-20">
-          <Button variant="ghost" onClick={() => router.back()}>
+          <Button variant="ghost" onClick={() => router.back()} className="bg-transparent hover:bg-white/10">
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver
           </Button>
         </header>
