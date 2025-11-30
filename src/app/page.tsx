@@ -6,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -40,44 +39,47 @@ export default function WelcomePage() {
         </div>
 
         <div className="mt-8 grid gap-6 md:grid-cols-3">
-          <Link href="/reservations" passHref>
-            <Card className="cursor-pointer transition-colors hover:bg-card/80">
-              <CardHeader>
-                <CardTitle>Reservas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  Reserva tu cancha de fútbol.
-                </CardDescription>
-              </CardContent>
-            </Card>
-          </Link>
+          <Card 
+            className="cursor-pointer transition-colors hover:bg-card/80"
+            onClick={() => router.push('/reservations')}
+          >
+            <CardHeader>
+              <CardTitle>Reservas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Reserva tu cancha de fútbol.
+              </CardDescription>
+            </CardContent>
+          </Card>
 
-          <Link href="/buffet" passHref>
-            <Card className="cursor-pointer transition-colors hover:bg-card/80">
-              <CardHeader>
-                <CardTitle>Buffet</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  Consulta nuestro menú de comidas y bebidas.
-                </CardDescription>
-              </CardContent>
-            </Card>
-          </Link>
+          <Card 
+            className="cursor-pointer transition-colors hover:bg-card/80"
+            onClick={() => router.push('/buffet')}
+          >
+            <CardHeader>
+              <CardTitle>Buffet</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Consulta nuestro menú de comidas y bebidas.
+              </CardDescription>
+            </CardContent>
+          </Card>
 
-          <Link href="/tournaments" passHref>
-            <Card className="cursor-pointer transition-colors hover:bg-card/80">
-              <CardHeader>
-                <CardTitle>Torneos</CardTitle>
-              </Header>
-              <CardContent>
-                <CardDescription>
-                  Infórmate sobre los próximos torneos.
-                </CardDescription>
-              </CardContent>
-            </Card>
-          </Link>
+          <Card 
+            className="cursor-pointer transition-colors hover:bg-card/80"
+            onClick={() => router.push('/tournaments')}
+          >
+            <CardHeader>
+              <CardTitle>Torneos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Infórmate sobre los próximos torneos.
+              </CardDescription>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
