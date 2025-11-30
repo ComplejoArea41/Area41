@@ -65,12 +65,12 @@ export default function LoginPage() {
             <Logo />
           </div>
           <CardTitle className="text-2xl">
-            {isSigningUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
+            Bienvenidos a Area 41
           </CardTitle>
           <CardDescription>
             {isSigningUp
               ? 'Ingresa tu email y contraseña para registrarte.'
-              : 'Bienvenido de vuelta. Ingresa para continuar.'}
+              : 'Ingresa para continuar.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
