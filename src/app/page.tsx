@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -48,22 +47,22 @@ export default function WelcomePage() {
           </p>
         </div>
 
-        <div className="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="flex w-full max-w-md flex-col gap-6">
           {menuOptions.map((option) => (
             <Card
               key={option.title}
               className="bg-card/60 hover:bg-card/90 cursor-pointer transition-all duration-300 transform hover:-translate-y-1"
               onClick={() => router.push(option.path)}
             >
-              <CardHeader className="flex flex-col items-center text-center">
-                <div className="p-3 bg-primary/10 rounded-full mb-4">
+              <CardHeader className="flex flex-row items-center gap-4">
+                <div className="p-3 bg-primary/10 rounded-full">
                     {option.icon}
                 </div>
-                <CardTitle>{option.title}</CardTitle>
+                <div className="flex flex-col">
+                  <CardTitle>{option.title}</CardTitle>
+                  <CardDescription className="text-left">{option.description}</CardDescription>
+                </div>
               </CardHeader>
-              <CardContent className="text-center">
-                <CardDescription>{option.description}</CardDescription>
-              </CardContent>
             </Card>
           ))}
         </div>
