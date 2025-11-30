@@ -21,22 +21,34 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useDoc, useFirestore, useUser } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useUser } from '@/firebase';
+import { collection, doc, query, setDoc, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Reservation } from '@/lib/types';
+import { courts } from '@/lib/data';
+import { format } from 'date-fns';
+import { useMemoFirebase } from '@/firebase/provider';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function ProfilePage() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const userRef = useMemo(
+  const userRef = useMemoFirebase(
     () => (user ? doc(firestore, 'users', user.uid) : null),
     [user, firestore]
   );
-  const { data: userProfile, isLoading } = useDoc(userRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+
+  const reservationsQuery = useMemoFirebase(
+    () => (user ? query(collection(firestore, "reservations"), where("userId", "==", user.uid)) : null),
+    [user, firestore]
+  );
+  const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsQuery);
+
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -79,7 +91,28 @@ export default function ProfilePage() {
   const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');
   const userFullName = `${firstName} ${lastName}`;
 
-  if (isLoading || !userProfile) {
+  const getCourtDescription = (courtIds: string[]) => {
+      if (courtIds.length > 1) {
+          const sortedIds = [...courtIds].sort();
+          if (sortedIds.join(',') === 'c1,c2') return "Fútbol 7 (Canchas 1 y 2)";
+          if (sortedIds.join(',') === 'c3,c4') return "Fútbol 7 (Canchas 3 y 4)";
+          return `Fútbol 7 (${courtIds.length} canchas)`
+      }
+      const court = courts.find(c => c.id === courtIds[0]);
+      return court ? `Fútbol 5 - Cancha ${court.courtNumber}` : 'Cancha Desconocida';
+  }
+
+  const sortedReservations = useMemo(() => {
+    if (!reservations) return [];
+    return [...reservations].sort((a, b) => {
+      const dateA = (a.reservationDateTime as any).toDate();
+      const dateB = (b.reservationDateTime as any).toDate();
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [reservations]);
+
+
+  if (isUserLoading || isProfileLoading || !userProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
         <p className="text-primary-foreground">Cargando perfil...</p>
@@ -169,10 +202,32 @@ export default function ProfilePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {/* Reservation data will be dynamic */}
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center">No hay reservas todavía.</TableCell>
-                    </TableRow>
+                    {areReservationsLoading ? (
+                        <TableRow>
+                            <TableCell colSpan={4} className="text-center">Cargando reservas...</TableCell>
+                        </TableRow>
+                    ) : sortedReservations.length > 0 ? (
+                      sortedReservations.map(reservation => {
+                        const reservationDate = (reservation.reservationDateTime as any).toDate();
+                        const isUpcoming = reservationDate > new Date();
+                        return(
+                          <TableRow key={reservation.id}>
+                            <TableCell>{getCourtDescription(reservation.courtIds)}</TableCell>
+                            <TableCell>{format(reservationDate, 'dd/MM/yyyy')}</TableCell>
+                            <TableCell>{format(reservationDate, 'HH:mm')}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant={isUpcoming ? "secondary" : "outline"}>
+                                {isUpcoming ? "Próxima" : "Finalizada"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center">No hay reservas todavía.</TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardBody>
