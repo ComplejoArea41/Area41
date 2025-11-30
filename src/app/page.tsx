@@ -1,14 +1,11 @@
 'use client';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/logo';
+import { Calendar, Utensils, Trophy } from 'lucide-react';
 
 export default function WelcomePage() {
   const { user, isUserLoading } = useUser();
@@ -29,59 +26,29 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background dark">
-      <main className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-primary-foreground">
-            Bienvenido a Area 41
-          </h1>
-          <p className="text-lg text-muted-foreground">"Complejo deportivo"</p>
-        </div>
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background dark p-4">
+      <div className="flex flex-col items-center gap-2 text-center">
+        <Logo />
+        <h1 className="text-4xl font-bold text-primary-foreground">
+          ÁREA 41
+        </h1>
+        <p className="text-lg text-muted-foreground">COMPLEJO DEPORTIVO</p>
+      </div>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-3">
-          <Card 
-            className="cursor-pointer transition-colors hover:bg-card/80"
-            onClick={() => router.push('/reservations')}
-          >
-            <CardHeader>
-              <CardTitle>Reservas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Reserva tu cancha de fútbol.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer transition-colors hover:bg-card/80"
-            onClick={() => router.push('/buffet')}
-          >
-            <CardHeader>
-              <CardTitle>Buffet</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Consulta nuestro menú de comidas y bebidas.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer transition-colors hover:bg-card/80"
-            onClick={() => router.push('/tournaments')}
-          >
-            <CardHeader>
-              <CardTitle>Torneos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Infórmate sobre los próximos torneos.
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+      <div className="mt-12 grid w-full max-w-xs gap-4">
+        <Button size="lg" onClick={() => router.push('/reservations')}>
+          <Calendar className="mr-2 h-5 w-5" />
+          Reservas
+        </Button>
+        <Button size="lg" onClick={() => router.push('/buffet')}>
+          <Utensils className="mr-2 h-5 w-5" />
+          Buffet
+        </Button>
+        <Button size="lg" onClick={() => router.push('/tournaments')}>
+          <Trophy className="mr-2 h-5 w-5" />
+          Torneos
+        </Button>
+      </div>
     </div>
   );
 }
