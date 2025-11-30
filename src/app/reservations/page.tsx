@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format, set, startOfDay } from "date-fns";
 import React, { useMemo } from "react";
-import { addDoc, collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { courts as staticCourts } from "@/lib/data";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { addDocumentNonBlocking, useCollection, useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { Reservation } from "@/lib/types";
 import { useMemoFirebase } from "@/firebase/provider";
@@ -111,11 +111,12 @@ export default function ReservationPage() {
     }
 
     try {
+        const reservationsCollection = collection(firestore, "reservations");
         for (const time of data.times) {
             const [hour, minute] = time.split(':').map(Number);
             const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
             
-            await addDoc(collection(firestore, "reservations"), {
+            addDocumentNonBlocking(reservationsCollection, {
                 userId: user.uid,
                 courtIds: data.courtIds,
                 reservationDateTime: Timestamp.fromDate(reservationDateTime),
@@ -266,7 +267,9 @@ export default function ReservationPage() {
                               mode="single"
                               selected={field.value}
                               onSelect={(date) => {
-                                field.onChange(date);
+                                if (date) {
+                                  field.onChange(date);
+                                }
                                 form.setValue("times", []); // Reset times when date changes
                               }}
                               disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
