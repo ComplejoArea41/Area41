@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import React from "react";
 
 import { cn } from "@/lib/utils";
@@ -31,14 +31,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -49,8 +41,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { courts } from "@/lib/data";
-import { Checkbox } from "@/components/ui/checkbox";
-
 
 const reservationFormSchema = z.object({
   courtIds: z.array(z.string()).refine((value) => value.length > 0, {
@@ -79,17 +69,10 @@ export default function ReservationPage() {
 
   const selectedCourts = form.watch("courtIds");
 
-  React.useEffect(() => {
-    // Logic to handle Futbol 7 court selection
-    const c1c2 = selectedCourts.includes("c1") && selectedCourts.includes("c2");
-    const c3c4 = selectedCourts.includes("c3") && selectedCourts.includes("c4");
-    if (c1c2 || c3c4) {
-      setIsFutbol7(true);
-    } else {
-      setIsFutbol7(false);
-    }
-  }, [selectedCourts]);
-
+  const handleCourtTypeChange = (is7: boolean) => {
+    setIsFutbol7(is7);
+    form.setValue("courtIds", [], { shouldValidate: true });
+  }
 
   function onSubmit(data: ReservationFormValues) {
     let courtDescription = "";
@@ -116,25 +99,6 @@ export default function ReservationPage() {
 
   const futbol5Courts = courts.filter(c => c.courtType === "Futbol 5");
 
-  const handleCheckboxChange = (courtId: string, checked: boolean) => {
-    const currentCourtIds = form.getValues("courtIds");
-    let newCourtIds: string[] = [];
-
-    if(isFutbol7) {
-      // If we are in futbol 7 mode, and we uncheck, clear all
-      newCourtIds = [];
-    } else {
-       if (checked) {
-          if (courtId === 'c1' || courtId === 'c2') {
-              newCourtIds = ['c1', 'c2'];
-          } else if (courtId === 'c3' || courtId === 'c4') {
-              newCourtIds = ['c3', 'c4'];
-          }
-        }
-    }
-    form.setValue("courtIds", newCourtIds, { shouldValidate: true });
-  }
-
   return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
         <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
@@ -159,33 +123,20 @@ export default function ReservationPage() {
                         </FormDescription>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                          <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                  id="f5" 
-                                  checked={!isFutbol7 && selectedCourts.length > 0} 
-                                  onCheckedChange={(checked) => {
-                                      if(checked) {
-                                          form.setValue("courtIds", selectedCourts.length > 0 ? [selectedCourts[0]] : [], { shouldValidate: true })
-                                      }
-                                  }}
-                              />
-                              <label htmlFor="f5" className="text-sm font-medium leading-none">Fútbol 5</label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                  id="f7" 
-                                  checked={isFutbol7}
-                                  onCheckedChange={(checked) => {
-                                    if(checked) {
-                                      // Default to 1&2 if user wants futbol 7
-                                      form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })
-                                    } else {
-                                      form.setValue("courtIds", [], { shouldValidate: true })
-                                    }
-                                  }}
-                              />
-                              <label htmlFor="f7" className="text-sm font-medium leading-none">Fútbol 7</label>
-                          </div>
+                          <Button
+                            type="button"
+                            variant={!isFutbol7 ? "default" : "outline"}
+                            onClick={() => handleCourtTypeChange(false)}
+                          >
+                            Fútbol 5
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={isFutbol7 ? "default" : "outline"}
+                            onClick={() => handleCourtTypeChange(true)}
+                          >
+                            Fútbol 7
+                          </Button>
                       </div>
 
                       {!isFutbol7 && (
