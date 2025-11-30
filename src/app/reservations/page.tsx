@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/card";
 import { courts } from "@/lib/data";
 import { Checkbox } from "@/components/ui/checkbox";
-import LayoutWrapper from "@/components/layout-wrapper";
 
 
 const reservationFormSchema = z.object({
@@ -137,9 +136,8 @@ export default function ReservationPage() {
   }
 
   return (
-    <LayoutWrapper>
-      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <Card className="bg-card/80 backdrop-blur-sm">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
+        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
           <CardHeader>
             <CardTitle>Reserva Tu Cancha</CardTitle>
             <CardDescription>
@@ -299,6 +297,5 @@ export default function ReservationPage() {
           </CardContent>
         </Card>
       </div>
-    </LayoutWrapper>
   );
 }

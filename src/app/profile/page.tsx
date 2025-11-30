@@ -25,7 +25,6 @@ import { useDoc, useFirestore, useUser } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import LayoutWrapper from '@/components/layout-wrapper';
 
 
 export default function ProfilePage() {
@@ -89,9 +88,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <LayoutWrapper>
-      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <div className="grid gap-8 md:grid-cols-3">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
+        <div className="grid gap-8 md:grid-cols-3 w-full max-w-6xl">
           <div className="md:col-span-1">
             <Card className="bg-card/80 backdrop-blur-sm">
               <CardHeader className="flex flex-col items-center gap-4 text-center">
@@ -182,6 +180,5 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </LayoutWrapper>
   );
 }

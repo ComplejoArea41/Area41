@@ -17,7 +17,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { menuItems } from "@/lib/data";
 import { PlusCircle } from "lucide-react";
-import LayoutWrapper from "@/components/layout-wrapper";
 
 export default function BuffetPage() {
   const formatPrice = (price: number) => {
@@ -25,9 +24,8 @@ export default function BuffetPage() {
   };
 
   return (
-    <LayoutWrapper>
-      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <Card className="bg-card/80 backdrop-blur-sm">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
+        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
           <CardHeader className="flex flex-row items-center">
               <div className="grid gap-2">
                   <CardTitle>Nuestro Menú del Buffet</CardTitle>
@@ -70,6 +68,5 @@ export default function BuffetPage() {
           </CardContent>
         </Card>
       </div>
-    </LayoutWrapper>
   );
 }

@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase";
 import MainLayout from "@/components/main-layout";
+import LayoutWrapper from "@/components/layout-wrapper";
 
 export const metadata: Metadata = {
   title: "Complejo Deportivo Area41",
@@ -26,7 +27,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased dark">
         <FirebaseClientProvider>
-          <MainLayout>{children}</MainLayout>
+          <MainLayout>
+            <LayoutWrapper>{children}</LayoutWrapper>
+          </MainLayout>
         </FirebaseClientProvider>
         <Toaster />
       </body>

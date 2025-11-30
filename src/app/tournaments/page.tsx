@@ -7,14 +7,12 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Shirt, Trophy } from "lucide-react";
-import LayoutWrapper from "@/components/layout-wrapper";
 import { useRouter } from "next/navigation";
 
 export default function TournamentsPage() {
     const router = useRouter();
 
   return (
-    <LayoutWrapper>
       <div className="flex min-h-[80vh] flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
           <div className="bg-card/80 backdrop-blur-sm p-8 rounded-lg max-w-2xl">
               <div className="inline-block bg-primary/20 text-primary p-4 rounded-full">
@@ -32,6 +30,5 @@ export default function TournamentsPage() {
               </div>
           </div>
       </div>
-    </LayoutWrapper>
   );
 }

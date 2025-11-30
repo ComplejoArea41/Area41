@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
-import LayoutWrapper from '@/components/layout-wrapper';
 import { Goal, Utensils, Trophy } from 'lucide-react';
 
 export default function WelcomePage() {
@@ -35,7 +34,6 @@ export default function WelcomePage() {
   ];
 
   return (
-    <LayoutWrapper showBackButton={false}>
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
         {/* Contenido principal, que se mostrará sobre la imagen */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full">
@@ -69,6 +67,5 @@ export default function WelcomePage() {
             </div>
         </div>
       </div>
-    </LayoutWrapper>
   );
 }
