@@ -18,13 +18,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -61,6 +54,7 @@ export default function ReservationPage() {
   });
 
   const selectedCourts = form.watch("courtIds");
+  const selectedTime = form.watch("time");
 
   const handleCourtTypeChange = (is7: boolean) => {
     setIsFutbol7(is7);
@@ -196,26 +190,24 @@ export default function ReservationPage() {
                     <FormField
                       control={form.control}
                       name="time"
-                      render={({ field }) => (
+                      render={() => (
                         <FormItem>
                           <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
                             <FormDescription>
                                 Elige una hora para tu partido.
                             </FormDescription>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona un horario disponible" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {availableTimes.map(time => (
-                                <SelectItem key={time} value={time}>
-                                  {time}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                                {availableTimes.map(time => (
+                                    <Button
+                                        key={time}
+                                        type="button"
+                                        variant={selectedTime === time ? "default" : "outline"}
+                                        onClick={() => form.setValue("time", time, { shouldValidate: true })}
+                                    >
+                                        {time}
+                                    </Button>
+                                ))}
+                            </div>
                           <FormMessage />
                         </FormItem>
                       )}
