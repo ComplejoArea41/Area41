@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { format, set, startOfDay } from "date-fns";
+import { addDays, format, set, startOfDay } from "date-fns";
 import React from "react";
 import { collection, query, where, Timestamp } from 'firebase/firestore';
 
@@ -69,6 +69,39 @@ export default function ReservationPage() {
   const selectedDate = form.watch("date");
   const selectedCourtIds = form.watch("courtIds");
   const selectedTimes = form.watch("times");
+
+  const reservationsQuery = useMemoFirebase(() => {
+    if (!firestore || !selectedDate) return null;
+    const start = startOfDay(selectedDate);
+    const end = addDays(start, 1);
+    return query(
+      collection(firestore, 'reservations'),
+      where('reservationDateTime', '>=', Timestamp.fromDate(start)),
+      where('reservationDateTime', '<', Timestamp.fromDate(end))
+    );
+  }, [firestore, selectedDate]);
+
+  const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsQuery);
+
+  const isTimeSlotReserved = (time: string, courtId: string) => {
+    if (areReservationsLoading || !reservations) return false;
+    
+    const [hour, minute] = time.split(':').map(Number);
+    const slotDateTime = set(selectedDate, { hours: hour, minutes: minute }).getTime();
+
+    return reservations.some(res => {
+      const resDateTime = (res.reservationDateTime as any).toDate().getTime();
+      // Check if the reservation is for the same time and includes the court
+      const timeMatches = resDateTime === slotDateTime;
+      const courtIsIncluded = res.courtIds.includes(courtId);
+
+      // If it's a Futbol 7 reservation, both courts are effectively reserved
+      const isFutbol7Conflict = res.courtIds.length > 1 && (res.courtIds.includes(courtId));
+
+      return timeMatches && (courtIsIncluded || isFutbol7Conflict);
+    });
+  };
+
 
   const handleCourtTypeChange = (is7: boolean) => {
     setIsFutbol7(is7);
@@ -141,11 +174,11 @@ export default function ReservationPage() {
               times: [],
               date: data.date, 
             });
-            setIsFutbol7(false);
+            // We don't reset isFutbol7 as the user might want to book another game of the same type
         } else {
             toast({
               title: "Error de Reserva",
-              description: "No se pudieron confirmar los horarios seleccionados. Es posible que ya estuvieran ocupados.",
+              description: "No se pudieron confirmar los horarios seleccionados. Es posible que ya estuvieran ocupados por otro jugador. La página se ha actualizado.",
               variant: "destructive",
             });
         }
@@ -280,15 +313,19 @@ export default function ReservationPage() {
                             </FormDescription>
                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                                 {availableTimes.map(time => {
+                                    const isReserved = selectedCourtIds.some(courtId => isTimeSlotReserved(time, courtId));
+                                    const isDisabled = selectedCourtIds.length === 0 || isReserved || areReservationsLoading;
+                                    
                                     return (
                                         <Button
                                             key={time}
                                             type="button"
                                             variant={selectedTimes.includes(time) ? "default" : "outline"}
                                             onClick={() => handleTimeClick(time)}
-                                            disabled={selectedCourtIds.length === 0}
+                                            disabled={isDisabled}
+                                            className={cn({ "bg-destructive text-destructive-foreground": isReserved })}
                                         >
-                                            {time}
+                                            {areReservationsLoading && selectedCourtIds.length > 0 ? "Cargando..." : time}
                                         </Button>
                                     )
                                 })}

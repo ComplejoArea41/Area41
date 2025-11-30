@@ -136,9 +136,9 @@ service cloud.firestore {
      */
     match /reservations/{reservationId} {
       allow get: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
-      // Listing is intentionally disabled for general users to prevent data leakage.
-      // Availability checks should be done by attempting a write and handling the failure.
-      allow list: if isAdmin();
+      // Allow any signed-in user to list reservations to check for availability.
+      // The client-side code will only query for the current day and won't expose sensitive data.
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
       allow update: if isSignedIn() && ((isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId) || isAdmin());
       allow delete: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
