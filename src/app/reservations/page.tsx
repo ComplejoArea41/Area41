@@ -90,19 +90,26 @@ export default function ReservationPage() {
     const slotDateTime = set(selectedDate, { hours: hour, minutes: minute }).getTime();
 
     return reservations.some(res => {
+      // Check if the time matches
       const resDateTime = (res.reservationDateTime as any).toDate().getTime();
-      const timeMatches = resDateTime === slotDateTime;
+      if (resDateTime !== slotDateTime) {
+        return false;
+      }
       
-      // A reservation conflicts if it's for the same time slot and...
-      // 1. It explicitly includes the selected courtId.
-      // 2. The existing reservation is for a Futbol 7 game (2 courts), and the selected court is one of those two.
-      const courtIsIncluded = res.courtIds.includes(courtId);
+      // Check if the court is directly included in the reservation
+      if (res.courtIds.includes(courtId)) {
+        return true;
+      }
+      
+      // Handle Futbol 7 cases
+      const isFutbol7Combo1 = res.courtIds.length === 2 && res.courtIds.includes('c1') && res.courtIds.includes('c2');
+      const isFutbol7Combo2 = res.courtIds.length === 2 && res.courtIds.includes('c3') && res.courtIds.includes('c4');
 
-      // If the selected court is part of a Futbol 7 combination, check if any reservation occupies that combination.
-      const isPartofFutbol7 = (courtId === 'c1' || courtId === 'c2') && res.courtIds.includes('c1') && res.courtIds.includes('c2');
-      const isPartofFutbol7_2 = (courtId === 'c3' || courtId === 'c4') && res.courtIds.includes('c3') && res.courtIds.includes('c4');
+      if ((isFutbol7Combo1 && (courtId === 'c1' || courtId === 'c2')) || (isFutbol7Combo2 && (courtId === 'c3' || courtId === 'c4'))) {
+        return true;
+      }
 
-      return timeMatches && (courtIsIncluded || isPartofFutbol7 || isPartofFutbol7_2);
+      return false;
     });
   };
 
@@ -327,7 +334,7 @@ export default function ReservationPage() {
                                             variant={selectedTimes.includes(time) ? "default" : "outline"}
                                             onClick={() => handleTimeClick(time)}
                                             disabled={isDisabled}
-                                            className={cn({ "bg-destructive text-destructive-foreground": isReserved })}
+                                            className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90": isReserved })}
                                         >
                                             {areReservationsLoading && selectedCourtIds.length > 0 ? "Cargando..." : time}
                                         </Button>
@@ -350,3 +357,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
