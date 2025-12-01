@@ -11,13 +11,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, doc, writeBatch, getDocs, Firestore } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, Firestore, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Court } from "@/lib/types";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { Trash2 } from "lucide-react";
 
 
 const initialCourtsData: Omit<Court, 'id'>[] = [
@@ -87,6 +99,25 @@ export default function AdminCourtsPage() {
         const newPrice = Number(value);
         if (!isNaN(newPrice)) {
             setPrices(prev => ({ ...prev, [courtId]: newPrice }));
+        }
+    };
+
+    const handleDeleteCourt = async (courtId: string) => {
+        if (!firestore) return;
+        const courtRef = doc(firestore, 'courts', courtId);
+        try {
+            await deleteDoc(courtRef);
+            toast({
+                title: "¡Cancha eliminada!",
+                description: "La cancha ha sido eliminada correctamente.",
+            });
+        } catch (error) {
+            console.error("Error deleting court: ", error);
+            toast({
+                variant: "destructive",
+                title: "Error al eliminar",
+                description: "No se pudo eliminar la cancha. Verifica los permisos e inténtalo de nuevo.",
+            });
         }
     };
 
@@ -173,6 +204,27 @@ export default function AdminCourtsPage() {
                                                 className="w-32 text-right"
                                                 placeholder="0"
                                             />
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="icon">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción no se puede deshacer. La cancha será eliminada permanentemente.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteCourt(court.id)}>
+                                                            Eliminar
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </div>
                                     </div>
                                 ))}
@@ -196,6 +248,27 @@ export default function AdminCourtsPage() {
                                                 className="w-32 text-right"
                                                 placeholder="0"
                                             />
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="icon">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción no se puede deshacer. La cancha será eliminada permanentemente.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteCourt(court.id)}>
+                                                            Eliminar
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </div>
                                     </div>
                                 ))}
