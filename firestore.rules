@@ -55,50 +55,50 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the incoming request data for a user profile is valid.
+     * Checks if the incoming request data for a user profile create operation is valid.
      */
     function isValidUserCreate(userId) {
-      let incomingData = request.resource.data;
+      let data = request.resource.data;
       
-      // The user must be creating their own document.
+      // User must be creating their own document.
       if (!isOwner(userId)) {
         return false;
       }
       
-      // A normal user cannot set themselves as admin.
-      if (incomingData.get('isAdmin', false) == true) {
-        // Exception: Allow a specific email to become an admin on creation.
+      // A user cannot set themselves as admin on creation...
+      if (data.get('isAdmin', false) == true) {
+        // ...UNLESS they are the special admin email.
         return request.auth.token.email == 'matias@vascohogar.com';
       }
       
-      // If not trying to set isAdmin, the creation is valid for any user.
+      // If not trying to become admin, anyone can create their profile.
       return true;
     }
 
     /**
-     * Checks if the incoming request data for a user profile update is valid.
+     * Checks if the incoming request data for a user profile update operation is valid.
      */
     function isValidUserUpdate(userId) {
-        // An admin can update anything on any user's profile.
+        let incomingData = request.resource.data;
+        let existingData = resource.data;
+
+        // Admins can update any user profile.
         if (isAdmin()) {
             return true;
         }
-        
-        // A user can update their own profile.
+
+        // Users can only update their own profile.
         if (isOwner(userId)) {
-            // Check if they are trying to change their admin status from false to true.
-            let isTryingToBecomeAdmin = request.resource.data.isAdmin == true && resource.data.isAdmin == false;
-            
-            if (isTryingToBecomeAdmin) {
-                // Only allow the special email to grant themselves admin rights.
-                return request.auth.token.email == 'matias@vascohogar.com';
-            } else {
-                // Allow update if they are not trying to become admin.
-                // A user cannot remove their own admin rights this way, and other fields can be updated.
-                return request.resource.data.isAdmin == resource.data.isAdmin;
+            // If the user is trying to change their admin status
+            if (incomingData.isAdmin != existingData.get('isAdmin', false)) {
+                // Allow the change ONLY if it's the special admin email becoming an admin.
+                return incomingData.isAdmin == true && request.auth.token.email == 'matias@vascohogar.com';
             }
+            // If admin status is not being changed, allow the update.
+            return true;
         }
-        
+
+        // Deny all other cases.
         return false;
     }
 
