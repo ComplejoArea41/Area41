@@ -14,9 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { menuItems } from "@/lib/data";
-import { PlusCircle } from "lucide-react";
 
 export default function BuffetPage() {
   const formatPrice = (price: number) => {
@@ -26,19 +24,13 @@ export default function BuffetPage() {
   return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
         <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
-          <CardHeader className="flex flex-row items-center">
+          <CardHeader>
               <div className="grid gap-2">
                   <CardTitle>Nuestro Menú del Buffet</CardTitle>
                   <CardDescription>
                       Recarga energías con nuestras opciones. Desde snacks rápidos hasta platos completos, ¡tenemos lo que necesitas para seguir jugando!
                   </CardDescription>
               </div>
-              <Button asChild size="sm" className="ml-auto gap-1">
-                  <a href="#">
-                      <PlusCircle className="h-4 w-4" />
-                      Agregar Artículo
-                  </a>
-              </Button>
           </CardHeader>
           <CardContent>
             <Table>
