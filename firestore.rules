@@ -79,19 +79,19 @@ service cloud.firestore {
      * Checks if the incoming request data for a user profile update operation is valid.
      */
     function isValidUserUpdate(userId) {
-        // Allow the update if the user is the owner and has the specific admin email.
-        // This is the most direct way to grant self-promotion for the admin account.
-        if (isOwner(userId) && request.auth.token.email == 'matias@vascohogar.com') {
-          return true;
-        }
-
-        // Allow the update if the user is already an admin.
+        // Allow an admin to update any user profile.
         if (isAdmin()) {
           return true;
         }
 
+        // Allow the special admin user to update their own profile and assign admin role.
+        // This is the most direct and robust way to grant self-promotion.
+        if (isOwner(userId) && request.auth.token.email == 'matias@vascohogar.com') {
+          return true;
+        }
+
         // Allow a non-admin user to update their own profile,
-        // but prevent them from making themselves an admin.
+        // but explicitly prevent them from making themselves an admin.
         if (isOwner(userId) && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)) {
           return true;
         }
