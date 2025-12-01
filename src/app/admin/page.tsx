@@ -73,16 +73,15 @@ export default function AdminPage() {
                     </CardContent>
                 </Card>
 
-                {/* Placeholder for future admin cards */}
-                <Card className="bg-card/80 backdrop-blur-sm opacity-50">
+                <Card className="bg-card/80 backdrop-blur-sm">
                     <CardHeader>
                         <CardTitle>Gestión de Buffet</CardTitle>
                         <CardDescription>
-                           (Próximamente) Añade o modifica los precios y artículos del menú del buffet.
+                           Añade o modifica los precios y artículos del menú del buffet.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
-                        <Button disabled>
+                        <Button onClick={() => router.push('/admin/buffet')}>
                             Administrar Menú <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardContent>

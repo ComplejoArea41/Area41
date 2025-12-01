@@ -17,13 +17,7 @@ export const upcomingReservations: (Reservation & { customerName: string; custom
     { id: "res3", userId: "user-4", courtIds: ["c2"], reservationDateTime: "2024-08-16T18:00:00Z", durationMinutes: 90, customerName: "Pedro Pascal", customerEmail: "pedro.p@example.com", courtName: "Fútbol 5 - Cancha 2", date: "16 de Agosto, 2024", time: "18:00" },
 ];
 
-export const menuItems: MenuItem[] = [
-  { id: "item1", name: "Hamburguesa Clásica", description: "Carne, queso, lechuga, tomate", price: 8500, type: "Comida", imageId: "menu-burger" },
-  { id: "item2", name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella, aceitunas", price: 12000, type: "Comida", imageId: "menu-pizza" },
-  { id: "item3", name: "Gaseosa", description: "Línea Coca-Cola 500ml", price: 2500, type: "Bebida", imageId: "menu-soda" },
-  { id: "item4", name: "Agua Mineral", description: "Con o sin gas 500ml", price: 2000, type: "Bebida", imageId: "menu-water" },
-  { id: "item5", name: "Cerveza", description: "Lata 473ml (Quilmes, Stella)", price: 3500, type: "Bebida", imageId: "menu-beer" },
-];
+// Los datos del menú ahora se gestionan en Firestore y se pueblan desde la página de admin/buffet.
 
 export const recentMembers: RecentMember[] = [
     { id: "user-5", name: "Maria Garcia", email: "maria.g@example.com", avatarId: "staff-1" },
