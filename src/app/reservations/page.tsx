@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
@@ -100,6 +100,16 @@ export default function ReservationPage() {
 
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
 
+  const { totalCost, courtPrice } = useMemo(() => {
+    if (!selectedCourtId || !allCourts) return { totalCost: 0, courtPrice: 0 };
+    const court = allCourts.find((c) => c.id === selectedCourtId);
+    if (!court) return { totalCost: 0, courtPrice: 0 };
+    return {
+      totalCost: court.price * selectedTimes.length,
+      courtPrice: court.price,
+    };
+  }, [selectedCourtId, selectedTimes.length, allCourts]);
+
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login');
@@ -114,7 +124,6 @@ export default function ReservationPage() {
 
     return reservations.some(res => {
       const resDateTime = (res.reservationDateTime as any).toDate().getTime();
-      // Check if the time matches and the reservation includes the selected court
       return resDateTime === slotDateTime && res.courtIds.includes(courtId);
     });
   };
@@ -170,7 +179,7 @@ export default function ReservationPage() {
       });
       return addDocumentNonBlocking(reservationsCollection, {
         userId: user.uid,
-        courtIds: [data.courtId], // Now it's always a single court
+        courtIds: [data.courtId], 
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
         durationMinutes: 60,
       });
@@ -203,7 +212,8 @@ export default function ReservationPage() {
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
         `*Cancha:* ${courtDescription}\n` +
         `*Fecha:* ${format(data.date, 'dd/MM/yyyy')}\n` +
-        `*Horarios:* ${timesString}\n\n` +
+        `*Horarios:* ${timesString}\n` +
+        `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
         `*Nombre:* ${fullName}\n` +
         `*Teléfono:* ${phone}`
     );
@@ -321,7 +331,7 @@ export default function ReservationPage() {
                                 if (date) {
                                   field.onChange(date);
                                 }
-                                form.setValue("times", []); // Reset times when date changes
+                                form.setValue("times", []);
                               }}
                               disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                               className="rounded-md border"
@@ -337,10 +347,19 @@ export default function ReservationPage() {
                       name="times"
                       render={() => (
                         <FormItem>
-                          <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
-                            <FormDescription>
-                                Elige una o más horas para tu partido.
-                            </FormDescription>
+                           <div className="flex justify-between items-center">
+                            <div>
+                                <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
+                                <FormDescription>
+                                    Cada turno dura 60 minutos.
+                                </FormDescription>
+                            </div>
+                            {courtPrice > 0 && (
+                                <div className="text-sm font-medium text-muted-foreground">
+                                    Precio por turno: ${courtPrice.toLocaleString('es-AR')}
+                                </div>
+                            )}
+                          </div>
                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                                 {availableTimes.map(time => {
                                     const isReserved = isTimeSlotReserved(time, selectedCourtId);
@@ -366,6 +385,20 @@ export default function ReservationPage() {
                     />
                 </div>
 
+                <div className="mt-8 pt-4 border-t">
+                    <h3 className="text-lg font-bold text-center">Resumen de tu Reserva</h3>
+                    {selectedTimes.length > 0 && selectedCourtId ? (
+                        <div className="text-center mt-2 text-muted-foreground">
+                            <p>Has seleccionado {selectedTimes.length} turno(s).</p>
+                            <p className="text-2xl font-bold text-foreground">Total: ${totalCost.toLocaleString('es-AR')}</p>
+                        </div>
+                    ) : (
+                        <p className="text-center mt-2 text-muted-foreground">
+                            Selecciona una cancha y al menos un horario para ver el total.
+                        </p>
+                    )}
+                </div>
+
                 <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || !selectedCourtId} onClick={() => setIsDialogOpen(true)}>
                       {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
@@ -374,13 +407,13 @@ export default function ReservationPage() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
                       <AlertDialogDescription>
-                        ¡Estás a un paso de asegurar tu cancha! Te recordamos que, para cancelar sin costo, es necesario avisar con la debida antelación. En caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias por tu compromiso!
+                        ¡Estás a un paso de asegurar tu cancha! Se generará un mensaje de WhatsApp para que envíes y confirmes. Te recordamos que, para cancelar sin costo, es necesario avisar con la debida antelación. En caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias por tu compromiso!
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogCancel>Volver</AlertDialogCancel>
                       <AlertDialogAction onClick={form.handleSubmit(onSubmit)}>
-                        Aceptar y Confirmar
+                        Aceptar y Enviar WhatsApp
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -392,3 +425,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
