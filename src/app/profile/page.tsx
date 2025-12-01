@@ -84,7 +84,6 @@ export default function ProfilePage() {
         lastName,
         phoneNumber,
         email: user.email,
-        // Ensure isAdmin is always a boolean to comply with security rules
         isAdmin: userProfile?.isAdmin || false,
       };
 
@@ -96,7 +95,6 @@ export default function ProfilePage() {
           });
         })
         .catch((error) => {
-            // The specific error is now created and emitted here
             const permissionError = new FirestorePermissionError({
                 path: userRef.path,
                 operation: 'update',
@@ -144,7 +142,6 @@ export default function ProfilePage() {
   const sortedReservations = useMemo(() => {
     if (!reservations) return [];
     return [...reservations].sort((a, b) => {
-      // Handle potential string dates from server
       const dateA = a.reservationDateTime && (a.reservationDateTime as any).toDate ? (a.reservationDateTime as any).toDate() : new Date(a.reservationDateTime);
       const dateB = b.reservationDateTime && (b.reservationDateTime as any).toDate ? (b.reservationDateTime as any).toDate() : new Date(b.reservationDateTime);
       return dateB.getTime() - dateA.getTime();

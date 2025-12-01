@@ -188,22 +188,18 @@ export default function ReservationPage() {
       });
     });
   
-    // We use Promise.allSettled to know if any reservation failed
     const results = await Promise.allSettled(reservationPromises);
     
-    // Check if any promise was rejected (due to permission error, for example)
     const failedReservations = results.filter(result => result.status === 'rejected');
 
     if (failedReservations.length > 0) {
-      // Errors are already being emitted globally by addDocumentNonBlocking.
-      // We can optionally show a generic failure toast here.
       toast({
         title: 'Error en la Reserva',
         description: 'Algunos o todos los horarios no pudieron ser reservados. Por favor, revisa los errores o inténtalo de nuevo.',
         variant: 'destructive',
       });
-      setIsDialogOpen(false); // Close dialog on failure
-      return; // Stop execution
+      setIsDialogOpen(false); 
+      return; 
     }
 
 
@@ -237,8 +233,8 @@ export default function ReservationPage() {
     const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
     window.open(whatsappUrl, '_blank');
   
-    form.reset(); // Reset form to default values
-    setIsDialogOpen(false); // Close dialog on success
+    form.reset(); 
+    setIsDialogOpen(false); 
   }
 
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
