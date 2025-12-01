@@ -3,7 +3,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 1.3.0
+ * @version 1.4.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.

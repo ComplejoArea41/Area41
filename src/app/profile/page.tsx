@@ -78,42 +78,41 @@ export default function ProfilePage() {
   }, [userProfile]);
 
   const handleSaveChanges = () => {
-    if (userRef && user && userProfile) {
+    if (userRef && user) {
       const updatedProfileData = {
         firstName,
         lastName,
         phoneNumber,
         email: user.email, // Ensure email is not overwritten
-        isAdmin: userProfile.isAdmin || false, // Include existing isAdmin value
+        isAdmin: userProfile?.isAdmin || false, // Ensure isAdmin is preserved or defaulted
       };
 
-      setDoc(
-        userRef,
-        updatedProfileData,
-        { merge: true }
-      )
-      .then(() => {
-        toast({
-            title: "¡Éxito!",
-            description: "Tu perfil ha sido actualizado.",
+      setDoc(userRef, updatedProfileData, { merge: true })
+        .then(() => {
+          toast({
+            title: '¡Éxito!',
+            description: 'Tu perfil ha sido actualizado.',
+          });
         })
-      })
-      .catch((error) => {
-        if (error.code === 'permission-denied') {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
+        .catch((error) => {
+          if (error.code === 'permission-denied') {
+            errorEmitter.emit(
+              'permission-error',
+              new FirestorePermissionError({
                 path: userRef.path,
                 operation: 'update',
-                requestResourceData: updatedProfileData
-            }));
-        } else {
-            console.error("Error updating profile: ", error);
-             toast({
-                title: "Error",
-                description: "No se pudo actualizar tu perfil.",
-                variant: "destructive"
-            })
-        }
-      });
+                requestResourceData: updatedProfileData,
+              })
+            );
+          } else {
+            console.error('Error updating profile: ', error);
+            toast({
+              title: 'Error',
+              description: 'No se pudo actualizar tu perfil.',
+              variant: 'destructive',
+            });
+          }
+        });
     }
   };
 
