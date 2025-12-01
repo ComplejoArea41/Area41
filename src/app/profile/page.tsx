@@ -92,14 +92,12 @@ export default function ProfilePage() {
     if (!userRef || !user) return;
     setIsSaving(true);
       
-    const isPotentiallyAdmin = user.email === 'matias@vascohogar.com';
-
     const updatedProfileData = {
       firstName,
       lastName,
       phoneNumber,
       email: user.email,
-      isAdmin: userProfile?.isAdmin || isPotentiallyAdmin,
+      // isAdmin is not changed here for security, it can only be changed via secured backend/rules
     };
 
     setDoc(userRef, updatedProfileData, { merge: true })

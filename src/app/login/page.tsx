@@ -11,11 +11,12 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,10 +24,16 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -39,18 +46,38 @@ export default function LoginPage() {
   }, [user, isUserLoading, router]);
 
   const handleAuthAction = async () => {
+    if (isSigningUp && (!firstName || !lastName || !phoneNumber)) {
+        toast({
+            variant: "destructive",
+            title: "Campos incompletos",
+            description: "Por favor, completa tu nombre, apellido y teléfono para registrarte.",
+        });
+        return;
+    }
+
     setIsLoading(true);
     try {
       if (isSigningUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+
+        // Now create the user profile in Firestore
+        const userProfileData = {
+          firstName,
+          lastName,
+          phoneNumber,
+          email: newUser.email,
+          isAdmin: false, // Default to not admin
+        };
+        const userDocRef = doc(firestore, 'users', newUser.uid);
+        await setDoc(userDocRef, userProfileData);
+
         toast({ title: "Registro exitoso", description: "¡Bienvenido! Serás redirigido." });
+
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: "Inicio de sesión exitoso" });
       }
-      // The admin assignment logic is now handled in the profile page for robustness.
-      // After login, the user will be redirected to the home page, 
-      // and they can complete their profile to get admin rights if applicable.
       router.push('/');
     } catch (error: any) {
       console.error("Authentication error:", error);
@@ -82,11 +109,51 @@ export default function LoginPage() {
           </CardTitle>
           <CardDescription>
             {isSigningUp
-              ? 'Ingresa tu email y contraseña para registrarte.'
+              ? 'Completa tus datos para registrarte.'
               : 'Ingresa para continuar.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+          {isSigningUp && (
+            <>
+               <div className="grid gap-2">
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="Tu nombre"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Tu apellido"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phoneNumber">Teléfono</Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="Tu número de teléfono"
+                  required
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            </>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
