@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
@@ -100,6 +100,12 @@ export default function ReservationPage() {
   }, [firestore, selectedDate, user, isUserLoading]);
 
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
 
 
   const isTimeSlotReserved = (time: string, courtId: string) => {
@@ -242,19 +248,10 @@ export default function ReservationPage() {
 
   const futbol5Courts = staticCourts.filter(c => c.courtType === "Futbol 5");
 
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
           <p className="text-primary-foreground">Cargando...</p>
-        </div>
-      );
-  }
-
-  if (!user) {
-    router.push('/login');
-    return (
-        <div className="flex min-h-screen items-center justify-center dark bg-background">
-          <p className="text-primary-foreground">Redirigiendo a inicio de sesión...</p>
         </div>
       );
   }
