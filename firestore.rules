@@ -3,7 +3,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 1.9.0
+ * @version 2.0.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -54,57 +54,6 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
-    /**
-     * Checks if the incoming request data for a user profile create operation is valid.
-     */
-    function isValidUserCreate(userId) {
-      let data = request.resource.data;
-      
-      // User must be creating their own document.
-      if (!isOwner(userId)) {
-        return false;
-      }
-      
-      // A user cannot set themselves as admin on creation...
-      if (data.get('isAdmin', false) == true) {
-        // ...UNLESS they are the special admin email.
-        return request.auth.token.email == 'matias@vascohogar.com';
-      }
-      
-      // If not trying to become admin, anyone can create their profile.
-      return true;
-    }
-
-    /**
-     * Checks if the incoming request data for a user profile update operation is valid.
-     */
-     function isValidUserUpdate(userId) {
-        // First, check if the user is already an admin. If so, they can do anything.
-        if (isAdmin()) {
-            return true;
-        }
-
-        // If not an admin, check if they are the owner of the document.
-        if (isOwner(userId)) {
-            // If they are the owner and the special admin email, allow the update (including self-promotion).
-            if (request.auth.token.email == 'matias@vascohogar.com') {
-                return true;
-            }
-            
-            // If they are a regular owner, allow the update ONLY IF they are NOT changing their isAdmin status.
-            // This prevents a normal user from promoting themselves.
-            // We compare the incoming 'isAdmin' value with the value in the database.
-            let incomingAdminStatus = request.resource.data.get('isAdmin', false);
-            let existingAdminStatus = resource.data.get('isAdmin', false);
-            
-            return incomingAdminStatus == existingAdminStatus;
-        }
-        
-        // Deny all other cases.
-        return false;
-    }
-
-
     // -------------------------------------------------------------------------
     // User Profiles (/users)
     // -------------------------------------------------------------------------
@@ -116,8 +65,24 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isValidUserCreate(userId);
-      allow update: if isValidUserUpdate(userId);
+      
+      // Allow creation if the user is creating their own profile.
+      // They can set themselves as admin ONLY if they have the special email.
+      allow create: if isOwner(userId) && 
+                      (request.resource.data.get('isAdmin', false) == false || request.auth.token.email == 'matias@vascohogar.com');
+      
+      // Allow updates under specific conditions.
+      allow update: if 
+          // An existing admin can update any profile.
+          isAdmin() || 
+          // A user can update their own profile...
+          (isOwner(userId) && (
+            // ...if their email is the special admin email (they can promote themselves).
+            request.auth.token.email == 'matias@vascohogar.com' ||
+            // ...or if they are not changing their admin status.
+            request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
+          ));
+
       allow delete: if isOwner(userId) || isAdmin();
     }
 
@@ -170,7 +135,6 @@ service cloud.firestore {
       // A user can read their own reservation. Admins can read any.
       allow get: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
       // Any signed-in user can list reservations to check for availability.
-      // The client-side code will only query for the current day and won't expose sensitive data.
       allow list: if isSignedIn();
       // A user can only create a reservation for themselves.
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
