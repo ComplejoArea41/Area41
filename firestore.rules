@@ -84,6 +84,11 @@ service cloud.firestore {
             return true;
         }
         
+        // The special admin email can grant themselves admin rights on update.
+        if (isOwner(userId) && request.auth.token.email == 'matias@vascohogar.com') {
+            return true;
+        }
+        
         // A regular user can update their own profile, but cannot change their admin status.
         if (isOwner(userId) && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)) {
             return true;
