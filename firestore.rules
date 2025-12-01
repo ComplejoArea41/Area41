@@ -66,7 +66,7 @@ service cloud.firestore {
       allow list: if isAdmin();
       // Only a user can create their own profile. `isAdmin` can't be set to true on creation by a non-admin.
       allow create: if isOwner(userId) && request.resource.data.isAdmin == false;
-      // A user can update their own profile. Only an admin can change the `isAdmin` status.
+      // A user can update their own profile, but cannot change their isAdmin status. Only an admin can do that.
       allow update: if (isOwner(userId) && request.resource.data.isAdmin == resource.data.isAdmin) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
