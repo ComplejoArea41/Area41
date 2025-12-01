@@ -64,7 +64,7 @@ export default function ReservationPage() {
   const [isFutbol7, setIsFutbol7] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   const userRef = useMemoFirebase(
@@ -88,7 +88,8 @@ export default function ReservationPage() {
   const selectedTimes = form.watch("times");
 
   const reservationsQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedDate) return null;
+    // Only build the query if the user is loaded and authenticated
+    if (!firestore || !selectedDate || isUserLoading || !user) return null;
     const start = startOfDay(selectedDate);
     const end = addDays(start, 1);
     return query(
@@ -96,7 +97,7 @@ export default function ReservationPage() {
       where('reservationDateTime', '>=', Timestamp.fromDate(start)),
       where('reservationDateTime', '<', Timestamp.fromDate(end))
     );
-  }, [firestore, selectedDate]);
+  }, [firestore, selectedDate, user, isUserLoading]);
 
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
 
@@ -240,6 +241,23 @@ export default function ReservationPage() {
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
   const futbol5Courts = staticCourts.filter(c => c.courtType === "Futbol 5");
+
+  if (isUserLoading) {
+    return (
+        <div className="flex min-h-screen items-center justify-center dark bg-background">
+          <p className="text-primary-foreground">Cargando...</p>
+        </div>
+      );
+  }
+
+  if (!user) {
+    router.push('/login');
+    return (
+        <div className="flex min-h-screen items-center justify-center dark bg-background">
+          <p className="text-primary-foreground">Redirigiendo a inicio de sesión...</p>
+        </div>
+      );
+  }
 
   if (error) {
     return (
@@ -425,3 +443,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
