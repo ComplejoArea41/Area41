@@ -202,7 +202,7 @@ export default function ReservationPage() {
     }
 
     const court = allCourts?.find((c) => c.id === data.courtId);
-    const courtDescription = `${court?.courtType} - Cancha ${court?.courtNumber}`;
+    const courtDescription = court ? `${court.courtType} - Cancha ${court.courtNumber}` : "Cancha no especificada";
   
     const timesString = data.times.join(', ');
     const fullName = `${userProfile.firstName || ''} ${
@@ -229,7 +229,9 @@ export default function ReservationPage() {
 
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
-  const courtsForType = allCourts?.filter(c => c.courtType === courtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
+  const courtsForType = useMemo(() => {
+    return allCourts?.filter(c => c.courtType === courtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
+  }, [allCourts, courtType]);
 
   const isLoading = isUserLoading || !user || areCourtsLoading || !allCourts;
 
