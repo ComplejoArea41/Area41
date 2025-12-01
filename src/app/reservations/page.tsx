@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
-import React from "react";
+import React, { useState } from "react";
 import { collection, query, where, Timestamp }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
@@ -384,9 +384,9 @@ export default function ReservationPage() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmación de Reserva</AlertDialogTitle>
+                      <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Si los equipos no se presentan, tendrán que abonar en el próximo partido el día que no se presentaron, a no ser que avisen y lo cancelen previamente.
+                        ¡Estás a un paso de asegurar tu cancha! Te recordamos que, para cancelar sin costo, es necesario avisar con la debida antelación. En caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias por tu compromiso!
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
