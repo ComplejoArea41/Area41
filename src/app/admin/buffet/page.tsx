@@ -32,9 +32,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { placeholderImages } from "@/lib/placeholder-images.json";
 
 const initialMenuItems: Omit<MenuItem, 'id'>[] = [
-    { name: "Hamburguesa completa", description: "Carne, queso, lechuga, tomate, jamón y huevo", price: 8500, type: "Comida", imageId: "menu-burger" },
+    { name: "Sándwich de Hamburguesa", description: "Carne, queso, lechuga, tomate, jamón y huevo", price: 8500, type: "Comida", imageId: "menu-burger" },
     { name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella y aceitunas", price: 12000, type: "Comida", imageId: "menu-pizza" },
-    { name: "Sándwich de bondiola", description: "Sándwich de bondiola de cerdo a la parrilla", price: 9500, type: "Comida", imageId: "menu-pork-sandwich" },
+    { name: "Sándwich de bondiola", description: "Sándwich de bondiola de cerdo a la parrilla con chimichurri", price: 9500, type: "Comida", imageId: "menu-pork-sandwich" },
     { name: "Papas fritas en cono", description: "Porción de papas fritas en cono", price: 4000, type: "Comida", imageId: "menu-fries" },
     { name: "Gaseosa 500ml", description: "Línea Coca-Cola o Pepsi", price: 2500, type: "Bebida", imageId: "menu-soda" },
     { name: "Agua Mineral 500ml", description: "Agua sin gas o gasificada", price: 2000, type: "Bebida", imageId: "menu-water" },
