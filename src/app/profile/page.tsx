@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useCollection, useDoc, useFirestore, useUser } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, deleteDoc, doc, query, setDoc, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -79,27 +79,39 @@ export default function ProfilePage() {
 
   const handleSaveChanges = () => {
     if (userRef && user) {
+      const updatedProfileData = {
+        firstName,
+        lastName,
+        phoneNumber,
+        email: user.email, // Ensure email is not overwritten
+      };
+
       setDoc(
         userRef,
-        {
-          firstName,
-          lastName,
-          phoneNumber,
-          email: user.email // Ensure email is not overwritten
-        },
+        updatedProfileData,
         { merge: true }
-      ).then(() => {
+      )
+      .then(() => {
         toast({
             title: "¡Éxito!",
             description: "Tu perfil ha sido actualizado.",
         })
-      }).catch((error) => {
-        console.error("Error updating profile: ", error);
-         toast({
-            title: "Error",
-            description: "No se pudo actualizar tu perfil.",
-            variant: "destructive"
-        })
+      })
+      .catch((error) => {
+        if (error.code === 'permission-denied') {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: updatedProfileData
+            }));
+        } else {
+            console.error("Error updating profile: ", error);
+             toast({
+                title: "Error",
+                description: "No se pudo actualizar tu perfil.",
+                variant: "destructive"
+            })
+        }
       });
     }
   };
