@@ -82,18 +82,15 @@ export default function ProfilePage() {
     if (!userRef || !user) return;
     setIsSaving(true);
       
-    // Determine admin status based on email
-    const isAdminUser = user.email === 'matias@vascohogar.com';
+    const isFirstTimeAdmin = user.email === 'matias@vascohogar.com' && !userProfile?.isAdmin;
 
-    // Build the profile data to be saved
     const updatedProfileData = {
       firstName,
       lastName,
       phoneNumber,
       email: user.email,
-      // On first save for the admin user, set isAdmin to true.
-      // Otherwise, preserve the existing value or default to false.
-      isAdmin: isAdminUser || (userProfile?.isAdmin || false),
+      // Preserve existing isAdmin status, or set it if first time admin
+      isAdmin: userProfile?.isAdmin || isFirstTimeAdmin,
     };
 
     setDoc(userRef, updatedProfileData, { merge: true })
