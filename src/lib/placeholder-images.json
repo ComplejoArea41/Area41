@@ -32,33 +32,45 @@
     },
     {
       "id": "menu-burger",
-      "description": "Juicy hamburger with cheese and salad",
-      "imageUrl": "https://images.unsplash.com/photo-1634737119182-4d09e1305ba7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxqdWljeSUyMGhhbWJ1cmdlcnxlbnwwfHx8fDE3NjQ1NTQ0MTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "juicy hamburger"
+      "description": "Sándwich de Hamburguesa",
+      "imageUrl": "https://images.unsplash.com/photo-1551992445-d3a95da43f57?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoYW1idXJnZXIlMjBzYW5kd2ljaHxlbnwwfHx8fDE3NjQ2MjM3MjN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "hamburger sandwich"
     },
     {
       "id": "menu-pizza",
-      "description": "A whole mozzarella pizza",
-      "imageUrl": "https://images.unsplash.com/photo-1596734791719-7efc8d3bd19c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bW96emFyZWxsYSUyMHBpenphfGVufDB8fHx8MTc2NDU1NDQxN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "Pizza de Muzzarella común",
+      "imageUrl": "https://images.unsplash.com/photo-1513104890138-7c749659a591?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtb3p6YXJlbGxhJTIwcGl6emF8ZW58MHx8fHwxNzY0NjIzNzIzfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "mozzarella pizza"
     },
     {
       "id": "menu-soda",
-      "description": "A can of soda with ice",
+      "description": "Lata de gaseosa",
       "imageUrl": "https://images.unsplash.com/photo-1696739696228-eee49592ff07?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzb2RhJTIwY2FufGVufDB8fHx8MTc2NDQ1MDc0M3ww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "soda can"
     },
     {
       "id": "menu-water",
-      "description": "A bottle of mineral water",
+      "description": "Botella de agua mineral",
       "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3YXRlciUyMGJvdHRsZXxlbnwwfHx8fDE3NjQ0OTQ5NDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "water bottle"
     },
     {
       "id": "menu-beer",
-      "description": "A can of cold beer",
+      "description": "Lata de cerveza fría",
       "imageUrl": "https://images.unsplash.com/photo-1559019736-dcf2caefe954?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxiZWVyJTIwY2FufGVufDB8fHx8MTc2NDU1NDQxOHww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "beer can"
+    },
+    {
+      "id": "menu-pork-sandwich",
+      "description": "Sándwich de bondiola de cerdo",
+      "imageUrl": "https://images.unsplash.com/photo-1625944230942-9b0a5f276b47?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwb3JrJTIwc2FuZHdpY2h8ZW58MHx8fHwxNzY0NjIzODExfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "pork sandwich"
+    },
+    {
+      "id": "menu-fries",
+      "description": "Cono de papas fritas",
+      "imageUrl": "https://images.unsplash.com/photo-1598679253444-c348b592470a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxmcmVuY2glMjBmcmllcyUyMGNvbmV8ZW58MHx8fHwxNzY0NjIzOTYwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "french fries cone"
     }
   ]
 }
