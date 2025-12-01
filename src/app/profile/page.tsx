@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -34,11 +35,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useCollection, useDoc, useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, deleteDoc, doc, query, setDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, query, setDoc, where, getDocs } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Reservation } from '@/lib/types';
-import { courts } from '@/lib/data';
+import { Reservation, Court } from '@/lib/types';
 import { format } from 'date-fns';
 import { useMemoFirebase } from '@/firebase/provider';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,8 @@ export default function ProfilePage() {
     [user, firestore]
   );
   const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsQuery);
+  const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
+  const {data: courts, isLoading: areCourtsLoading} = useCollection<Court>(courtsRef);
 
 
   const [firstName, setFirstName] = useState('');
@@ -97,9 +99,6 @@ export default function ProfilePage() {
       lastName,
       phoneNumber,
       email: user.email,
-      // Preserve existing isAdmin status, OR set it to true if this is the admin user.
-      // This ensures that saving the profile will grant admin rights if applicable,
-      // and won't remove them if already present.
       isAdmin: userProfile?.isAdmin || isPotentiallyAdmin,
     };
 
@@ -113,7 +112,7 @@ export default function ProfilePage() {
       .catch((error) => {
           const permissionError = new FirestorePermissionError({
               path: userRef.path,
-              operation: userProfile ? 'update' : 'create', // Use 'create' if profile doesn't exist yet
+              operation: userProfile ? 'update' : 'create',
               requestResourceData: updatedProfileData
           });
           errorEmitter.emit('permission-error', permissionError);
@@ -146,15 +145,9 @@ export default function ProfilePage() {
   const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');
   const userFullName = `${firstName} ${lastName}`;
 
-  const getCourtDescription = (courtIds: string[]) => {
-      if (courtIds.length > 1) {
-          const sortedIds = [...courtIds].sort();
-          if (sortedIds.join(',') === 'c1,c2') return "Fútbol 7 (Canchas 1 y 2)";
-          if (sortedIds.join(',') === 'c3,c4') return "Fútbol 7 (Canchas 3 y 4)";
-          return `Fútbol 7 (${courtIds.length} canchas)`
-      }
-      const court = courts.find(c => c.id === courtIds[0]);
-      return court ? `Fútbol 5 - Cancha ${court.courtNumber}` : 'Cancha Desconocida';
+  const getCourtDescription = (courtId: string) => {
+      const court = courts?.find(c => c.id === courtId);
+      return court ? `${court.courtType} - Cancha ${court.courtNumber}` : 'Cancha Desconocida';
   }
 
   const sortedReservations = useMemo(() => {
@@ -167,7 +160,7 @@ export default function ProfilePage() {
   }, [reservations]);
 
 
-  if (isUserLoading || (isProfileLoading && !profileError)) { // Only show full-screen loader on initial load
+  if (isUserLoading || (isProfileLoading && !profileError) || areCourtsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
         <p className="text-primary-foreground">Cargando perfil...</p>
@@ -282,7 +275,7 @@ export default function ProfilePage() {
                         const isUpcoming = reservationDate > new Date();
                         return(
                           <TableRow key={reservation.id}>
-                            <TableCell>{getCourtDescription(reservation.courtIds)}</TableCell>
+                            <TableCell>{getCourtDescription(reservation.courtIds[0])}</TableCell>
                             <TableCell>{format(reservationDate, 'dd/MM/yyyy')}</TableCell>
                             <TableCell>{format(reservationDate, 'HH:mm')}</TableCell>
                             <TableCell>

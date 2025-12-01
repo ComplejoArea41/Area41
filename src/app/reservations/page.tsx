@@ -38,17 +38,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { courts as staticCourts } from "@/lib/data";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { Reservation } from "@/lib/types";
+import { Court, Reservation } from "@/lib/types";
 import { useMemoFirebase } from "@/firebase/provider";
 
 
 const reservationFormSchema = z.object({
-  courtIds: z.array(z.string()).refine((value) => value.length > 0, {
-    message: "Debes seleccionar al menos una cancha.",
-  }),
+  courtId: z.string().min(1, { message: "Debes seleccionar una cancha." }),
   date: z.date({
     required_error: "La fecha es requerida.",
   }),
@@ -61,7 +58,7 @@ type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 
 export default function ReservationPage() {
   const { toast } = useToast();
-  const [isFutbol7, setIsFutbol7] = React.useState(false);
+  const [courtType, setCourtType] = React.useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
@@ -73,22 +70,24 @@ export default function ReservationPage() {
   );
   const { data: userProfile } = useDoc(userRef);
 
+  const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
+  const {data: allCourts, isLoading: areCourtsLoading} = useCollection<Court>(courtsRef);
+
 
   const form = useForm<ReservationFormValues>({
     resolver: zodResolver(reservationFormSchema),
     defaultValues: {
-      courtIds: [],
+      courtId: "",
       times: [],
       date: new Date(),
     },
   });
   
   const selectedDate = form.watch("date");
-  const selectedCourtIds = form.watch("courtIds");
+  const selectedCourtId = form.watch("courtId");
   const selectedTimes = form.watch("times");
 
   const reservationsQuery = useMemoFirebase(() => {
-    // Only build the query if the user is loaded and authenticated
     if (!firestore || !selectedDate || isUserLoading || !user) return null;
     const start = startOfDay(selectedDate);
     const end = addDays(start, 1);
@@ -107,7 +106,6 @@ export default function ReservationPage() {
     }
   }, [user, isUserLoading, router]);
 
-
   const isTimeSlotReserved = (time: string, courtId: string) => {
     if (areReservationsLoading || !reservations) return false;
     
@@ -115,33 +113,16 @@ export default function ReservationPage() {
     const slotDateTime = set(selectedDate, { hours: hour, minutes: minute }).getTime();
 
     return reservations.some(res => {
-      // Check if the time matches
       const resDateTime = (res.reservationDateTime as any).toDate().getTime();
-      if (resDateTime !== slotDateTime) {
-        return false;
-      }
-      
-      // Check if the court is directly included in the reservation
-      if (res.courtIds.includes(courtId)) {
-        return true;
-      }
-      
-      // Handle Futbol 7 cases
-      const isFutbol7Combo1 = res.courtIds.length === 2 && res.courtIds.includes('c1') && res.courtIds.includes('c2');
-      const isFutbol7Combo2 = res.courtIds.length === 2 && res.courtIds.includes('c3') && res.courtIds.includes('c4');
-
-      if ((isFutbol7Combo1 && (courtId === 'c1' || courtId === 'c2')) || (isFutbol7Combo2 && (courtId === 'c3' || courtId === 'c4'))) {
-        return true;
-      }
-
-      return false;
+      // Check if the time matches and the reservation includes the selected court
+      return resDateTime === slotDateTime && res.courtIds.includes(courtId);
     });
   };
 
 
-  const handleCourtTypeChange = (is7: boolean) => {
-    setIsFutbol7(is7);
-    form.setValue("courtIds", [], { shouldValidate: true });
+  const handleCourtTypeChange = (type: 'Futbol 5' | 'Futbol 7') => {
+    setCourtType(type);
+    form.setValue("courtId", "", { shouldValidate: true });
     form.setValue("times", []);
   }
 
@@ -189,7 +170,7 @@ export default function ReservationPage() {
       });
       return addDocumentNonBlocking(reservationsCollection, {
         userId: user.uid,
-        courtIds: data.courtIds,
+        courtIds: [data.courtId], // Now it's always a single court
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
         durationMinutes: 60,
       });
@@ -209,18 +190,8 @@ export default function ReservationPage() {
       return; 
     }
 
-
-    let courtDescription = '';
-    if (isFutbol7) {
-      if (data.courtIds.includes('c1')) {
-        courtDescription = 'Fútbol 7 (Canchas 1 y 2)';
-      } else {
-        courtDescription = 'Fútbol 7 (Canchas 3 y 4)';
-      }
-    } else {
-      const court = staticCourts.find((c) => c.id === data.courtIds[0]);
-      courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
-    }
+    const court = allCourts?.find((c) => c.id === data.courtId);
+    const courtDescription = `${court?.courtType} - Cancha ${court?.courtNumber}`;
   
     const timesString = data.times.join(', ');
     const fullName = `${userProfile.firstName || ''} ${
@@ -246,9 +217,11 @@ export default function ReservationPage() {
 
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
-  const futbol5Courts = staticCourts.filter(c => c.courtType === "Futbol 5");
+  const courtsForType = allCourts?.filter(c => c.courtType === courtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
 
-  if (isUserLoading || !user) {
+  const isLoading = isUserLoading || !user || areCourtsLoading;
+
+  if (isLoading) {
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
           <p className="text-primary-foreground">Cargando...</p>
@@ -288,67 +261,46 @@ export default function ReservationPage() {
               <form onSubmit={(e) => { e.preventDefault(); }} className="space-y-8">
                   <FormField
                   control={form.control}
-                  name="courtIds"
+                  name="courtId"
                   render={() => (
                     <FormItem>
                       <div className="mb-4">
                         <FormLabel className="text-base">1. Tipo de Cancha</FormLabel>
                         <FormDescription>
-                          Selecciona Fútbol 5 para una cancha o elige dos canchas contiguas (1-2 o 3-4) para jugar Fútbol 7.
+                          Elige entre Fútbol 5 o Fútbol 7.
                         </FormDescription>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                           <Button
                             type="button"
-                            variant={!isFutbol7 ? "default" : "outline"}
-                            onClick={() => handleCourtTypeChange(false)}
+                            variant={courtType === 'Futbol 5' ? "default" : "outline"}
+                            onClick={() => handleCourtTypeChange('Futbol 5')}
                             className="text-lg py-6"
                           >
                             Fútbol 5
                           </Button>
                           <Button
                             type="button"
-                            variant={isFutbol7 ? "default" : "outline"}
-                            onClick={() => handleCourtTypeChange(true)}
+                            variant={courtType === 'Futbol 7' ? "default" : "outline"}
+                            onClick={() => handleCourtTypeChange('Futbol 7')}
                             className="text-lg py-6"
                           >
                             Fútbol 7
                           </Button>
                       </div>
 
-                      {!isFutbol7 && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                          {futbol5Courts.map((court) => (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                          {courtsForType.map((court) => (
                               <Button
                               key={court.id}
-                              variant={selectedCourtIds.includes(court.id) ? "default" : "outline"}
-                              onClick={() => form.setValue("courtIds", [court.id], { shouldValidate: true })}
+                              variant={selectedCourtId === court.id ? "default" : "outline"}
+                              onClick={() => form.setValue("courtId", court.id, { shouldValidate: true })}
                               type="button"
                               >
                               Cancha {court.courtNumber}
                               </Button>
                           ))}
-                          </div>
-                      )}
-                      
-                      {isFutbol7 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                              <Button
-                                  variant={selectedCourtIds.includes('c1') && selectedCourtIds.includes('c2') ? 'default' : 'outline'}
-                                  onClick={() => form.setValue("courtIds", ['c1', 'c2'], { shouldValidate: true })}
-                                  type="button"
-                              >
-                                  Canchas 1 y 2
-                              </Button>
-                              <Button
-                                  variant={selectedCourtIds.includes('c3') && selectedCourtIds.includes('c4') ? 'default' : 'outline'}
-                                  onClick={() => form.setValue("courtIds", ['c3', 'c4'], { shouldValidate: true })}
-                                  type="button"
-                              >
-                                  Canchas 3 y 4
-                              </Button>
-                          </div>
-                      )}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -391,8 +343,8 @@ export default function ReservationPage() {
                             </FormDescription>
                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                                 {availableTimes.map(time => {
-                                    const isReserved = selectedCourtIds.some(courtId => isTimeSlotReserved(time, courtId));
-                                    const isDisabled = selectedCourtIds.length === 0 || isReserved || areReservationsLoading;
+                                    const isReserved = isTimeSlotReserved(time, selectedCourtId);
+                                    const isDisabled = !selectedCourtId || isReserved || areReservationsLoading;
                                     
                                     return (
                                         <Button
@@ -403,7 +355,7 @@ export default function ReservationPage() {
                                             disabled={isDisabled}
                                             className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90": isReserved })}
                                         >
-                                            {areReservationsLoading && selectedCourtIds.length > 0 ? "Cargando..." : time}
+                                            {areReservationsLoading && selectedCourtId ? "Cargando..." : time}
                                         </Button>
                                     )
                                 })}
@@ -415,7 +367,7 @@ export default function ReservationPage() {
                 </div>
 
                 <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || selectedCourtIds.length === 0} onClick={() => setIsDialogOpen(true)}>
+                  <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || !selectedCourtId} onClick={() => setIsDialogOpen(true)}>
                       {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
                   </Button>
                   <AlertDialogContent>
@@ -440,5 +392,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    

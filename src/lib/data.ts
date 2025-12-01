@@ -9,15 +9,17 @@ export const user: User = {
 };
 
 export const courts: Court[] = [
-  { id: "c1", courtType: "Futbol 5", courtNumber: 1, isAvailable: true },
-  { id: "c2", courtType: "Futbol 5", courtNumber: 2, isAvailable: true },
-  { id: "c3", courtType: "Futbol 5", courtNumber: 3, isAvailable: true },
-  { id: "c4", courtType: "Futbol 5", courtNumber: 4, isAvailable: true },
+  { id: "c1", courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
+  { id: "c2", courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
+  { id: "c3", courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
+  { id: "c4", courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
+  { id: "c5", courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
+  { id: "c6", courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
 ];
 
 export const upcomingReservations: (Reservation & { customerName: string; customerEmail: string; courtName: string })[] = [
     { id: "res1", userId: "user-2", courtIds: ["c1"], reservationDateTime: "2024-08-15T19:00:00Z", durationMinutes: 60, customerName: "Carlos Gomez", customerEmail: "carlos.g@example.com", courtName: "Fútbol 5 - Cancha 1", date: "15 de Agosto, 2024", time: "19:00" },
-    { id: "res2", userId: "user-3", courtIds: ["c3", "c4"], reservationDateTime: "2024-08-15T20:00:00Z", durationMinutes: 60, customerName: "Laura Nuñez", customerEmail: "laura.n@example.com", courtName: "Fútbol 7 - Cancha 2", date: "15 de Agosto, 2024", time: "20:00" },
+    { id: "res2", userId: "user-3", courtIds: ["c5"], reservationDateTime: "2024-08-15T20:00:00Z", durationMinutes: 60, customerName: "Laura Nuñez", customerEmail: "laura.n@example.com", courtName: "Fútbol 7 - Cancha 1", date: "15 de Agosto, 2024", time: "20:00" },
     { id: "res3", userId: "user-4", courtIds: ["c2"], reservationDateTime: "2024-08-16T18:00:00Z", durationMinutes: 90, customerName: "Pedro Pascal", customerEmail: "pedro.p@example.com", courtName: "Fútbol 5 - Cancha 2", date: "16 de Agosto, 2024", time: "18:00" },
 ];
 
@@ -34,5 +36,3 @@ export const recentMembers: RecentMember[] = [
     { id: "user-6", name: "Roberto Diaz", email: "roberto.d@example.com", avatarId: "staff-2" },
     { id: "user-7", name: "Ana Martinez", email: "ana.m@example.com", avatarId: "staff-3" },
 ]
-
-    
