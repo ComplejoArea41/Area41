@@ -71,7 +71,7 @@ service cloud.firestore {
         return request.auth.token.email == 'matias@vascohogar.com';
       }
       
-      // If not trying to set isAdmin, the creation is valid.
+      // If not trying to set isAdmin, the creation is valid for any user.
       return true;
     }
 
@@ -79,19 +79,25 @@ service cloud.firestore {
      * Checks if the incoming request data for a user profile update is valid.
      */
     function isValidUserUpdate(userId) {
-        // An admin can update anything.
+        // An admin can update anything on any user's profile.
         if (isAdmin()) {
             return true;
         }
         
-        // The special admin email can grant themselves admin rights on update.
-        if (isOwner(userId) && request.auth.token.email == 'matias@vascohogar.com') {
-            return true;
-        }
-        
-        // A regular user can update their own profile, but cannot change their admin status.
-        if (isOwner(userId) && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)) {
-            return true;
+        // A user can update their own profile.
+        if (isOwner(userId)) {
+            // Check if they are trying to change their admin status.
+            let isTryingToBecomeAdmin = request.resource.data.get('isAdmin', false) == true && resource.data.get('isAdmin', false) == false;
+            
+            if (isTryingToBecomeAdmin) {
+                // Only allow the special email to grant themselves admin rights.
+                return request.auth.token.email == 'matias@vascohogar.com';
+            } else {
+                // Allow update if they are not changing their admin status, or if an admin is demoting them.
+                // The isAdmin() check at the top already covers admins, so this path is for non-admins.
+                // A non-admin cannot change the isAdmin flag.
+                return request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
+            }
         }
         
         return false;
