@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
 import React, { useState } from "react";
-import { collection, query, where, Timestamp }from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { courts as staticCourts } from "@/lib/data";
-import { addDocumentNonBlocking, useCollection, useFirestore, useUser } from "@/firebase";
+import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { Reservation } from "@/lib/types";
 import { useMemoFirebase } from "@/firebase/provider";
@@ -66,6 +66,12 @@ export default function ReservationPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
+
+  const userRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'users', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: userProfile } = useDoc(userRef);
 
 
   const form = useForm<ReservationFormValues>({
@@ -150,10 +156,19 @@ export default function ReservationPage() {
         router.push("/login");
         return;
     }
+     if (!userProfile) {
+      toast({
+        title: "Perfil Incompleto",
+        description: "Por favor completa tu perfil antes de reservar.",
+        variant: "destructive",
+      });
+      router.push("/profile");
+      return;
+    }
+
 
     try {
         const reservationsCollection = collection(firestore, "reservations");
-        let successfulReservations = 0;
         const reservationPromises = [];
 
         for (const time of data.times) {
@@ -165,8 +180,6 @@ export default function ReservationPage() {
                 courtIds: data.courtIds,
                 reservationDateTime: Timestamp.fromDate(reservationDateTime),
                 durationMinutes: 60,
-            }).then(() => {
-                successfulReservations++;
             }).catch(error => {
                 console.error(`Error al reservar el horario ${time}:`, error);
             });
@@ -175,35 +188,36 @@ export default function ReservationPage() {
 
         await Promise.all(reservationPromises);
         
-        if (successfulReservations > 0) {
-            let courtDescription = "";
-            if(isFutbol7) {
-                if(data.courtIds.includes("c1")) {
-                    courtDescription = "Fútbol 7 (Canchas 1 y 2)";
-                } else {
-                    courtDescription = "Fútbol 7 (Canchas 3 y 4)";
-                }
+        let courtDescription = "";
+        if(isFutbol7) {
+            if(data.courtIds.includes("c1")) {
+                courtDescription = "Fútbol 7 (Canchas 1 y 2)";
             } else {
-                const court = staticCourts.find(c => c.id === data.courtIds[0]);
-                courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
+                courtDescription = "Fútbol 7 (Canchas 3 y 4)";
             }
-        
-            const reservationDetails = `Has reservado ${courtDescription} el ${format(data.date, "PPP")} en ${successfulReservations > 1 ? successfulReservations + " horarios confirmados." : "el horario confirmado."}`;
-        
-            toast({
-              title: "¡Reserva Exitosa!",
-              description: reservationDetails,
-            });
-            
-            form.setValue("times", []);
-
         } else {
-            toast({
-              title: "Error de Reserva",
-              description: "No se pudieron confirmar los horarios seleccionados. Es posible que ya estuvieran ocupados. Por favor, revisa la disponibilidad.",
-              variant: "destructive",
-            });
+            const court = staticCourts.find(c => c.id === data.courtIds[0]);
+            courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
         }
+    
+        const timesString = data.times.join(", ");
+        const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
+        const phone = userProfile.phoneNumber || 'No especificado';
+
+        const message = encodeURIComponent(
+          `¡Hola! Quiero confirmar mi reserva:\n\n` +
+          `*Cancha:* ${courtDescription}\n` +
+          `*Fecha:* ${format(data.date, "dd/MM/yyyy")}\n` +
+          `*Horarios:* ${timesString}\n\n` +
+          `*Nombre:* ${fullName}\n` +
+          `*Teléfono:* ${phone}`
+        );
+
+        const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
+        window.open(whatsappUrl, '_blank');
+
+        form.setValue("times", []);
+
     } catch (error) {
         console.error("Error al crear la reserva: ", error);
         toast({

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -77,14 +78,14 @@ export default function ProfilePage() {
   }, [userProfile]);
 
   const handleSaveChanges = () => {
-    if (userRef) {
+    if (userRef && user) {
       setDoc(
         userRef,
         {
           firstName,
           lastName,
           phoneNumber,
-          email: userProfile?.email // Ensure email is not overwritten
+          email: user.email // Ensure email is not overwritten
         },
         { merge: true }
       ).then(() => {
