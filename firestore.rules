@@ -2,19 +2,17 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 1.1.0
+ * @version 1.2.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
- * - User-Private Data: Data like user profiles and reservations are strictly private, accessible only by the document owner.
- * - Public Data: Shared information like court availability, buffet menus, and tournaments are publicly readable by any user.
+ * - User-Private Data: Data like user profiles are strictly private, accessible only by the document owner.
+ * - Publicly Readable Data: Shared information like court availability, buffet menus, and tournaments are publicly readable by any user.
  * - Admin-Write Data: Public data can only be written to by users flagged as administrators (`isAdmin: true`).
- * - Write Restrictions: Normal users can only write to their own data.
- *
- * @structure
- * The data is organized into logical top-level collections for each major entity.
- * User-specific data is secured by checking an ownership field (e.g., `userId`).
- * Admin privileges are checked by reading the user's profile from `/users/{userId}`.
+ * - Reservation Logic:
+ *   - Users can only create reservations for themselves.
+ *   - Any authenticated user can LIST reservations to check for availability (the client app only uses this to show occupied slots, not user data).
+ *   - Users can only GET, UPDATE, or DELETE their own reservations.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -74,27 +72,14 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // Public, Admin-Managed Collections
+    // Public, Read-Only Collections
     // -------------------------------------------------------------------------
-
-    /**
-     * Generic rules for collections that are publicly readable but only
-     * writable by administrators.
-     */
-    function publicReadAdminWrite() {
-      return {
-        'allow get': if true,
-        'allow list': if true,
-        'allow create, update, delete': if isAdmin()
-      }
-    }
 
     /**
      * @description Rules for Courts. Publicly readable, admin-managed.
      */
     match /courts/{courtId} {
-        allow get: if true;
-        allow list: if true;
+        allow get, list: if true;
         allow create, update, delete: if isAdmin();
     }
 
@@ -102,8 +87,7 @@ service cloud.firestore {
      * @description Rules for Menu Items. Publicly readable, admin-managed.
      */
     match /menu_items/{menuItemId} {
-        allow get: if true;
-        allow list: if true;
+        allow get, list: if true;
         allow create, update, delete: if isAdmin();
     }
 
@@ -111,8 +95,7 @@ service cloud.firestore {
      * @description Rules for Tournaments. Publicly readable, admin-managed.
      */
     match /tournaments/{tournamentId} {
-        allow get: if true;
-        allow list: if true;
+        allow get, list: if true;
         allow create, update, delete: if isAdmin();
     }
 
@@ -120,8 +103,7 @@ service cloud.firestore {
      * @description Rules for Teams. Publicly readable, admin-managed.
      */
     match /teams/{teamId} {
-        allow get: if true;
-        allow list: if true;
+        allow get, list: if true;
         allow create, update, delete: if isAdmin();
     }
 
@@ -135,15 +117,17 @@ service cloud.firestore {
      * @path /reservations/{reservationId}
      */
     match /reservations/{reservationId} {
+      // A user can read their own reservation. Admins can read any.
       allow get: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
-      // Allow any signed-in user to list reservations to check for availability.
+      // Any signed-in user can list reservations to check for availability.
       // The client-side code will only query for the current day and won't expose sensitive data.
       allow list: if isSignedIn();
+      // A user can only create a reservation for themselves.
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
+      // A user can only update their own reservation, and cannot change the owner. Admins can update any.
       allow update: if isSignedIn() && ((isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId) || isAdmin());
+       // A user can delete their own reservation. Admins can delete any.
       allow delete: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
     }
   }
 }
-
-    

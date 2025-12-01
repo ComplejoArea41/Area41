@@ -44,7 +44,10 @@ export default function ProfilePage() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
   const reservationsQuery = useMemoFirebase(
-    () => (user ? query(collection(firestore, "reservations"), where("userId", "==", user.uid)) : null),
+    () =>
+      user
+        ? query(collection(firestore, 'reservations'), where('userId', '==', user.uid))
+        : null,
     [user, firestore]
   );
   const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsQuery);
@@ -70,6 +73,7 @@ export default function ProfilePage() {
           firstName,
           lastName,
           phoneNumber,
+          email: userProfile?.email // Ensure email is not overwritten
         },
         { merge: true }
       ).then(() => {
@@ -105,14 +109,15 @@ export default function ProfilePage() {
   const sortedReservations = useMemo(() => {
     if (!reservations) return [];
     return [...reservations].sort((a, b) => {
-      const dateA = (a.reservationDateTime as any).toDate();
-      const dateB = (b.reservationDateTime as any).toDate();
+      // Handle potential string dates from server
+      const dateA = a.reservationDateTime && (a.reservationDateTime as any).toDate ? (a.reservationDateTime as any).toDate() : new Date(a.reservationDateTime);
+      const dateB = b.reservationDateTime && (b.reservationDateTime as any).toDate ? (b.reservationDateTime as any).toDate() : new Date(b.reservationDateTime);
       return dateB.getTime() - dateA.getTime();
     });
   }, [reservations]);
 
 
-  if (isUserLoading || isProfileLoading || !userProfile) {
+  if (isUserLoading || isProfileLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
         <p className="text-primary-foreground">Cargando perfil...</p>
@@ -142,8 +147,8 @@ export default function ProfilePage() {
                   </Avatar>
                 )}
                 <div className="grid gap-1">
-                  <CardTitle className="text-2xl">{userFullName}</CardTitle>
-                  <CardDescription>{userProfile.email}</CardDescription>
+                  <CardTitle className="text-2xl">{userFullName || 'Usuario'}</CardTitle>
+                  <CardDescription>{user.email}</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
@@ -174,7 +179,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex flex-col space-y-1.5">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" value={userProfile.email} disabled />
+                    <Input id="email" value={user.email!} disabled />
                   </div>
                 </form>
               </CardContent>
@@ -208,7 +213,7 @@ export default function ProfilePage() {
                         </TableRow>
                     ) : sortedReservations.length > 0 ? (
                       sortedReservations.map(reservation => {
-                        const reservationDate = (reservation.reservationDateTime as any).toDate();
+                        const reservationDate = reservation.reservationDateTime && (reservation.reservationDateTime as any).toDate ? (reservation.reservationDateTime as any).toDate() : new Date(reservation.reservationDateTime);
                         const isUpcoming = reservationDate > new Date();
                         return(
                           <TableRow key={reservation.id}>
