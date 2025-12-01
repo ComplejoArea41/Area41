@@ -178,57 +178,43 @@ export default function ReservationPage() {
             courtIds: data.courtIds,
             reservationDateTime: Timestamp.fromDate(reservationDateTime),
             durationMinutes: 60,
-        }).catch(error => {
-            // The non-blocking function will emit a global error, but we still need to
-            // catch the promise rejection here to prevent an unhandled rejection error.
-            // We can log it for local debugging if needed, but the user will see the
-            // Next.js error overlay triggered by the FirebaseErrorListener.
-            console.error(`Error al reservar el horario ${time}. El error fue manejado globalmente.`, error);
-            // We re-throw the error to make sure Promise.all fails.
-            throw error;
         });
         reservationPromises.push(promise);
     }
-
-    try {
-        // Promise.all will reject if any of the reservation promises reject.
-        await Promise.all(reservationPromises);
-        
-        let courtDescription = "";
-        if(isFutbol7) {
-            if(data.courtIds.includes("c1")) {
-                courtDescription = "Fútbol 7 (Canchas 1 y 2)";
-            } else {
-                courtDescription = "Fútbol 7 (Canchas 3 y 4)";
-            }
-        } else {
-            const court = staticCourts.find(c => c.id === data.courtIds[0]);
-            courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
-        }
     
-        const timesString = data.times.join(", ");
-        const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
-        const phone = userProfile.phoneNumber || 'No especificado';
-
-        const message = encodeURIComponent(
-          `¡Hola! Quiero confirmar mi reserva:\n\n` +
-          `*Cancha:* ${courtDescription}\n` +
-          `*Fecha:* ${format(data.date, "dd/MM/yyyy")}\n` +
-          `*Horarios:* ${timesString}\n\n` +
-          `*Nombre:* ${fullName}\n` +
-          `*Teléfono:* ${phone}`
-        );
-
-        const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
-        window.open(whatsappUrl, '_blank');
-
-        form.setValue("times", []);
-
-    } catch (error) {
-        // This catch block will now execute if any reservation fails, including due to permission errors.
-        // We don't need to show a toast here because the global error handler will display the Next.js overlay.
-        console.error("No se pudieron completar todas las reservas.", error);
+    // The Promise.all will now reject if any of the non-blocking updates fail due to permissions.
+    // The thrown error from addDocumentNonBlocking will be caught by the global error handler.
+    await Promise.all(reservationPromises);
+    
+    let courtDescription = "";
+    if(isFutbol7) {
+        if(data.courtIds.includes("c1")) {
+            courtDescription = "Fútbol 7 (Canchas 1 y 2)";
+        } else {
+            courtDescription = "Fútbol 7 (Canchas 3 y 4)";
+        }
+    } else {
+        const court = staticCourts.find(c => c.id === data.courtIds[0]);
+        courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
     }
+
+    const timesString = data.times.join(", ");
+    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
+    const phone = userProfile.phoneNumber || 'No especificado';
+
+    const message = encodeURIComponent(
+      `¡Hola! Quiero confirmar mi reserva:\n\n` +
+      `*Cancha:* ${courtDescription}\n` +
+      `*Fecha:* ${format(data.date, "dd/MM/yyyy")}\n` +
+      `*Horarios:* ${timesString}\n\n` +
+      `*Nombre:* ${fullName}\n` +
+      `*Teléfono:* ${phone}`
+    );
+
+    const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+
+    form.setValue("times", []);
   }
 
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
@@ -421,5 +407,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
