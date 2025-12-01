@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/card";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { Court, Reservation } from "@/lib/types";
+import type { Court, Reservation } from "@/lib/types";
 import { useMemoFirebase } from "@/firebase/provider";
 
 
@@ -55,31 +55,6 @@ const reservationFormSchema = z.object({
 });
 
 type ReservationFormValues = z.infer<typeof reservationFormSchema>;
-
-const initialCourtsData: Omit<Court, 'id'>[] = [
-    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
-    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
-];
-
-
-async function seedInitialCourts(firestore: any) {
-    const courtsCollectionRef = collection(firestore, 'courts');
-    const snapshot = await getDocs(courtsCollectionRef);
-    if (snapshot.empty) {
-        console.log("No courts found, seeding initial data...");
-        const batch = writeBatch(firestore);
-        initialCourtsData.forEach(courtData => {
-            const docRef = doc(courtsCollectionRef); // Create a new doc with a generated ID
-            batch.set(docRef, courtData);
-        });
-        await batch.commit();
-        console.log("Initial courts seeded successfully.");
-    }
-}
 
 
 export default function ReservationPage() {
@@ -98,13 +73,6 @@ export default function ReservationPage() {
 
   const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
   const {data: allCourts, isLoading: areCourtsLoading} = useCollection<Court>(courtsCollectionRef);
-
-  // Seed initial courts data if collection is empty
-  useEffect(() => {
-    if (firestore) {
-      seedInitialCourts(firestore).catch(console.error);
-    }
-  }, [firestore]);
 
 
   const form = useForm<ReservationFormValues>({
@@ -435,9 +403,11 @@ export default function ReservationPage() {
 
                 <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <Button type="button" className="w-full mt-8" disabled={!form.formState.isValid} onClick={() => {
-                        if (form.trigger()) {
-                           setIsDialogOpen(true);
-                        }
+                        form.trigger().then((isValid) => {
+                            if (isValid) {
+                                setIsDialogOpen(true);
+                            }
+                        });
                     }}>
                       Confirmar Reserva
                   </Button>

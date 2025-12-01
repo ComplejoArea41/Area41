@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,12 +12,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Court } from "@/lib/types";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+
+
+const initialCourtsData: Omit<Court, 'id'>[] = [
+    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
+    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
+];
+
+async function seedInitialCourts(firestore: any) {
+    const courtsCollectionRef = collection(firestore, 'courts');
+    const snapshot = await getDocs(courtsCollectionRef);
+    if (snapshot.empty) {
+        console.log("No courts found, seeding initial data...");
+        const batch = writeBatch(firestore);
+        initialCourtsData.forEach(courtData => {
+            const docRef = doc(courtsCollectionRef); // Create a new doc with a generated ID
+            batch.set(docRef, courtData);
+        });
+        await batch.commit();
+        console.log("Initial courts seeded successfully.");
+    }
+}
+
 
 export default function AdminCourtsPage() {
     const { user, isUserLoading } = useUser();
@@ -35,6 +62,12 @@ export default function AdminCourtsPage() {
 
     const [prices, setPrices] = useState<Record<string, number>>({});
     const [isSaving, setIsSaving] = useState(false);
+
+     useEffect(() => {
+        if (firestore) {
+          seedInitialCourts(firestore).catch(console.error);
+        }
+      }, [firestore]);
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {
@@ -65,14 +98,23 @@ export default function AdminCourtsPage() {
         if (!courts || !firestore) return;
         setIsSaving(true);
     
-        const updatePromises = courts.map(court => {
+        const updatePromises: Promise<void>[] = [];
+        courts.forEach(court => {
             const currentPrice = prices[court.id];
             if (currentPrice !== undefined && currentPrice !== court.price) {
                 const courtRef = doc(firestore, 'courts', court.id);
                 const updatedData = { price: currentPrice };
-                return setDocumentNonBlocking(courtRef, updatedData, { merge: true });
+                 // This function returns void, but we can wrap it to fit Promise.all
+                 const promise = new Promise<void>((resolve, reject) => {
+                    try {
+                        setDocumentNonBlocking(courtRef, updatedData, { merge: true });
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+                updatePromises.push(promise);
             }
-            return Promise.resolve();
         });
     
         try {

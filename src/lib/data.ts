@@ -1,7 +1,7 @@
 import type { User, Court, Reservation, MenuItem, Tournament, Team, RecentMember } from './types';
 
 // Los datos de las canchas ahora se gestionan directamente en Firestore
-// y se pueblan inicialmente si la colección está vacía.
+// y se pueblan inicialmente desde la página de administración si la colección está vacía.
 
 export const user: User = {
   id: "user-1",
