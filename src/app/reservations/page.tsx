@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
 import React, { useEffect, useState, useMemo } from "react";
-import { collection, query, where, Timestamp, doc, writeBatch, getDocs }from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
