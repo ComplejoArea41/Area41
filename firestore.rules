@@ -50,7 +50,8 @@ service cloud.firestore {
      * Reads the user's profile to check the `isAdmin` flag.
      */
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // Safely check for the existence of the user document and the isAdmin flag.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
 
@@ -65,9 +66,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // Only a user can create their own profile. `isAdmin` can't be set to true on creation by a non-admin.
-      allow create: if isOwner(userId) && request.resource.data.isAdmin == false;
-      // An owner can update their profile but not their admin status.
+      // Any authenticated user can create their own profile.
+      // On creation, a user cannot make themselves an admin.
+      allow create: if isOwner(userId) && request.resource.data.get('isAdmin', false) == false;
+      // An owner can update their profile but NOT their admin status.
       // An admin can update any profile, including admin status.
       allow update: if (isOwner(userId) && request.resource.data.isAdmin == resource.data.get('isAdmin', false)) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
