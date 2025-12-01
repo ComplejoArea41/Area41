@@ -22,11 +22,7 @@ import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const initialCourtsData: Omit<Court, 'id'>[] = [
     { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
     { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
-    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
 ];
 
 async function seedInitialCourts(firestore: Firestore) {
