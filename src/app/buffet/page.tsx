@@ -9,14 +9,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { menuItems } from "@/lib/data";
 import { placeholderImages } from '@/lib/placeholder-images.json';
 import Image from "next/image";
+import { useState, useMemo } from "react";
 
 export default function BuffetPage() {
+  const [filter, setFilter] = useState<'Todos' | 'Comida' | 'Bebida'>('Todos');
+
   const formatPrice = (price: number) => {
     return `$${price.toLocaleString('es-AR')}`;
   };
+
+  const filteredItems = useMemo(() => {
+    if (filter === 'Todos') {
+        return menuItems;
+    }
+    return menuItems.filter(item => item.type === filter);
+  }, [filter]);
 
   return (
       <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
@@ -28,8 +39,15 @@ export default function BuffetPage() {
               </CardDescription>
           </div>
 
+            <div className="flex justify-center gap-4 mb-8">
+                <Button variant={filter === 'Todos' ? 'default' : 'outline'} onClick={() => setFilter('Todos')}>Todos</Button>
+                <Button variant={filter === 'Comida' ? 'default' : 'outline'} onClick={() => setFilter('Comida')}>Comida</Button>
+                <Button variant={filter === 'Bebida' ? 'default' : 'outline'} onClick={() => setFilter('Bebida')}>Bebidas</Button>
+            </div>
+
+
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {menuItems.map((item) => {
+            {filteredItems.map((item) => {
                 const image = placeholderImages.find(p => p.id === item.imageId);
                 return (
                     <Card key={item.id} className="bg-card/80 backdrop-blur-sm flex flex-col overflow-hidden">
