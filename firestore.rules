@@ -86,16 +86,16 @@ service cloud.firestore {
         
         // A user can update their own profile.
         if (isOwner(userId)) {
-            // Check if they are trying to change their admin status.
-            let isTryingToBecomeAdmin = request.resource.data.get('isAdmin', false) == true && resource.data.get('isAdmin', false) == false;
+            // Check if they are trying to change their admin status from false to true.
+            let isTryingToBecomeAdmin = request.resource.data.isAdmin == true && resource.data.isAdmin == false;
             
             if (isTryingToBecomeAdmin) {
                 // Only allow the special email to grant themselves admin rights.
                 return request.auth.token.email == 'matias@vascohogar.com';
             } else {
-                // Allow update if they are not changing their admin status.
-                // A non-admin cannot change the isAdmin flag unless they are the special user.
-                return request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
+                // Allow update if they are not trying to become admin.
+                // A user cannot remove their own admin rights this way, and other fields can be updated.
+                return request.resource.data.isAdmin == resource.data.isAdmin;
             }
         }
         
