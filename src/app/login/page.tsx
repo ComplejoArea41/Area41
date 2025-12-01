@@ -15,21 +15,14 @@ import { useAuth, useUser } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  UserCredential,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 
-const ADMIN_EMAIL = 'matias@vascohogar.com';
-
-
 export default function LoginPage() {
   const auth = useAuth();
-  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -45,34 +38,19 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const handleAdminSetup = async (user: UserCredential['user']) => {
-    if (user.email === ADMIN_EMAIL) {
-      const userRef = doc(firestore, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          email: user.email,
-          isAdmin: true,
-          firstName: 'Admin',
-          lastName: 'Area41',
-          phoneNumber: '0000000000'
-        });
-      }
-    }
-  };
-
   const handleAuthAction = async () => {
     setIsLoading(true);
     try {
-      let userCredential;
       if (isSigningUp) {
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, email, password);
         toast({ title: "Registro exitoso", description: "¡Bienvenido! Serás redirigido." });
       } else {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, email, password);
         toast({ title: "Inicio de sesión exitoso" });
       }
-      await handleAdminSetup(userCredential.user);
+      // The admin assignment logic is now handled in the profile page for robustness.
+      // After login, the user will be redirected to the home page, 
+      // and they can complete their profile to get admin rights if applicable.
       router.push('/');
     } catch (error: any) {
       console.error("Authentication error:", error);

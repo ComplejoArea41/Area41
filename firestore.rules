@@ -3,7 +3,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 1.8.0
+ * @version 1.9.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -54,6 +54,44 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
+    /**
+     * Checks if the incoming request data for a user profile is valid.
+     */
+    function isValidUserCreate(userId) {
+      let incomingData = request.resource.data;
+      
+      // The user must be creating their own document.
+      if (!isOwner(userId)) {
+        return false;
+      }
+      
+      // A normal user cannot set themselves as admin.
+      if (incomingData.get('isAdmin', false) == true) {
+        // Exception: Allow a specific email to become an admin on creation.
+        return request.auth.token.email == 'matias@vascohogar.com';
+      }
+      
+      // If not trying to set isAdmin, the creation is valid.
+      return true;
+    }
+
+    /**
+     * Checks if the incoming request data for a user profile update is valid.
+     */
+    function isValidUserUpdate(userId) {
+        // An admin can update anything.
+        if (isAdmin()) {
+            return true;
+        }
+        
+        // A regular user can update their own profile, but cannot change their admin status.
+        if (isOwner(userId) && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)) {
+            return true;
+        }
+        
+        return false;
+    }
+
 
     // -------------------------------------------------------------------------
     // User Profiles (/users)
@@ -66,20 +104,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      
-      // A user can create their own profile.
-      // A specific user (the admin) can set their own `isAdmin` flag to true on creation.
-      // All other users cannot set themselves as admin on creation.
-      allow create: if isOwner(userId) &&
-                       (
-                         (request.resource.data.get('isAdmin', false) == false) ||
-                         (request.auth.token.email == 'matias@vascohogar.com' && request.resource.data.isAdmin == true)
-                       );
-      
-      // An owner can update their profile but NOT their admin status.
-      // An admin can update any profile, including admin status.
-      allow update: if (isOwner(userId) && request.resource.data.isAdmin == resource.data.get('isAdmin', false)) || isAdmin();
-
+      allow create: if isValidUserCreate(userId);
+      allow update: if isValidUserUpdate(userId);
       allow delete: if isOwner(userId) || isAdmin();
     }
 

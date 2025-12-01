@@ -42,12 +42,14 @@ import { courts } from '@/lib/data';
 import { format } from 'date-fns';
 import { useMemoFirebase } from '@/firebase/provider';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
 
   const userRef = useMemoFirebase(
     () => (user ? doc(firestore, 'users', user.uid) : null),
@@ -78,19 +80,27 @@ export default function ProfilePage() {
     }
   }, [userProfile]);
 
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+        router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
   const handleSaveChanges = () => {
     if (!userRef || !user) return;
     setIsSaving(true);
       
-    const isFirstTimeAdmin = user.email === 'matias@vascohogar.com' && !userProfile?.isAdmin;
+    const isPotentiallyAdmin = user.email === 'matias@vascohogar.com';
 
     const updatedProfileData = {
       firstName,
       lastName,
       phoneNumber,
       email: user.email,
-      // Preserve existing isAdmin status, or set it if first time admin
-      isAdmin: userProfile?.isAdmin || isFirstTimeAdmin,
+      // Preserve existing isAdmin status, OR set it to true if this is the admin user.
+      // This ensures that saving the profile will grant admin rights if applicable,
+      // and won't remove them if already present.
+      isAdmin: userProfile?.isAdmin || isPotentiallyAdmin,
     };
 
     setDoc(userRef, updatedProfileData, { merge: true })
@@ -166,6 +176,7 @@ export default function ProfilePage() {
   }
 
   if(!user) {
+    // This part is handled by the useEffect, but we keep a return for clarity
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
             <p className="text-primary-foreground">Por favor, inicia sesión para ver tu perfil.</p>
