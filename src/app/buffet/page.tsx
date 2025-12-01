@@ -16,16 +16,13 @@ import Image from "next/image";
 import { useState, useMemo } from "react";
 
 export default function BuffetPage() {
-  const [filter, setFilter] = useState<'Todos' | 'Comida' | 'Bebida'>('Todos');
+  const [filter, setFilter] = useState<'Comida' | 'Bebida'>('Comida');
 
   const formatPrice = (price: number) => {
     return `$${price.toLocaleString('es-AR')}`;
   };
 
   const filteredItems = useMemo(() => {
-    if (filter === 'Todos') {
-        return menuItems;
-    }
     return menuItems.filter(item => item.type === filter);
   }, [filter]);
 
@@ -40,9 +37,20 @@ export default function BuffetPage() {
           </div>
 
             <div className="flex justify-center gap-4 mb-8">
-                <Button variant={filter === 'Todos' ? 'default' : 'outline'} onClick={() => setFilter('Todos')}>Todos</Button>
-                <Button variant={filter === 'Comida' ? 'default' : 'outline'} onClick={() => setFilter('Comida')}>Comida</Button>
-                <Button variant={filter === 'Bebida' ? 'default' : 'outline'} onClick={() => setFilter('Bebida')}>Bebidas</Button>
+                <Button 
+                    variant={filter === 'Comida' ? 'default' : 'outline'} 
+                    onClick={() => setFilter('Comida')}
+                    className="text-lg py-6 px-12"
+                >
+                    Comida
+                </Button>
+                <Button 
+                    variant={filter === 'Bebida' ? 'default' : 'outline'} 
+                    onClick={() => setFilter('Bebida')}
+                    className="text-lg py-6 px-12"
+                >
+                    Bebidas
+                </Button>
             </div>
 
 
