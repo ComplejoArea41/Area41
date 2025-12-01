@@ -3,7 +3,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 2.0.0
+ * @version 2.1.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -66,23 +66,11 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       
-      // Allow creation if the user is creating their own profile.
-      // They can set themselves as admin ONLY if they have the special email.
-      allow create: if isOwner(userId) && 
-                      (request.resource.data.get('isAdmin', false) == false || request.auth.token.email == 'matias@vascohogar.com');
+      // Allow user to create/update their own profile.
+      // Admin status change is restricted.
+      allow write: if isOwner(userId) && 
+                      (request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false) || request.auth.token.email == 'matias@vascohogar.com');
       
-      // Allow updates under specific conditions.
-      allow update: if 
-          // An existing admin can update any profile.
-          isAdmin() || 
-          // A user can update their own profile...
-          (isOwner(userId) && (
-            // ...if their email is the special admin email (they can promote themselves).
-            request.auth.token.email == 'matias@vascohogar.com' ||
-            // ...or if they are not changing their admin status.
-            request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
-          ));
-
       allow delete: if isOwner(userId) || isAdmin();
     }
 

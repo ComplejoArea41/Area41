@@ -156,17 +156,21 @@ export default function ReservationPage() {
       return;
     }
     if (
-      !userProfile?.firstName ||
-      !userProfile?.lastName ||
-      !userProfile?.phoneNumber
+      !userProfile ||
+      !userProfile.firstName ||
+      !userProfile.lastName ||
+      !userProfile.phoneNumber
     ) {
       toast({
         title: 'Perfil Incompleto',
         description:
           'Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.',
         variant: 'destructive',
+        action: (
+            <Button onClick={() => router.push('/profile')}>Ir al Perfil</Button>
+        )
       });
-      router.push('/profile');
+      setIsDialogOpen(false);
       return;
     }
   
