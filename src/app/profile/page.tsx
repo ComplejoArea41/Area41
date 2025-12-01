@@ -78,12 +78,13 @@ export default function ProfilePage() {
   }, [userProfile]);
 
   const handleSaveChanges = () => {
-    if (userRef && user) {
+    if (userRef && user && userProfile) {
       const updatedProfileData = {
         firstName,
         lastName,
         phoneNumber,
         email: user.email, // Ensure email is not overwritten
+        isAdmin: userProfile.isAdmin || false, // Include existing isAdmin value
       };
 
       setDoc(
