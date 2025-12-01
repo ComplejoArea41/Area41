@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'foodit.lanacion.com.ar',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
