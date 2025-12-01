@@ -93,9 +93,8 @@ service cloud.firestore {
                 // Only allow the special email to grant themselves admin rights.
                 return request.auth.token.email == 'matias@vascohogar.com';
             } else {
-                // Allow update if they are not changing their admin status, or if an admin is demoting them.
-                // The isAdmin() check at the top already covers admins, so this path is for non-admins.
-                // A non-admin cannot change the isAdmin flag.
+                // Allow update if they are not changing their admin status.
+                // A non-admin cannot change the isAdmin flag unless they are the special user.
                 return request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
             }
         }
