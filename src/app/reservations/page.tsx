@@ -148,71 +148,79 @@ export default function ReservationPage() {
 
   async function onSubmit(data: ReservationFormValues) {
     if (!user) {
-        toast({
-            title: "Error",
-            description: "Debes iniciar sesión para hacer una reserva.",
-            variant: "destructive",
-        });
-        router.push("/login");
-        return;
-    }
-     if (!userProfile?.firstName || !userProfile?.lastName || !userProfile?.phoneNumber) {
       toast({
-        title: "Perfil Incompleto",
-        description: "Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Debes iniciar sesión para hacer una reserva.',
+        variant: 'destructive',
       });
-      router.push("/profile");
+      router.push('/login');
       return;
     }
-
-    const reservationsCollection = collection(firestore, "reservations");
-    const reservationPromises = [];
-
-    for (const time of data.times) {
-        const [hour, minute] = time.split(':').map(Number);
-        const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
-        
-        const promise = addDocumentNonBlocking(reservationsCollection, {
-            userId: user.uid,
-            courtIds: data.courtIds,
-            reservationDateTime: Timestamp.fromDate(reservationDateTime),
-            durationMinutes: 60,
-        });
-        reservationPromises.push(promise);
+    if (
+      !userProfile?.firstName ||
+      !userProfile?.lastName ||
+      !userProfile?.phoneNumber
+    ) {
+      toast({
+        title: 'Perfil Incompleto',
+        description:
+          'Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.',
+        variant: 'destructive',
+      });
+      router.push('/profile');
+      return;
     }
-    
+  
+    const reservationsCollection = collection(firestore, 'reservations');
+    const reservationPromises = data.times.map((time) => {
+      const [hour, minute] = time.split(':').map(Number);
+      const reservationDateTime = set(data.date, {
+        hours: hour,
+        minutes: minute,
+        seconds: 0,
+        milliseconds: 0,
+      });
+      return addDocumentNonBlocking(reservationsCollection, {
+        userId: user.uid,
+        courtIds: data.courtIds,
+        reservationDateTime: Timestamp.fromDate(reservationDateTime),
+        durationMinutes: 60,
+      });
+    });
+  
     await Promise.all(reservationPromises);
-    
-    let courtDescription = "";
-    if(isFutbol7) {
-        if(data.courtIds.includes("c1")) {
-            courtDescription = "Fútbol 7 (Canchas 1 y 2)";
-        } else {
-            courtDescription = "Fútbol 7 (Canchas 3 y 4)";
-        }
+  
+    let courtDescription = '';
+    if (isFutbol7) {
+      if (data.courtIds.includes('c1')) {
+        courtDescription = 'Fútbol 7 (Canchas 1 y 2)';
+      } else {
+        courtDescription = 'Fútbol 7 (Canchas 3 y 4)';
+      }
     } else {
-        const court = staticCourts.find(c => c.id === data.courtIds[0]);
-        courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
+      const court = staticCourts.find((c) => c.id === data.courtIds[0]);
+      courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
     }
-
-    const timesString = data.times.join(", ");
-    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
+  
+    const timesString = data.times.join(', ');
+    const fullName = `${userProfile.firstName || ''} ${
+      userProfile.lastName || ''
+    }`;
     const phone = userProfile.phoneNumber || 'No especificado';
-
+  
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
-      `*Cancha:* ${courtDescription}\n` +
-      `*Fecha:* ${format(data.date, "dd/MM/yyyy")}\n` +
-      `*Horarios:* ${timesString}\n\n` +
-      `*Nombre:* ${fullName}\n` +
-      `*Teléfono:* ${phone}`
+        `*Cancha:* ${courtDescription}\n` +
+        `*Fecha:* ${format(data.date, 'dd/MM/yyyy')}\n` +
+        `*Horarios:* ${timesString}\n\n` +
+        `*Nombre:* ${fullName}\n` +
+        `*Teléfono:* ${phone}`
     );
-
+  
     const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
     window.open(whatsappUrl, '_blank');
-
-    form.setValue("times", []);
+  
+    form.setValue('times', []);
     setIsDialogOpen(false);
   }
 
@@ -404,5 +412,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    

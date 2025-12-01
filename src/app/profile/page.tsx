@@ -83,10 +83,10 @@ export default function ProfilePage() {
         firstName,
         lastName,
         phoneNumber,
-        email: user.email, // Ensure email is not overwritten
-        isAdmin: userProfile?.isAdmin || false, // Ensure isAdmin is preserved or defaulted
+        email: user.email,
+        isAdmin: userProfile?.isAdmin || false,
       };
-
+  
       setDoc(userRef, updatedProfileData, { merge: true })
         .then(() => {
           toast({
