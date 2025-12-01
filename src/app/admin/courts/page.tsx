@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, doc, writeBatch, getDocs } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, Firestore } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +29,7 @@ const initialCourtsData: Omit<Court, 'id'>[] = [
     { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
 ];
 
-async function seedInitialCourts(firestore: any) {
+async function seedInitialCourts(firestore: Firestore) {
     const courtsCollectionRef = collection(firestore, 'courts');
     const snapshot = await getDocs(courtsCollectionRef);
     if (snapshot.empty) {
@@ -99,15 +99,15 @@ export default function AdminCourtsPage() {
         setIsSaving(true);
     
         const updatePromises: Promise<void>[] = [];
-        courts.forEach(court => {
+        for (const court of courts) {
             const currentPrice = prices[court.id];
             if (currentPrice !== undefined && currentPrice !== court.price) {
                 const courtRef = doc(firestore, 'courts', court.id);
-                const updatedData = { price: currentPrice };
-                 // This function returns void, but we can wrap it to fit Promise.all
-                 const promise = new Promise<void>((resolve, reject) => {
+                // setDocumentNonBlocking doesn't return a promise we can directly use,
+                // but we can wrap the logic to handle completion.
+                const promise = new Promise<void>((resolve, reject) => {
                     try {
-                        setDocumentNonBlocking(courtRef, updatedData, { merge: true });
+                        setDocumentNonBlocking(courtRef, { price: currentPrice }, { merge: true });
                         resolve();
                     } catch (error) {
                         reject(error);
@@ -115,7 +115,7 @@ export default function AdminCourtsPage() {
                 });
                 updatePromises.push(promise);
             }
-        });
+        }
     
         try {
             await Promise.all(updatePromises);
