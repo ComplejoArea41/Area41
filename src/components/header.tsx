@@ -17,6 +17,7 @@ import {
   Shield,
   ArrowLeft,
   LogOut,
+  Home,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
@@ -43,6 +44,7 @@ export default function Header() {
   };
 
   const navLinks = [
+    { href: '/', label: 'Inicio', icon: <Home className="h-4 w-4" /> },
     { href: '/reservations', label: 'Reservar', icon: <Calendar className="h-4 w-4" /> },
     { href: '/buffet', label: 'Buffet', icon: <Utensils className="h-4 w-4" /> },
     { href: '/tournaments', label: 'Torneos', icon: <Trophy className="h-4 w-4" /> },
@@ -51,19 +53,29 @@ export default function Header() {
 
   const isLoading = isUserLoading || isProfileLoading;
 
-  // Don't render header on login page or while loading
-  if (pathname === '/login' || pathname === '/') {
+  // Don't render header on login page
+  if (pathname === '/login') {
     return null;
+  }
+
+  // Simplified header for the main page
+  if (pathname === '/') {
+      return (
+        <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-end gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
+             {user && (
+                <Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
+                    <LogOut className="h-5 w-5" />
+                    <span className="sr-only">Cerrar sesión</span>
+                </Button>
+             )}
+        </header>
+      )
   }
 
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
-      <nav className="flex items-center gap-2 text-sm">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Volver</span>
-        </Button>
+      <nav className="flex items-center gap-1 sm:gap-2 text-sm">
         {navLinks.map((link) => (
           <Button
             key={link.href}
@@ -77,6 +89,17 @@ export default function Header() {
             </Link>
           </Button>
         ))}
+        {/* Mobile-friendly icons */}
+        <div className="flex md:hidden">
+            {navLinks.map((link) => (
+                <Button key={`${link.href}-mobile`} variant={pathname === link.href ? 'default' : 'ghost'} size="icon" asChild>
+                    <Link href={link.href}>
+                        {link.icon}
+                        <span className='sr-only'>{link.label}</span>
+                    </Link>
+                </Button>
+            ))}
+        </div>
       </nav>
       
       <div className="flex items-center gap-2">

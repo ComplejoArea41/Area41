@@ -3,7 +3,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 1.7.0
+ * @version 1.8.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -66,9 +66,15 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // Any authenticated user can create their own profile.
-      // On creation, a user cannot make themselves an admin.
-      allow create: if isOwner(userId) && request.resource.data.get('isAdmin', false) == false;
+      
+      // A user can create their own profile.
+      // A specific user (the admin) can set their own `isAdmin` flag to true on creation.
+      // All other users cannot set themselves as admin on creation.
+      allow create: if isOwner(userId) &&
+                       (
+                         (request.resource.data.get('isAdmin', false) == false) ||
+                         (request.auth.token.email == 'matias@vascohogar.com' && request.resource.data.isAdmin == true)
+                       );
       
       // An owner can update their profile but NOT their admin status.
       // An admin can update any profile, including admin status.

@@ -53,7 +53,7 @@ export default function ProfilePage() {
     () => (user ? doc(firestore, 'users', user.uid) : null),
     [user, firestore]
   );
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+  const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userRef);
 
   const reservationsQuery = useMemoFirebase(
     () =>
@@ -68,6 +68,7 @@ export default function ProfilePage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (userProfile) {
@@ -78,35 +79,41 @@ export default function ProfilePage() {
   }, [userProfile]);
 
   const handleSaveChanges = () => {
-    if (userRef && user) {
+    if (!userRef || !user) return;
+    setIsSaving(true);
       
-      const isPotentiallyAdmin = user.email === 'matias@vascohogar.com';
+    // Determine admin status based on email
+    const isAdminUser = user.email === 'matias@vascohogar.com';
 
-      const updatedProfileData = {
-        firstName,
-        lastName,
-        phoneNumber,
-        email: user.email,
-        // Only set isAdmin if it's the admin user, otherwise preserve existing or default to false
-        isAdmin: isPotentiallyAdmin ? true : (userProfile?.isAdmin || false),
-      };
+    // Build the profile data to be saved
+    const updatedProfileData = {
+      firstName,
+      lastName,
+      phoneNumber,
+      email: user.email,
+      // On first save for the admin user, set isAdmin to true.
+      // Otherwise, preserve the existing value or default to false.
+      isAdmin: isAdminUser || (userProfile?.isAdmin || false),
+    };
 
-      setDoc(userRef, updatedProfileData, { merge: true })
-        .then(() => {
-          toast({
-            title: '¡Éxito!',
-            description: 'Tu perfil ha sido actualizado.',
-          });
-        })
-        .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: updatedProfileData
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    setDoc(userRef, updatedProfileData, { merge: true })
+      .then(() => {
+        toast({
+          title: '¡Éxito!',
+          description: 'Tu perfil ha sido actualizado.',
         });
-    }
+      })
+      .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+              path: userRef.path,
+              operation: userProfile ? 'update' : 'create', // Use 'create' if profile doesn't exist yet
+              requestResourceData: updatedProfileData
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+          setIsSaving(false);
+      });
   };
 
   const handleCancelReservation = (reservationId: string) => {
@@ -153,12 +160,20 @@ export default function ProfilePage() {
   }, [reservations]);
 
 
-  if (isUserLoading || isProfileLoading || !user) {
+  if (isUserLoading || (isProfileLoading && !profileError)) { // Only show full-screen loader on initial load
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
         <p className="text-primary-foreground">Cargando perfil...</p>
       </div>
     );
+  }
+
+  if(!user) {
+    return (
+        <div className="flex min-h-screen items-center justify-center dark bg-background">
+            <p className="text-primary-foreground">Por favor, inicia sesión para ver tu perfil.</p>
+        </div>
+    )
   }
 
   return (
@@ -183,7 +198,7 @@ export default function ProfilePage() {
                   </Avatar>
                 )}
                 <div className="grid gap-1">
-                  <CardTitle className="text-2xl">{userFullName || 'Usuario'}</CardTitle>
+                  <CardTitle className="text-2xl">{userFullName.trim() || 'Completa tu Perfil'}</CardTitle>
                   <CardDescription>{user.email}</CardDescription>
                 </div>
               </CardHeader>
@@ -195,6 +210,7 @@ export default function ProfilePage() {
                       id="firstName"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Tu nombre"
                     />
                   </div>
                   <div className="flex flex-col space-y-1.5">
@@ -203,6 +219,7 @@ export default function ProfilePage() {
                       id="lastName"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Tu apellido"
                     />
                   </div>
                   <div className="flex flex-col space-y-1.5">
@@ -211,6 +228,7 @@ export default function ProfilePage() {
                       id="phone"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="Tu número de teléfono"
                     />
                   </div>
                   <div className="flex flex-col space-y-1.5">
@@ -220,7 +238,9 @@ export default function ProfilePage() {
                 </form>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" onClick={handleSaveChanges}>Guardar Cambios</Button>
+                <Button className="w-full" onClick={handleSaveChanges} disabled={isSaving}>
+                  {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
               </CardFooter>
             </Card>
           </div>
