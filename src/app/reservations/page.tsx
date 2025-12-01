@@ -20,6 +20,17 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -184,9 +195,6 @@ export default function ReservationPage() {
               description: reservationDetails,
             });
             
-            // This is the key change: reset only the times array
-            // This triggers a re-render, and useCollection's real-time listener will provide the new data
-            // causing the newly booked slots to appear as disabled.
             form.setValue("times", []);
 
         } else {
@@ -239,7 +247,7 @@ export default function ReservationPage() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <form onSubmit={(e) => { e.preventDefault(); }} className="space-y-8">
                   <FormField
                   control={form.control}
                   name="courtIds"
@@ -368,9 +376,27 @@ export default function ReservationPage() {
                     />
                 </div>
 
-                <Button type="submit" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || selectedCourtIds.length === 0}>
-                  {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
-                  </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || selectedCourtIds.length === 0}>
+                      {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmación de Reserva</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Si los equipos no se presentan, tendrán que abonar en el próximo partido el día que no se presentaron, a no ser que avisen y lo cancelen previamente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={form.handleSubmit(onSubmit)}>
+                        Aceptar y Confirmar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </form>
             </Form>
           </CardContent>
