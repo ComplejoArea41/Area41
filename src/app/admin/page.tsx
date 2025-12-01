@@ -7,11 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, ArrowRight } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -43,21 +44,51 @@ export default function AdminPage() {
     }
   
   return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
-        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <ShieldAlert className="h-6 w-6 text-primary" />
-                Panel de Administración
-            </CardTitle>
-            <CardDescription>
-                Aquí podrás gestionar los precios, torneos y otras configuraciones del complejo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Próximamente: herramientas para administrar el sitio.</p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
+        <div className="w-full max-w-4xl">
+            <Card className="bg-card/80 backdrop-blur-sm w-full mb-8">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <ShieldAlert className="h-6 w-6 text-primary" />
+                        Panel de Administración
+                    </CardTitle>
+                    <CardDescription>
+                        Aquí podrás gestionar los precios, torneos y otras configuraciones del complejo.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+
+            <div className="grid gap-6 md:grid-cols-2">
+                <Card className="bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle>Gestión de Canchas</CardTitle>
+                        <CardDescription>
+                            Modifica los precios y la disponibilidad de las canchas de Fútbol 5 y Fútbol 7.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={() => router.push('/admin/courts')}>
+                            Administrar Canchas <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* Placeholder for future admin cards */}
+                <Card className="bg-card/80 backdrop-blur-sm opacity-50">
+                    <CardHeader>
+                        <CardTitle>Gestión de Buffet</CardTitle>
+                        <CardDescription>
+                           (Próximamente) Añade o modifica los precios y artículos del menú del buffet.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <Button disabled>
+                            Administrar Menú <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
       </div>
   );
 }

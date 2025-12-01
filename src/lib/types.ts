@@ -11,6 +11,7 @@ export interface Court {
   courtType: 'Futbol 5' | 'Futbol 7';
   courtNumber: number;
   isAvailable: boolean;
+  price: number;
 }
 
 export interface Reservation {
@@ -52,5 +53,3 @@ export interface RecentMember {
     email: string;
     avatarId: string;
 }
-
-    
