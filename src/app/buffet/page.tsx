@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { placeholderImages } from '@/lib/placeholder-images.json';
 import Image from "next/image";
 import { useState, useMemo } from "react";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
@@ -66,18 +65,16 @@ export default function BuffetPage() {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {filteredItems.map((item) => {
-                    const image = placeholderImages.find(p => p.id === item.imageId);
                     return (
                         <Card key={item.id} className="bg-card/80 backdrop-blur-sm flex flex-col overflow-hidden">
                             <CardHeader className="p-0">
-                                {image && (
+                                {item.imageUrl && (
                                     <div className="aspect-video relative">
                                         <Image
-                                            src={image.imageUrl}
+                                            src={item.imageUrl}
                                             alt={item.name}
                                             fill
                                             className="object-cover"
-                                            data-ai-hint={image.imageHint}
                                         />
                                     </div>
                                 )}

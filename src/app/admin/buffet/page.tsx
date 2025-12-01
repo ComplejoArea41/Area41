@@ -32,13 +32,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { placeholderImages } from "@/lib/placeholder-images.json";
 
 const initialMenuItems: Omit<MenuItem, 'id'>[] = [
-    { name: "Sándwich de Hamburguesa", description: "Carne, queso, lechuga, tomate, jamón y huevo", price: 8500, type: "Comida", imageId: "menu-burger" },
-    { name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella y aceitunas", price: 12000, type: "Comida", imageId: "menu-pizza" },
-    { name: "Sándwich de bondiola", description: "Sándwich de bondiola de cerdo a la parrilla con chimichurri", price: 9500, type: "Comida", imageId: "menu-pork-sandwich" },
-    { name: "Papas fritas en cono", description: "Porción de papas fritas en cono", price: 4000, type: "Comida", imageId: "menu-fries" },
-    { name: "Gaseosa 500ml", description: "Línea Coca-Cola o Pepsi", price: 2500, type: "Bebida", imageId: "menu-soda" },
-    { name: "Agua Mineral 500ml", description: "Agua sin gas o gasificada", price: 2000, type: "Bebida", imageId: "menu-water" },
-    { name: "Cerveza en lata", description: "Quilmes, Stella Artois, Andes", price: 3500, type: "Bebida", imageId: "menu-beer" },
+    { name: "Sándwich de Hamburguesa", description: "Carne, queso, lechuga, tomate, jamón y huevo", price: 8500, type: "Comida", imageUrl: placeholderImages.find(p => p.id === 'menu-burger')?.imageUrl || "" },
+    { name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella y aceitunas", price: 12000, type: "Comida", imageUrl: placeholderImages.find(p => p.id === 'menu-pizza')?.imageUrl || "" },
+    { name: "Sándwich de bondiola", description: "Sándwich de bondiola de cerdo a la parrilla con chimichurri", price: 9500, type: "Comida", imageUrl: placeholderImages.find(p => p.id === 'menu-pork-sandwich')?.imageUrl || "" },
+    { name: "Papas fritas en cono", description: "Porción de papas fritas en cono", price: 4000, type: "Comida", imageUrl: placeholderImages.find(p => p.id === 'menu-fries')?.imageUrl || "" },
+    { name: "Gaseosa 500ml", description: "Línea Coca-Cola o Pepsi", price: 2500, type: "Bebida", imageUrl: placeholderImages.find(p => p.id === 'menu-soda')?.imageUrl || "" },
+    { name: "Agua Mineral 500ml", description: "Agua sin gas o gasificada", price: 2000, type: "Bebida", imageUrl: placeholderImages.find(p => p.id === 'menu-water')?.imageUrl || "" },
+    { name: "Cerveza en lata", description: "Quilmes, Stella Artois, Andes", price: 3500, type: "Bebida", imageUrl: placeholderImages.find(p => p.id === 'menu-beer')?.imageUrl || "" },
 ];
 
 async function seedInitialMenu(firestore: Firestore) {
@@ -70,13 +70,11 @@ const MenuItemDialog = ({
     const [description, setDescription] = useState(item?.description || "");
     const [price, setPrice] = useState(item?.price.toString() || "");
     const [type, setType] = useState<"Comida" | "Bebida" | undefined>(item?.type);
-    const [imageId, setImageId] = useState(item?.imageId || "");
+    const [imageUrl, setImageUrl] = useState(item?.imageUrl || "");
     const [isSaving, setIsSaving] = useState(false);
   
-    const menuImages = useMemo(() => placeholderImages.filter(p => p.id.startsWith("menu-")), []);
-  
     const handleSubmit = async () => {
-      if (!name || !description || !price || !type || !imageId) {
+      if (!name || !description || !price || !type || !imageUrl) {
         toast({ variant: "destructive", title: "Error", description: "Por favor, completa todos los campos." });
         return;
       }
@@ -88,7 +86,7 @@ const MenuItemDialog = ({
         return;
       }
   
-      const itemData: Omit<MenuItem, 'id'> = { name, description, price: priceNumber, type, imageId };
+      const itemData: Omit<MenuItem, 'id'> = { name, description, price: priceNumber, type, imageUrl };
   
       try {
         if (item) {
@@ -145,17 +143,8 @@ const MenuItemDialog = ({
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="imageId" className="text-right">Imagen</Label>
-            <Select onValueChange={setImageId} defaultValue={imageId}>
-                <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecciona una imagen" />
-                </SelectTrigger>
-                <SelectContent>
-                    {menuImages.map(img => (
-                         <SelectItem key={img.id} value={img.id}>{img.description}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
+            <Input id="imageUrl" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="col-span-3" placeholder="https://ejemplo.com/imagen.jpg" />
           </div>
         </div>
         <DialogFooter>
