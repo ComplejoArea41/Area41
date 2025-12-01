@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -24,14 +24,12 @@ export default function AdminCourtsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    // Admin access check
     const userRef = useMemoFirebase(
         () => (user ? doc(firestore, 'users', user.uid) : null),
         [user, firestore]
     );
     const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-    // Fetch courts data
     const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
@@ -68,12 +66,13 @@ export default function AdminCourtsPage() {
         setIsSaving(true);
     
         const updatePromises = courts.map(court => {
-            if (prices[court.id] !== court.price) {
+            const currentPrice = prices[court.id];
+            if (currentPrice !== undefined && currentPrice !== court.price) {
                 const courtRef = doc(firestore, 'courts', court.id);
-                const updatedData = { price: prices[court.id] || 0 };
+                const updatedData = { price: currentPrice };
                 return setDocumentNonBlocking(courtRef, updatedData, { merge: true });
             }
-            return Promise.resolve(); // No change for this court
+            return Promise.resolve();
         });
     
         try {
@@ -86,7 +85,7 @@ export default function AdminCourtsPage() {
              toast({
                 variant: "destructive",
                 title: "Error al guardar",
-                description: "No se pudieron guardar algunos o todos los precios. Revisa los permisos.",
+                description: "No se pudieron guardar los precios. Verifica los permisos e inténtalo de nuevo.",
             });
         } finally {
             setIsSaving(false);
@@ -103,7 +102,6 @@ export default function AdminCourtsPage() {
         );
     }
 
-    // Separate courts by type
     const futbol5Courts = courts?.filter(c => c.courtType === 'Futbol 5').sort((a,b) => a.courtNumber - b.courtNumber) || [];
     const futbol7Courts = courts?.filter(c => c.courtType === 'Futbol 7').sort((a,b) => a.courtNumber - b.courtNumber) || [];
 
@@ -135,7 +133,7 @@ export default function AdminCourtsPage() {
                                                 value={prices[court.id] ?? ''}
                                                 onChange={(e) => handlePriceChange(court.id, e.target.value)}
                                                 className="w-32 text-right"
-                                                placeholder="0.00"
+                                                placeholder="0"
                                             />
                                         </div>
                                     </div>
@@ -158,7 +156,7 @@ export default function AdminCourtsPage() {
                                                 value={prices[court.id] ?? ''}
                                                 onChange={(e) => handlePriceChange(court.id, e.target.value)}
                                                 className="w-32 text-right"
-                                                placeholder="0.00"
+                                                placeholder="0"
                                             />
                                         </div>
                                     </div>

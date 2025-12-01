@@ -1,5 +1,8 @@
 import type { User, Court, Reservation, MenuItem, Tournament, Team, RecentMember } from './types';
 
+// Los datos de las canchas ahora se gestionan directamente en Firestore
+// y se pueblan inicialmente si la colección está vacía.
+
 export const user: User = {
   id: "user-1",
   firstName: "Juan",
@@ -7,15 +10,6 @@ export const user: User = {
   phoneNumber: "1122334455",
   email: "juan.perez@example.com",
 };
-
-export const courts: Court[] = [
-  { id: "c1", courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
-  { id: "c2", courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
-  { id: "c3", courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
-  { id: "c4", courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
-  { id: "c5", courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
-  { id: "c6", courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
-];
 
 export const upcomingReservations: (Reservation & { customerName: string; customerEmail: string; courtName: string })[] = [
     { id: "res1", userId: "user-2", courtIds: ["c1"], reservationDateTime: "2024-08-15T19:00:00Z", durationMinutes: 60, customerName: "Carlos Gomez", customerEmail: "carlos.g@example.com", courtName: "Fútbol 5 - Cancha 1", date: "15 de Agosto, 2024", time: "19:00" },

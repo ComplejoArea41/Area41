@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
 import React, { useEffect, useState, useMemo } from "react";
-import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc, writeBatch, getDocs }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,32 @@ const reservationFormSchema = z.object({
 
 type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 
+const initialCourtsData: Omit<Court, 'id'>[] = [
+    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
+    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
+];
+
+
+async function seedInitialCourts(firestore: any) {
+    const courtsCollectionRef = collection(firestore, 'courts');
+    const snapshot = await getDocs(courtsCollectionRef);
+    if (snapshot.empty) {
+        console.log("No courts found, seeding initial data...");
+        const batch = writeBatch(firestore);
+        initialCourtsData.forEach(courtData => {
+            const docRef = doc(courtsCollectionRef); // Create a new doc with a generated ID
+            batch.set(docRef, courtData);
+        });
+        await batch.commit();
+        console.log("Initial courts seeded successfully.");
+    }
+}
+
+
 export default function ReservationPage() {
   const { toast } = useToast();
   const [courtType, setCourtType] = React.useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
@@ -70,8 +96,15 @@ export default function ReservationPage() {
   );
   const { data: userProfile } = useDoc(userRef);
 
-  const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
-  const {data: allCourts, isLoading: areCourtsLoading} = useCollection<Court>(courtsRef);
+  const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
+  const {data: allCourts, isLoading: areCourtsLoading} = useCollection<Court>(courtsCollectionRef);
+
+  // Seed initial courts data if collection is empty
+  useEffect(() => {
+    if (firestore) {
+      seedInitialCourts(firestore).catch(console.error);
+    }
+  }, [firestore]);
 
 
   const form = useForm<ReservationFormValues>({
@@ -123,6 +156,7 @@ export default function ReservationPage() {
     const slotDateTime = set(selectedDate, { hours: hour, minutes: minute }).getTime();
 
     return reservations.some(res => {
+      if (!res.reservationDateTime) return false;
       const resDateTime = (res.reservationDateTime as any).toDate().getTime();
       return resDateTime === slotDateTime && res.courtIds.includes(courtId);
     });
@@ -229,12 +263,12 @@ export default function ReservationPage() {
 
   const courtsForType = allCourts?.filter(c => c.courtType === courtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
 
-  const isLoading = isUserLoading || !user || areCourtsLoading;
+  const isLoading = isUserLoading || !user || areCourtsLoading || !allCourts;
 
   if (isLoading) {
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
-          <p className="text-primary-foreground">Cargando...</p>
+          <p className="text-primary-foreground">Cargando disponibilidad...</p>
         </div>
       );
   }
@@ -372,7 +406,7 @@ export default function ReservationPage() {
                                             variant={selectedTimes.includes(time) ? "default" : "outline"}
                                             onClick={() => handleTimeClick(time)}
                                             disabled={isDisabled}
-                                            className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90": isReserved })}
+                                            className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
                                         >
                                             {areReservationsLoading && selectedCourtId ? "Cargando..." : time}
                                         </Button>
@@ -400,8 +434,12 @@ export default function ReservationPage() {
                 </div>
 
                 <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || !selectedCourtId} onClick={() => setIsDialogOpen(true)}>
-                      {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
+                  <Button type="button" className="w-full mt-8" disabled={!form.formState.isValid} onClick={() => {
+                        if (form.trigger()) {
+                           setIsDialogOpen(true);
+                        }
+                    }}>
+                      Confirmar Reserva
                   </Button>
                   <AlertDialogContent>
                     <AlertDialogHeader>
@@ -425,5 +463,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
