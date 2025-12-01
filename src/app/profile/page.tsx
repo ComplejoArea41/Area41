@@ -21,8 +21,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useCollection, useDoc, useFirestore, useUser } from '@/firebase';
-import { collection, doc, query, setDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, query, setDoc, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Reservation } from '@/lib/types';
@@ -88,6 +99,25 @@ export default function ProfilePage() {
             description: "No se pudo actualizar tu perfil.",
             variant: "destructive"
         })
+      });
+    }
+  };
+
+  const handleCancelReservation = async (reservationId: string) => {
+    if (!firestore) return;
+    const reservationRef = doc(firestore, 'reservations', reservationId);
+    try {
+      await deleteDoc(reservationRef);
+      toast({
+        title: '¡Reserva Cancelada!',
+        description: 'La reserva ha sido cancelada con éxito.',
+      });
+    } catch (error) {
+      console.error('Error cancelling reservation: ', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo cancelar la reserva. Por favor, inténtalo de nuevo.',
+        variant: 'destructive',
       });
     }
   };
@@ -203,13 +233,14 @@ export default function ProfilePage() {
                       <TableHead>Cancha</TableHead>
                       <TableHead>Fecha</TableHead>
                       <TableHead>Hora</TableHead>
-                      <TableHead className="text-right">Estado</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {areReservationsLoading ? (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center">Cargando reservas...</TableCell>
+                            <TableCell colSpan={5} className="text-center">Cargando reservas...</TableCell>
                         </TableRow>
                     ) : sortedReservations.length > 0 ? (
                       sortedReservations.map(reservation => {
@@ -220,22 +251,45 @@ export default function ProfilePage() {
                             <TableCell>{getCourtDescription(reservation.courtIds)}</TableCell>
                             <TableCell>{format(reservationDate, 'dd/MM/yyyy')}</TableCell>
                             <TableCell>{format(reservationDate, 'HH:mm')}</TableCell>
-                            <TableCell className="text-right">
+                            <TableCell>
                               <Badge variant={isUpcoming ? "secondary" : "outline"}>
                                 {isUpcoming ? "Próxima" : "Finalizada"}
                               </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {isUpcoming && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm">Cancelar</Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>¿Estás seguro de que quieres cancelar?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta acción no se puede deshacer. Se eliminará permanentemente tu reserva.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>No, mantener reserva</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleCancelReservation(reservation.id)}>
+                                        Sí, cancelar reserva
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </TableCell>
                           </TableRow>
                         )
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center">No hay reservas todavía.</TableCell>
+                        <TableCell colSpan={5} className="text-center">No hay reservas todavía.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              </CardBody>
+              </CardContent>
             </Card>
           </div>
         </div>
