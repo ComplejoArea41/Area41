@@ -166,26 +166,32 @@ export default function ReservationPage() {
       return;
     }
 
+    const reservationsCollection = collection(firestore, "reservations");
+    const reservationPromises = [];
+
+    for (const time of data.times) {
+        const [hour, minute] = time.split(':').map(Number);
+        const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
+        
+        const promise = addDocumentNonBlocking(reservationsCollection, {
+            userId: user.uid,
+            courtIds: data.courtIds,
+            reservationDateTime: Timestamp.fromDate(reservationDateTime),
+            durationMinutes: 60,
+        }).catch(error => {
+            // The non-blocking function will emit a global error, but we still need to
+            // catch the promise rejection here to prevent an unhandled rejection error.
+            // We can log it for local debugging if needed, but the user will see the
+            // Next.js error overlay triggered by the FirebaseErrorListener.
+            console.error(`Error al reservar el horario ${time}. El error fue manejado globalmente.`, error);
+            // We re-throw the error to make sure Promise.all fails.
+            throw error;
+        });
+        reservationPromises.push(promise);
+    }
 
     try {
-        const reservationsCollection = collection(firestore, "reservations");
-        const reservationPromises = [];
-
-        for (const time of data.times) {
-            const [hour, minute] = time.split(':').map(Number);
-            const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
-            
-            const promise = addDocumentNonBlocking(reservationsCollection, {
-                userId: user.uid,
-                courtIds: data.courtIds,
-                reservationDateTime: Timestamp.fromDate(reservationDateTime),
-                durationMinutes: 60,
-            }).catch(error => {
-                console.error(`Error al reservar el horario ${time}:`, error);
-            });
-            reservationPromises.push(promise);
-        }
-
+        // Promise.all will reject if any of the reservation promises reject.
         await Promise.all(reservationPromises);
         
         let courtDescription = "";
@@ -219,12 +225,9 @@ export default function ReservationPage() {
         form.setValue("times", []);
 
     } catch (error) {
-        console.error("Error al crear la reserva: ", error);
-        toast({
-          title: "Error",
-          description: "No se pudo completar la reserva. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
+        // This catch block will now execute if any reservation fails, including due to permission errors.
+        // We don't need to show a toast here because the global error handler will display the Next.js overlay.
+        console.error("No se pudieron completar todas las reservas.", error);
     }
   }
 
@@ -418,3 +421,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    

@@ -1,3 +1,4 @@
+
 'use client';
     
 import {
@@ -37,23 +38,24 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
  * Returns the Promise for the new doc ref, but typically not awaited by caller.
  */
 export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
-  const promise = addDoc(colRef, data)
-    .catch(error => {
-      // Check if it's a permission error before creating the custom error
-      if (error.code === 'permission-denied') {
-        errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: colRef.path,
-            operation: 'create',
-            requestResourceData: data,
-          })
-        )
-      }
-      // Re-throw the original error to be caught by the caller
-      // This is important for letting the caller know the operation failed
-      throw error;
-    });
+  const promise = addDoc(colRef, data).catch(error => {
+    // Check if it's a permission error before creating the custom error
+    if (error.code === 'permission-denied') {
+      errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: colRef.path,
+          operation: 'create',
+          requestResourceData: data,
+        })
+      );
+    }
+    // IMPORTANT: Always re-throw the error after handling it.
+    // This ensures that the promise returned by this function is rejected,
+    // allowing the calling code (e.g., in a Promise.all) to know that this specific
+    // operation failed. Without this, the caller might think the operation succeeded.
+    throw error;
+  });
   // This returns a Promise that will resolve with the DocumentReference on success
   // or reject with the error on failure. The caller can choose to await it or not.
   return promise;
@@ -95,3 +97,5 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
       )
     });
 }
+
+    
