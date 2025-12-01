@@ -84,9 +84,10 @@ export default function ProfilePage() {
         lastName,
         phoneNumber,
         email: user.email,
+        // Ensure isAdmin is always a boolean to comply with security rules
         isAdmin: userProfile?.isAdmin || false,
       };
-  
+
       setDoc(userRef, updatedProfileData, { merge: true })
         .then(() => {
           toast({
@@ -95,44 +96,35 @@ export default function ProfilePage() {
           });
         })
         .catch((error) => {
-          if (error.code === 'permission-denied') {
-            errorEmitter.emit(
-              'permission-error',
-              new FirestorePermissionError({
+            // The specific error is now created and emitted here
+            const permissionError = new FirestorePermissionError({
                 path: userRef.path,
                 operation: 'update',
-                requestResourceData: updatedProfileData,
-              })
-            );
-          } else {
-            console.error('Error updating profile: ', error);
-            toast({
-              title: 'Error',
-              description: 'No se pudo actualizar tu perfil.',
-              variant: 'destructive',
+                requestResourceData: updatedProfileData
             });
-          }
+            errorEmitter.emit('permission-error', permissionError);
         });
     }
   };
 
-  const handleCancelReservation = async (reservationId: string) => {
+  const handleCancelReservation = (reservationId: string) => {
     if (!firestore) return;
     const reservationRef = doc(firestore, 'reservations', reservationId);
-    try {
-      await deleteDoc(reservationRef);
-      toast({
-        title: '¡Reserva Cancelada!',
-        description: 'La reserva ha sido cancelada con éxito.',
-      });
-    } catch (error) {
-      console.error('Error cancelling reservation: ', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo cancelar la reserva. Por favor, inténtalo de nuevo.',
-        variant: 'destructive',
-      });
-    }
+    
+    deleteDoc(reservationRef)
+        .then(() => {
+            toast({
+                title: '¡Reserva Cancelada!',
+                description: 'La reserva ha sido cancelada con éxito.',
+            });
+        })
+        .catch((error) => {
+            const permissionError = new FirestorePermissionError({
+                path: reservationRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');

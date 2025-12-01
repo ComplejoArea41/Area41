@@ -3,7 +3,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 1.5.0
+ * @version 1.6.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -12,7 +12,7 @@
  * - Admin-Write Data: Public data can only be written to by users flagged as administrators (`isAdmin: true`).
  * - Reservation Logic:
  *   - Users can only create reservations for themselves.
- *   - Any authenticated user can LIST reservations to check for availability (the client app only uses this to show occupied slots, not user data).
+ *   - Any authenticated user can LIST reservations to check for availability.
  *   - Users can only GET, UPDATE, or DELETE their own reservations.
  */
 rules_version = '2';
@@ -69,9 +69,11 @@ service cloud.firestore {
       // Any authenticated user can create their own profile.
       // On creation, a user cannot make themselves an admin.
       allow create: if isOwner(userId) && request.resource.data.get('isAdmin', false) == false;
+      
       // An owner can update their profile but NOT their admin status.
       // An admin can update any profile, including admin status.
-      allow update: if (isOwner(userId) && request.resource.data.isAdmin == resource.data.get('isAdmin', false)) || isAdmin();
+      allow update: if (isOwner(userId) && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)) || isAdmin();
+
       allow delete: if isOwner(userId) || isAdmin();
     }
 
