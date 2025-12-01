@@ -89,12 +89,23 @@ service cloud.firestore {
 
         // Users can only update their own profile.
         if (isOwner(userId)) {
-            // If the user is trying to change their admin status
-            if (incomingData.isAdmin != existingData.get('isAdmin', false)) {
-                // Allow the change ONLY if it's the special admin email becoming an admin.
-                return incomingData.isAdmin == true && request.auth.token.email == 'matias@vascohogar.com';
+            // Check if the isAdmin status is changing from false/null to true.
+            let isBecomingAdmin = incomingData.isAdmin == true && existingData.get('isAdmin', false) == false;
+            
+            // If they are trying to become an admin...
+            if (isBecomingAdmin) {
+              // ...only allow it if they are the special admin email.
+              return request.auth.token.email == 'matias@vascohogar.com';
             }
-            // If admin status is not being changed, allow the update.
+            
+            // If they are not trying to become an admin, they can update other fields,
+            // but cannot remove their own admin status if they are already an admin.
+            let isChangingAdminStatus = incomingData.isAdmin != existingData.get('isAdmin', false);
+            if (isChangingAdminStatus) {
+              return false; // Prevent changing admin status unless it's the specific "becoming admin" case above.
+            }
+            
+            // Allow update for all other fields if admin status is not being changed illicitly.
             return true;
         }
 
