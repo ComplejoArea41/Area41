@@ -183,12 +183,11 @@ export default function ReservationPage() {
               title: "¡Reserva Exitosa!",
               description: reservationDetails,
             });
-
-            form.reset({
-              courtIds: form.getValues('courtIds'),
-              times: [],
-              date: data.date, 
-            });
+            
+            // This is the key change: reset only the times array
+            // This triggers a re-render, and useCollection's real-time listener will provide the new data
+            // causing the newly booked slots to appear as disabled.
+            form.setValue("times", []);
 
         } else {
             toast({
@@ -379,4 +378,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
