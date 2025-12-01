@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -83,6 +84,20 @@ export default function AdminPage() {
                      <CardContent>
                         <Button onClick={() => router.push('/admin/buffet')}>
                             Administrar Menú <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle>Gestión de Torneos</CardTitle>
+                        <CardDescription>
+                           Crea y administra los torneos del complejo.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <Button onClick={() => router.push('/admin/tournaments')}>
+                            Administrar Torneos <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardContent>
                 </Card>
