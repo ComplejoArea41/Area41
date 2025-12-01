@@ -18,11 +18,11 @@ export const upcomingReservations: (Reservation & { customerName: string; custom
 ];
 
 export const menuItems: MenuItem[] = [
-  { id: "item1", name: "Hamburguesa Clásica", description: "Carne, queso, lechuga, tomate", price: 12.50, type: "Comida" },
-  { id: "item2", name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella, aceitunas", price: 15.00, type: "Comida" },
-  { id: "item3", name: "Gaseosa", description: "Línea Coca-Cola", price: 3.50, type: "Bebida" },
-  { id: "item4", name: "Agua Mineral", description: "Con o sin gas", price: 2.50, type: "Bebida" },
-  { id: "item5", name: "Cerveza", description: "Quilmes, Stella Artois", price: 5.00, type: "Bebida" },
+  { id: "item1", name: "Hamburguesa Clásica", description: "Carne, queso, lechuga, tomate", price: 8500, type: "Comida", imageId: "menu-burger" },
+  { id: "item2", name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella, aceitunas", price: 12000, type: "Comida", imageId: "menu-pizza" },
+  { id: "item3", name: "Gaseosa", description: "Línea Coca-Cola 500ml", price: 2500, type: "Bebida", imageId: "menu-soda" },
+  { id: "item4", name: "Agua Mineral", description: "Con o sin gas 500ml", price: 2000, type: "Bebida", imageId: "menu-water" },
+  { id: "item5", name: "Cerveza", description: "Lata 473ml (Quilmes, Stella)", price: 3500, type: "Bebida", imageId: "menu-beer" },
 ];
 
 export const recentMembers: RecentMember[] = [

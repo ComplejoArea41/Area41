@@ -31,6 +31,7 @@ export interface MenuItem {
   description: string;
   price: number;
   type: 'Bebida' | 'Comida';
+  imageId: string;
 }
 
 export interface Tournament {

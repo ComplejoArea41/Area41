@@ -29,6 +29,36 @@
       "description": "Area 41 Logo",
       "imageUrl": "https://storage.googleapis.com/aif-public-images/area-41-logo.png",
       "imageHint": "shield logo"
+    },
+    {
+      "id": "menu-burger",
+      "description": "Juicy hamburger with cheese and salad",
+      "imageUrl": "https://images.unsplash.com/photo-1634737119182-4d09e1305ba7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxqdWljeSUyMGhhbWJ1cmdlcnxlbnwwfHx8fDE3NjQ1NTQ0MTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "juicy hamburger"
+    },
+    {
+      "id": "menu-pizza",
+      "description": "A whole mozzarella pizza",
+      "imageUrl": "https://images.unsplash.com/photo-1596734791719-7efc8d3bd19c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bW96emFyZWxsYSUyMHBpenphfGVufDB8fHx8MTc2NDU1NDQxN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mozzarella pizza"
+    },
+    {
+      "id": "menu-soda",
+      "description": "A can of soda with ice",
+      "imageUrl": "https://images.unsplash.com/photo-1696739696228-eee49592ff07?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzb2RhJTIwY2FufGVufDB8fHx8MTc2NDQ1MDc0M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "soda can"
+    },
+    {
+      "id": "menu-water",
+      "description": "A bottle of mineral water",
+      "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3YXRlciUyMGJvdHRsZXxlbnwwfHx8fDE3NjQ0OTQ5NDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "water bottle"
+    },
+    {
+      "id": "menu-beer",
+      "description": "A can of cold beer",
+      "imageUrl": "https://images.unsplash.com/photo-1559019736-dcf2caefe954?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxiZWVyJTIwY2FufGVufDB8fHx8MTc2NDU1NDQxOHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "beer can"
     }
   ]
 }

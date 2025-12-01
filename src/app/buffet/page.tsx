@@ -1,64 +1,68 @@
+
+'use client';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { menuItems } from "@/lib/data";
+import { placeholderImages } from '@/lib/placeholder-images.json';
+import Image from "next/image";
 
 export default function BuffetPage() {
   const formatPrice = (price: number) => {
-    return `$${price.toFixed(2)}`;
+    return `$${price.toLocaleString('es-AR')}`;
   };
 
   return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
-        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
-          <CardHeader>
-              <div className="grid gap-2">
-                  <CardTitle>Nuestro Menú del Buffet</CardTitle>
-                  <CardDescription>
-                      Recarga energías con nuestras opciones. Desde snacks rápidos hasta platos completos, ¡tenemos lo que necesitas para seguir jugando!
-                  </CardDescription>
-              </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Precio</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {menuItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.description}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.type === "Comida" ? "secondary" : "outline"}>
-                        {item.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{formatPrice(item.price)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+      <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
+        <div className="w-full max-w-6xl">
+          <div className="grid gap-2 mb-8 text-center">
+              <CardTitle className="text-4xl">Nuestro Menú del Buffet</CardTitle>
+              <CardDescription className="text-lg text-muted-foreground">
+                  Recarga energías con nuestras opciones. ¡Tenemos lo que necesitas para seguir jugando!
+              </CardDescription>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {menuItems.map((item) => {
+                const image = placeholderImages.find(p => p.id === item.imageId);
+                return (
+                    <Card key={item.id} className="bg-card/80 backdrop-blur-sm flex flex-col overflow-hidden">
+                        <CardHeader className="p-0">
+                            {image && (
+                                <div className="aspect-video relative">
+                                    <Image
+                                        src={image.imageUrl}
+                                        alt={item.name}
+                                        fill
+                                        className="object-cover"
+                                        data-ai-hint={image.imageHint}
+                                    />
+                                </div>
+                            )}
+                        </CardHeader>
+                        <CardContent className="p-4 flex-1">
+                            <div className="flex justify-between items-start mb-2">
+                                <CardTitle className="text-xl leading-tight">{item.name}</CardTitle>
+                                <Badge variant={item.type === "Comida" ? "secondary" : "outline"}>
+                                    {item.type}
+                                </Badge>
+                            </div>
+                            <CardDescription>{item.description}</CardDescription>
+                        </CardContent>
+                        <CardFooter className="p-4 pt-0">
+                            <p className="text-2xl font-bold text-primary w-full text-right">{formatPrice(item.price)}</p>
+                        </CardFooter>
+                    </Card>
+                );
+            })}
+          </div>
+        </div>
       </div>
   );
 }
