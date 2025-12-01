@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
 import React from "react";
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,8 @@ export default function ReservationPage() {
     );
   }, [firestore, selectedDate]);
 
-  const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsQuery);
+  const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
+
 
   const isTimeSlotReserved = (time: string, courtId: string) => {
     if (areReservationsLoading || !reservations) return false;
@@ -142,23 +143,26 @@ export default function ReservationPage() {
     try {
         const reservationsCollection = collection(firestore, "reservations");
         let successfulReservations = 0;
+        const reservationPromises = [];
 
         for (const time of data.times) {
             const [hour, minute] = time.split(':').map(Number);
             const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
             
-            try {
-              await addDocumentNonBlocking(reservationsCollection, {
-                  userId: user.uid,
-                  courtIds: data.courtIds,
-                  reservationDateTime: Timestamp.fromDate(reservationDateTime),
-                  durationMinutes: 60,
-              });
-              successfulReservations++;
-            } catch (error) {
-              console.error(`Error al reservar el horario ${time}:`, error);
-            }
+            const promise = addDocumentNonBlocking(reservationsCollection, {
+                userId: user.uid,
+                courtIds: data.courtIds,
+                reservationDateTime: Timestamp.fromDate(reservationDateTime),
+                durationMinutes: 60,
+            }).then(() => {
+                successfulReservations++;
+            }).catch(error => {
+                console.error(`Error al reservar el horario ${time}:`, error);
+            });
+            reservationPromises.push(promise);
         }
+
+        await Promise.all(reservationPromises);
         
         if (successfulReservations > 0) {
             let courtDescription = "";
@@ -173,7 +177,7 @@ export default function ReservationPage() {
                 courtDescription = `Fútbol 5 - Cancha ${court?.courtNumber}`;
             }
         
-            const reservationDetails = `Has reservado ${courtDescription} el ${format(data.date, "PPP")} en los horarios confirmados.`;
+            const reservationDetails = `Has reservado ${courtDescription} el ${format(data.date, "PPP")} en ${successfulReservations > 1 ? successfulReservations + " horarios confirmados." : "el horario confirmado."}`;
         
             toast({
               title: "¡Reserva Exitosa!",
@@ -181,15 +185,15 @@ export default function ReservationPage() {
             });
 
             form.reset({
-              courtIds: [],
+              courtIds: form.getValues('courtIds'),
               times: [],
               date: data.date, 
             });
-            // We don't reset isFutbol7 as the user might want to book another game of the same type
+
         } else {
             toast({
               title: "Error de Reserva",
-              description: "No se pudieron confirmar los horarios seleccionados. Es posible que ya estuvieran ocupados por otro jugador. La página se ha actualizado.",
+              description: "No se pudieron confirmar los horarios seleccionados. Es posible que ya estuvieran ocupados. Por favor, revisa la disponibilidad.",
               variant: "destructive",
             });
         }
@@ -206,6 +210,24 @@ export default function ReservationPage() {
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
   const futbol5Courts = staticCourts.filter(c => c.courtType === "Futbol 5");
+
+  if (error) {
+    return (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
+            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
+                <CardHeader>
+                    <CardTitle>Error de Permisos</CardTitle>
+                    <CardDescription>
+                        No hemos podido cargar la disponibilidad de las canchas. Es posible que las reglas de seguridad no estén configuradas correctamente.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-destructive">{error.message}</p>
+                </CardContent>
+            </Card>
+        </div>
+    )
+  }
 
   return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
@@ -358,4 +380,3 @@ export default function ReservationPage() {
   );
 }
 
-    
