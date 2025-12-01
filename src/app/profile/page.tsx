@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useCollection, useDoc, useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useUser, errorEmitter, FirestorePermissionError, setDocumentNonBlocking } from '@/firebase';
 import { collection, deleteDoc, doc, query, setDoc, where, getDocs } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -100,24 +100,18 @@ export default function ProfilePage() {
       isAdmin: userProfile?.isAdmin || false
     };
 
-    setDoc(userRef, updatedProfileData, { merge: true })
-      .then(() => {
+    try {
+        setDocumentNonBlocking(userRef, updatedProfileData, { merge: true });
         toast({
           title: '¡Éxito!',
-          description: 'Tu perfil ha sido actualizado.',
+          description: 'Tu perfil ha sido actualizado. Los cambios pueden tardar unos segundos en reflejarse.',
         });
-      })
-      .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-              path: userRef.path,
-              operation: userProfile ? 'update' : 'create',
-              requestResourceData: updatedProfileData
-          });
-          errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
-          setIsSaving(false);
-      });
+    } catch (error) {
+        // The error is already being emitted globally by setDocumentNonBlocking
+        // We could add a toast here if we wanted, but the global handler should catch it.
+    } finally {
+        setTimeout(() => setIsSaving(false), 1000); // Give some visual feedback
+    }
   };
 
   const handleCancelReservation = (reservationId: string) => {
@@ -210,6 +204,7 @@ export default function ProfilePage() {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Tu nombre"
+                      disabled={isSaving}
                     />
                   </div>
                   <div className="flex flex-col space-y-1.5">
@@ -219,6 +214,7 @@ export default function ProfilePage() {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Tu apellido"
+                       disabled={isSaving}
                     />
                   </div>
                   <div className="flex flex-col space-y-1.5">
@@ -228,6 +224,7 @@ export default function ProfilePage() {
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="Tu número de teléfono"
+                       disabled={isSaving}
                     />
                   </div>
                   <div className="flex flex-col space-y-1.5">
@@ -321,5 +318,3 @@ export default function ProfilePage() {
       </div>
   );
 }
-
-    
