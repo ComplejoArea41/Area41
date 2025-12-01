@@ -79,34 +79,21 @@ service cloud.firestore {
      * Checks if the incoming request data for a user profile update operation is valid.
      */
     function isValidUserUpdate(userId) {
-        let incomingData = request.resource.data;
-        let existingData = resource.data;
-
-        // Admins can update any user profile.
-        if (isAdmin()) {
-            return true;
+        // Allow the update if the user is the owner and has the specific admin email.
+        // This is the most direct way to grant self-promotion for the admin account.
+        if (isOwner(userId) && request.auth.token.email == 'matias@vascohogar.com') {
+          return true;
         }
 
-        // Users can only update their own profile.
-        if (isOwner(userId)) {
-            // Check if the isAdmin status is changing from false/null to true.
-            let isBecomingAdmin = incomingData.isAdmin == true && existingData.get('isAdmin', false) == false;
-            
-            // If they are trying to become an admin...
-            if (isBecomingAdmin) {
-              // ...only allow it if they are the special admin email.
-              return request.auth.token.email == 'matias@vascohogar.com';
-            }
-            
-            // If they are not trying to become an admin, they can update other fields,
-            // but cannot remove their own admin status if they are already an admin.
-            let isChangingAdminStatus = incomingData.isAdmin != existingData.get('isAdmin', false);
-            if (isChangingAdminStatus) {
-              return false; // Prevent changing admin status unless it's the specific "becoming admin" case above.
-            }
-            
-            // Allow update for all other fields if admin status is not being changed illicitly.
-            return true;
+        // Allow the update if the user is already an admin.
+        if (isAdmin()) {
+          return true;
+        }
+
+        // Allow a non-admin user to update their own profile,
+        // but prevent them from making themselves an admin.
+        if (isOwner(userId) && request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)) {
+          return true;
         }
 
         // Deny all other cases.
