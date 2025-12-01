@@ -1,4 +1,5 @@
 
+
 /**
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
@@ -133,3 +134,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

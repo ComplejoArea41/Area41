@@ -97,7 +97,7 @@ export default function ProfilePage() {
       lastName,
       phoneNumber,
       email: user.email,
-      // isAdmin is not changed here for security, it can only be changed via secured backend/rules
+      isAdmin: userProfile?.isAdmin || false
     };
 
     setDoc(userRef, updatedProfileData, { merge: true })
@@ -321,3 +321,5 @@ export default function ProfilePage() {
       </div>
   );
 }
+
+    
