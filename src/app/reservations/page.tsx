@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -63,6 +62,7 @@ type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 export default function ReservationPage() {
   const { toast } = useToast();
   const [isFutbol7, setIsFutbol7] = React.useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
@@ -156,10 +156,10 @@ export default function ReservationPage() {
         router.push("/login");
         return;
     }
-     if (!userProfile) {
+     if (!userProfile?.firstName || !userProfile?.lastName || !userProfile?.phoneNumber) {
       toast({
         title: "Perfil Incompleto",
-        description: "Por favor completa tu perfil antes de reservar.",
+        description: "Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.",
         variant: "destructive",
       });
       router.push("/profile");
@@ -182,8 +182,6 @@ export default function ReservationPage() {
         reservationPromises.push(promise);
     }
     
-    // The Promise.all will now reject if any of the non-blocking updates fail due to permissions.
-    // The thrown error from addDocumentNonBlocking will be caught by the global error handler.
     await Promise.all(reservationPromises);
     
     let courtDescription = "";
@@ -215,6 +213,7 @@ export default function ReservationPage() {
     window.open(whatsappUrl, '_blank');
 
     form.setValue("times", []);
+    setIsDialogOpen(false);
   }
 
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
@@ -379,12 +378,10 @@ export default function ReservationPage() {
                     />
                 </div>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || selectedCourtIds.length === 0}>
+                <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <Button type="button" className="w-full mt-8" disabled={form.formState.isSubmitting || selectedTimes.length === 0 || selectedCourtIds.length === 0} onClick={() => setIsDialogOpen(true)}>
                       {form.formState.isSubmitting ? "Confirmando..." : "Confirmar Reserva"}
-                    </Button>
-                  </AlertDialogTrigger>
+                  </Button>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
@@ -407,3 +404,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
