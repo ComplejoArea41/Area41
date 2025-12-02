@@ -130,16 +130,16 @@ service cloud.firestore {
         match /teams/{teamId} {
             allow get, list: if true;
             allow write: if isAdmin();
-        }
 
-        /**
-         * @description Rules for Players within a tournament.
-         */
-        match /players/{playerId} {
-            allow get, list: if true;
-            allow write: if isAdmin();
+             /**
+             * @description Rules for Players within a team.
+             */
+            match /players/{playerId} {
+                allow get, list: if true;
+                allow write: if isAdmin();
+            }
         }
-
+        
         /**
          * @description Rules for Matches within a tournament.
          */
