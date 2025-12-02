@@ -4,7 +4,27 @@
 
 body {
   font-family: 'PT Sans', sans-serif;
+  position: relative;
+  min-height: 100vh;
+  background-image: url('https://hultek.com.mx/wp-content/uploads/2024/07/Cancha-futbol-1536x864.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
+
+body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Overlay oscuro */
+  backdrop-filter: blur(2px); /* Desenfoque del fondo */
+  z-index: -1; /* Ponerlo detrás del contenido */
+}
+
 
 @layer base {
   :root {
@@ -57,6 +77,8 @@ body {
     @apply border-border;
   }
   body {
+    /* bg-background y text-foreground son aplicados por el estilo de arriba,
+    pero los dejamos como fallback y para mantener la semántica de Tailwind */
     @apply bg-background text-foreground;
   }
 }

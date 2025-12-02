@@ -5,7 +5,7 @@ import Header from "./header";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen w-full flex-col">
+    <div className="flex min-h-screen w-full flex-col bg-transparent">
       <Header />
       <div className="flex flex-1 flex-col">
         {children}
