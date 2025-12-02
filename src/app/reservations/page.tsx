@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
@@ -57,6 +57,33 @@ const reservationFormSchema = z.object({
 type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 
 
+const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areReservationsLoading, isTimeSlotReserved, onTimeClick }: {
+    time: string;
+    selectedCourtId: string;
+    selectedTimes: string[];
+    areReservationsLoading: boolean;
+    isTimeSlotReserved: (time: string, courtId: string) => boolean;
+    onTimeClick: (time: string) => void;
+}) => {
+    const isReserved = isTimeSlotReserved(time, selectedCourtId);
+    const isDisabled = !selectedCourtId || isReserved || areReservationsLoading;
+
+    return (
+        <Button
+            key={time}
+            type="button"
+            variant={selectedTimes.includes(time) ? "default" : "outline"}
+            onClick={() => onTimeClick(time)}
+            disabled={isDisabled}
+            className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
+        >
+            {areReservationsLoading && selectedCourtId ? "Cargando..." : time}
+        </Button>
+    );
+});
+TimeSlotButton.displayName = 'TimeSlotButton';
+
+
 export default function ReservationPage() {
   const { toast } = useToast();
   const [courtType, setCourtType] = React.useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
@@ -80,7 +107,7 @@ export default function ReservationPage() {
     defaultValues: {
       courtId: "",
       times: [],
-      date: new Date(),
+      date: startOfDay(new Date()),
     },
   });
   
@@ -88,24 +115,16 @@ export default function ReservationPage() {
   const selectedCourtId = form.watch("courtId");
   const selectedTimes = form.watch("times");
 
-  const [dateForQuery, setDateForQuery] = useState(startOfDay(new Date()));
-
-  useEffect(() => {
-    if (selectedDate) {
-      setDateForQuery(startOfDay(selectedDate));
-    }
-  }, [selectedDate]);
-
   const reservationsQuery = useMemoFirebase(() => {
-    if (!firestore || !dateForQuery || isUserLoading || !user) return null;
-    const start = dateForQuery;
+    if (!firestore || !selectedDate || isUserLoading || !user) return null;
+    const start = startOfDay(selectedDate);
     const end = addDays(start, 1);
     return query(
       collection(firestore, 'reservations'),
       where('reservationDateTime', '>=', Timestamp.fromDate(start)),
       where('reservationDateTime', '<', Timestamp.fromDate(end))
     );
-  }, [firestore, dateForQuery, user, isUserLoading]);
+  }, [firestore, selectedDate, user, isUserLoading]);
 
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
 
@@ -125,8 +144,8 @@ export default function ReservationPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const isTimeSlotReserved = (time: string, courtId: string) => {
-    if (areReservationsLoading || !reservations) return false;
+  const isTimeSlotReserved = useCallback((time: string, courtId: string) => {
+    if (areReservationsLoading || !reservations || !selectedDate) return false;
     
     const [hour, minute] = time.split(':').map(Number);
     const slotDateTime = set(selectedDate, { hours: hour, minutes: minute }).getTime();
@@ -136,7 +155,7 @@ export default function ReservationPage() {
       const resDateTime = (res.reservationDateTime as any).toDate().getTime();
       return resDateTime === slotDateTime && res.courtIds.includes(courtId);
     });
-  };
+  }, [reservations, areReservationsLoading, selectedDate]);
 
 
   const handleCourtTypeChange = (type: 'Futbol 5' | 'Futbol 7') => {
@@ -320,7 +339,10 @@ export default function ReservationPage() {
                               <Button
                               key={court.id}
                               variant={selectedCourtId === court.id ? "default" : "outline"}
-                              onClick={() => form.setValue("courtId", court.id, { shouldValidate: true })}
+                              onClick={() => {
+                                  form.setValue("courtId", court.id, { shouldValidate: true });
+                                  form.setValue("times", []);
+                              }}
                               type="button"
                               >
                               Cancha {court.courtNumber}
@@ -377,23 +399,17 @@ export default function ReservationPage() {
                             )}
                           </div>
                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-                                {availableTimes.map(time => {
-                                    const isReserved = isTimeSlotReserved(time, selectedCourtId);
-                                    const isDisabled = !selectedCourtId || isReserved || areReservationsLoading;
-                                    
-                                    return (
-                                        <Button
-                                            key={time}
-                                            type="button"
-                                            variant={selectedTimes.includes(time) ? "default" : "outline"}
-                                            onClick={() => handleTimeClick(time)}
-                                            disabled={isDisabled}
-                                            className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
-                                        >
-                                            {areReservationsLoading && selectedCourtId ? "Cargando..." : time}
-                                        </Button>
-                                    )
-                                })}
+                                {availableTimes.map(time => (
+                                    <TimeSlotButton
+                                        key={time}
+                                        time={time}
+                                        selectedCourtId={selectedCourtId}
+                                        selectedTimes={selectedTimes}
+                                        areReservationsLoading={areReservationsLoading}
+                                        isTimeSlotReserved={isTimeSlotReserved}
+                                        onTimeClick={handleTimeClick}
+                                    />
+                                ))}
                             </div>
                           <FormMessage />
                         </FormItem>
@@ -447,5 +463,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
