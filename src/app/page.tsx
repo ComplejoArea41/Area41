@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Goal, Utensils, Trophy } from 'lucide-react';
 
@@ -48,21 +49,22 @@ export default function WelcomePage() {
 
             <div className="flex w-full max-w-md flex-col gap-6">
               {menuOptions.map((option) => (
-                <Card
+                <Button
                   key={option.title}
-                  className="bg-card/80 hover:bg-card/95 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
+                  variant="ghost"
+                  className="h-auto w-full p-0 bg-card/80 hover:bg-card/95 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl rounded-lg"
                   onClick={() => router.push(option.path)}
                 >
-                  <CardHeader className="flex flex-row items-center gap-4 p-4">
+                  <div className="flex flex-row items-center gap-4 p-4 w-full">
                     <div className="p-4 bg-primary rounded-full">
                         {option.icon}
                     </div>
-                    <div className="flex flex-col">
-                      <CardTitle className="text-xl">{option.title}</CardTitle>
-                      <CardDescription className="text-left">{option.description}</CardDescription>
+                    <div className="flex flex-col text-left">
+                      <h3 className="text-xl font-semibold text-card-foreground">{option.title}</h3>
+                      <p className="text-sm text-muted-foreground">{option.description}</p>
                     </div>
-                  </CardHeader>
-                </Card>
+                  </div>
+                </Button>
               ))}
             </div>
         </div>
