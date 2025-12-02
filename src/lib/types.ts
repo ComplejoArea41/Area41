@@ -1,5 +1,4 @@
 
-
 export interface User {
   id: string;
   firstName: string;
@@ -47,7 +46,6 @@ export interface Team {
   name: string;
   tournamentId: string;
   coach: string; // Director Técnico
-  players: Player[]; // Lista de jugadores
   points: number;
   played: number;
   won: number;
@@ -92,4 +90,5 @@ export interface BackgroundImage {
     imageUrl: string;
     isActive: boolean;
 }
+
     

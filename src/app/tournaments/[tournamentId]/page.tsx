@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -43,7 +44,7 @@ export default function TournamentPublicPage() {
   const teamsQuery = useMemoFirebase(
     () =>
       tournamentId
-        ? query(collection(firestore, 'tournaments', tournamentId, 'teams'))
+        ? query(collection(firestore, 'tournaments', tournamentId, 'teams'), orderBy('points', 'desc'))
         : null,
     [firestore, tournamentId]
   );
@@ -64,6 +65,7 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
 
   const sortedTeams = useMemo(() => {
     if (!teams) return [];
+    // The query now handles sorting by points, but we add secondary sorting criteria here.
     return [...teams].sort((a, b) => {
       if (b.points !== a.points) {
         return b.points - a.points;
@@ -196,9 +198,9 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
                         </CardHeader>
                         <CardContent>
                             <h4 className="font-semibold mb-2">Jugadores:</h4>
-                            {team.players && team.players.length > 0 ? (
+                            {allPlayers && allPlayers.filter(p => p.teamId === team.id).length > 0 ? (
                                 <ul className="list-disc pl-5 text-sm space-y-1">
-                                    {team.players.map(player => <li key={player.id}>{player.name}</li>)}
+                                    {allPlayers.filter(p => p.teamId === team.id).map(player => <li key={player.id}>{player.name}</li>)}
                                 </ul>
                             ): (
                                 <p className="text-xs text-muted-foreground">No hay jugadores cargados.</p>
@@ -272,3 +274,5 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
     </div>
   );
 }
+
+    

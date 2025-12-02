@@ -7,7 +7,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,16 +28,23 @@ import {
     TableRow,
   } from "@/components/ui/table";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, query, where, writeBatch } from "firebase/firestore";
+import { collection, doc, query, where, writeBatch, runTransaction } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tournament, Team, Player, Match } from "@/lib/types";
-import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, Bot, ShieldCheck } from "lucide-react";
+import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, Bot, ShieldCheck, Save } from "lucide-react";
 import { generateFixtures } from '@/ai/flows/generate-fixtures-flow';
 
 type TeamFormData = Omit<Team, 'id' | 'tournamentId' | 'players' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst'>;
 type PlayerFormData = Omit<Player, 'id' | 'teamId' | 'tournamentId' | 'goals' | 'yellowCards' | 'redCards'>;
+
+type MatchResultState = {
+    [matchId: string]: {
+        teamAScore: string;
+        teamBScore: string;
+    }
+}
 
 export default function TournamentDetailPage() {
     const { user, isUserLoading } = useUser();
@@ -59,6 +65,7 @@ export default function TournamentDetailPage() {
     const [playerFormData, setPlayerFormData] = useState<PlayerFormData>({ name: '' });
     
     const [isFixtureGenerationRunning, setIsFixtureGenerationRunning] = useState(false);
+    const [matchResults, setMatchResults] = useState<MatchResultState>({});
 
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
@@ -75,7 +82,20 @@ export default function TournamentDetailPage() {
 
     const matchesCollectionRef = useMemoFirebase(() => collection(firestore, 'tournaments', tournamentId, 'matches'), [firestore, tournamentId]);
     const { data: matches, isLoading: areMatchesLoading } = useCollection<Match>(matchesCollectionRef);
-    
+
+    useEffect(() => {
+        if (matches) {
+            const initialResults: MatchResultState = {};
+            matches.forEach(match => {
+                initialResults[match.id] = {
+                    teamAScore: match.teamAScore?.toString() ?? '',
+                    teamBScore: match.teamBScore?.toString() ?? ''
+                }
+            });
+            setMatchResults(initialResults);
+        }
+    }, [matches]);
+
     const getTeamName = (teamId: string) => teams?.find(t => t.id === teamId)?.name || 'Equipo Desconocido';
 
 
@@ -114,7 +134,7 @@ export default function TournamentDetailPage() {
         setIsSaving(true);
         
         try {
-            const teamData = {
+            const teamData: Omit<Team, 'id' | 'players'> = {
                 name: teamFormData.name,
                 coach: teamFormData.coach,
                 tournamentId: tournamentId,
@@ -235,7 +255,7 @@ export default function TournamentDetailPage() {
         setIsSaving(true);
     
         try {
-            const playerData = {
+            const playerData: Omit<Player, 'id'> = {
                 name: playerFormData.name,
                 teamId: managingPlayersOfTeam.id,
                 tournamentId: tournamentId,
@@ -266,6 +286,106 @@ export default function TournamentDetailPage() {
         await deleteDocumentNonBlocking(playerRef);
         toast({ title: "¡Jugador eliminado!", description: "El jugador ha sido eliminado del equipo." });
     };
+
+    const handleResultChange = (matchId: string, team: 'teamA' | 'teamB', value: string) => {
+        const scoreKey = team === 'teamA' ? 'teamAScore' : 'teamBScore';
+        setMatchResults(prev => ({
+            ...prev,
+            [matchId]: {
+                ...prev[matchId],
+                [scoreKey]: value
+            }
+        }));
+    };
+
+    const handleSaveResult = async (match: Match) => {
+        if (!firestore) return;
+
+        const result = matchResults[match.id];
+        const teamAScore = parseInt(result.teamAScore, 10);
+        const teamBScore = parseInt(result.teamBScore, 10);
+
+        if (isNaN(teamAScore) || isNaN(teamBScore)) {
+            toast({ variant: 'destructive', title: 'Resultados inválidos', description: 'Por favor, ingresa números válidos para los resultados.'});
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const matchRef = doc(firestore, 'tournaments', tournamentId, 'matches', match.id);
+                const teamARef = doc(firestore, 'tournaments', tournamentId, 'teams', match.teamAId);
+                const teamBRef = doc(firestore, 'tournaments', tournamentId, 'teams', match.teamBId);
+
+                const teamADoc = await transaction.get(teamARef);
+                const teamBDoc = await transaction.get(teamBRef);
+
+                if (!teamADoc.exists() || !teamBDoc.exists()) {
+                    throw new Error("Uno o ambos equipos no fueron encontrados.");
+                }
+
+                const teamAData = teamADoc.data() as Team;
+                const teamBData = teamBDoc.data() as Team;
+                
+                // Update match
+                transaction.update(matchRef, { teamAScore, teamBScore, status: 'finished' });
+
+                // Update team stats
+                let teamAPoints = teamAData.points;
+                let teamBPoints = teamBData.points;
+                let teamAWon = teamAData.won;
+                let teamBWon = teamBData.won;
+                let teamADrawn = teamAData.drawn;
+                let teamBDrawn = teamBData.drawn;
+                let teamALost = teamAData.lost;
+                let teamBLost = teamBData.lost;
+
+                if (teamAScore > teamBScore) { // Team A wins
+                    teamAPoints += 3;
+                    teamAWon += 1;
+                    teamBLost += 1;
+                } else if (teamBScore > teamAScore) { // Team B wins
+                    teamBPoints += 3;
+                    teamBWon += 1;
+                    teamALost += 1;
+                } else { // Draw
+                    teamAPoints += 1;
+                    teamBPoints += 1;
+                    teamADrawn += 1;
+                    teamBDrawn += 1;
+                }
+
+                transaction.update(teamARef, {
+                    points: teamAPoints,
+                    played: teamAData.played + 1,
+                    won: teamAWon,
+                    drawn: teamADrawn,
+                    lost: teamALost,
+                    goalsFor: teamAData.goalsFor + teamAScore,
+                    goalsAgainst: teamAData.goalsAgainst + teamBScore,
+                });
+
+                transaction.update(teamBRef, {
+                    points: teamBPoints,
+                    played: teamBData.played + 1,
+                    won: teamBWon,
+                    drawn: teamBDrawn,
+                    lost: teamBLost,
+                    goalsFor: teamBData.goalsFor + teamBScore,
+                    goalsAgainst: teamBData.goalsAgainst + teamAScore,
+                });
+            });
+
+            toast({ title: '¡Resultado guardado!', description: 'La tabla de posiciones se ha actualizado.'});
+
+        } catch (error) {
+            console.error("Error saving match result: ", error);
+            toast({ variant: 'destructive', title: 'Error al guardar', description: 'No se pudo guardar el resultado del partido.' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const isLoading = isUserLoading || isProfileLoading || isTournamentLoading;
 
@@ -353,16 +473,42 @@ export default function TournamentDetailPage() {
                             <CardTitle className="flex items-center gap-2">
                                 <ShieldCheck className="h-6 w-6" /> Partidos y Resultados
                             </CardTitle>
-                             <CardDescription>Genera el fixture y carga los resultados de los partidos.</CardDescription>
+                             <CardDescription>Genera el fixture y carga los resultados.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {areMatchesLoading ? (
                                 <p>Cargando partidos...</p>
                             ) : matches && matches.length > 0 ? (
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
                                     {matches.map(match => (
-                                        <div key={match.id} className="p-2 border rounded-md text-sm">
-                                            <span>{getTeamName(match.teamAId)} vs {getTeamName(match.teamBId)}</span>
+                                        <div key={match.id} className="p-3 border rounded-md text-sm bg-background/50">
+                                            <div className="flex justify-between items-center gap-2">
+                                                <span className="font-medium flex-1 text-right truncate">{getTeamName(match.teamAId)}</span>
+                                                <Input
+                                                    type="number"
+                                                    className="w-14 h-8 text-center"
+                                                    value={matchResults[match.id]?.teamAScore ?? ''}
+                                                    onChange={(e) => handleResultChange(match.id, 'teamA', e.target.value)}
+                                                    disabled={match.status === 'finished' || isSaving}
+                                                />
+                                                <span>-</span>
+                                                <Input
+                                                    type="number"
+                                                    className="w-14 h-8 text-center"
+                                                    value={matchResults[match.id]?.teamBScore ?? ''}
+                                                     onChange={(e) => handleResultChange(match.id, 'teamB', e.target.value)}
+                                                    disabled={match.status === 'finished' || isSaving}
+                                                />
+                                                <span className="font-medium flex-1 truncate">{getTeamName(match.teamBId)}</span>
+                                            </div>
+                                             <div className="text-xs text-muted-foreground text-center mt-2">
+                                                {new Date(match.date).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit'})} - {new Date(match.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
+                                            </div>
+                                            {match.status === 'pending' && (
+                                                <Button size="sm" className="w-full mt-2" onClick={() => handleSaveResult(match)} disabled={isSaving}>
+                                                    <Save className="mr-2 h-4 w-4" /> Guardar
+                                                </Button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -470,3 +616,5 @@ export default function TournamentDetailPage() {
         </div>
     );
 }
+
+    

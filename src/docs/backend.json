@@ -1,0 +1,448 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the sports complex application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Phone number of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Indicates if the user is an administrator."
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "phoneNumber",
+        "email"
+      ]
+    },
+    "Court": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Court",
+      "type": "object",
+      "description": "Represents a sports court available for reservation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the court."
+        },
+        "courtType": {
+          "type": "string",
+          "description": "Type of court (e.g., Futbol 5, Futbol 7)."
+        },
+        "courtNumber": {
+          "type": "number",
+          "description": "The number of the court."
+        },
+        "price": {
+          "type": "number",
+          "description": "The hourly price for reserving the court."
+        },
+        "isAvailable": {
+          "type": "boolean",
+          "description": "Indicates if the court is currently available."
+        }
+      },
+      "required": [
+        "id",
+        "courtType",
+        "courtNumber",
+        "isAvailable",
+        "price"
+      ]
+    },
+    "Reservation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Reservation",
+      "type": "object",
+      "description": "Represents a reservation made by a user for a court.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the reservation."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Reservation)"
+        },
+        "courtIds": {
+          "type": "array",
+          "description": "Reference to Court. (Relationship: Court 1:N Reservation)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reservationDateTime": {
+          "type": "string",
+          "description": "Date and time of the reservation.",
+          "format": "date-time"
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "Duration of the reservation in minutes."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "courtIds",
+        "reservationDateTime",
+        "durationMinutes"
+      ]
+    },
+    "MenuItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MenuItem",
+      "type": "object",
+      "description": "Represents an item available in the buffet.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the menu item."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the menu item."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the menu item."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the menu item."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of menu item (e.g., beverage, food)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "price",
+        "type"
+      ]
+    },
+    "Tournament": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tournament",
+      "type": "object",
+      "description": "Represents a football tournament.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the tournament."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the tournament."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Team": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Team",
+      "type": "object",
+      "description": "Represents a team participating in a tournament.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the team."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the team."
+        },
+        "tournamentId": {
+          "type": "string",
+          "description": "ID of the tournament this team belongs to."
+        },
+        "coach": {
+            "type": "string",
+            "description": "Name of the team's coach (Director Técnico)."
+        },
+        "points": {
+          "type": "number",
+          "description": "Points in the tournament."
+        },
+        "played": {
+          "type": "number",
+          "description": "Matches played."
+        },
+        "won": {
+          "type": "number",
+          "description": "Matches won."
+        },
+        "drawn": {
+          "type": "number",
+          "description": "Matches drawn."
+        },
+        "lost": {
+          "type": "number",
+          "description": "Matches lost."
+        },
+        "goalsFor": {
+          "type": "number",
+          "description": "Goals scored."
+        },
+        "goalsAgainst": {
+          "type": "number",
+          "description": "Goals conceded."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "tournamentId",
+        "points",
+        "played",
+        "won",
+        "drawn",
+        "lost",
+        "goalsFor",
+        "goalsAgainst"
+      ]
+    },
+    "Player": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Player",
+      "type": "object",
+      "description": "Represents a player in a team.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the player."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the player."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "ID of the team the player belongs to."
+        },
+        "tournamentId": {
+          "type": "string",
+          "description": "ID of the tournament the player belongs to."
+        },
+        "goals": {
+          "type": "number",
+          "description": "Goals scored by the player."
+        },
+        "yellowCards": {
+          "type": "number",
+          "description": "Number of yellow cards."
+        },
+        "redCards": {
+          "type": "number",
+          "description": "Number of red cards."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "teamId",
+        "tournamentId"
+      ]
+    },
+    "Match": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Match",
+      "type": "object",
+      "description": "Represents a match between two teams in a tournament.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the match."
+        },
+        "tournamentId": {
+          "type": "string",
+          "description": "ID of the tournament this match belongs to."
+        },
+        "teamAId": {
+          "type": "string",
+          "description": "ID of team A."
+        },
+        "teamBId": {
+          "type": "string",
+          "description": "ID of team B."
+        },
+        "teamAScore": {
+          "type": "number",
+          "description": "Score of team A."
+        },
+        "teamBScore": {
+          "type": "number",
+          "description": "Score of team B."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date and time of the match."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "finished"
+          ],
+          "description": "Status of the match."
+        }
+      },
+      "required": [
+        "id",
+        "tournamentId",
+        "teamAId",
+        "teamBId",
+        "date",
+        "status"
+      ]
+    },
+    "BackgroundImage": {
+      "title": "BackgroundImage",
+      "type": "object",
+      "description": "Represents a background image for the application.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the background image." },
+        "name": { "type": "string", "description": "Name or title of the image." },
+        "imageUrl": { "type": "string", "description": "URL of the image." },
+        "isActive": { "type": "boolean", "description": "Indicates if the image is the active background." }
+      },
+      "required": ["id", "name", "imageUrl", "isActive"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Accessible only by the authenticated user."
+        }
+      },
+      {
+        "path": "/courts/{courtId}",
+        "definition": {
+          "entityName": "Court",
+          "schema": {
+            "$ref": "#/backend/entities/Court"
+          },
+          "description": "Stores information about available courts."
+        }
+      },
+      {
+        "path": "/reservations/{reservationId}",
+        "definition": {
+          "entityName": "Reservation",
+          "schema": {
+            "$ref": "#/backend/entities/Reservation"
+          },
+          "description": "Stores reservation details. Includes userId and courtIds for authorization independence."
+        }
+      },
+      {
+        "path": "/menu_items/{menuItemId}",
+        "definition": {
+          "entityName": "MenuItem",
+          "schema": {
+            "$ref": "#/backend/entities/MenuItem"
+          },
+          "description": "Stores the menu items offered by the buffet."
+        }
+      },
+       {
+        "path": "/background_images/{imageId}",
+        "definition": {
+          "entityName": "BackgroundImage",
+          "schema": {
+            "$ref": "#/backend/entities/BackgroundImage"
+          },
+          "description": "Stores background images for the application."
+        }
+      },
+      {
+        "path": "/tournaments/{tournamentId}",
+        "definition": {
+          "entityName": "Tournament",
+          "schema": {
+            "$ref": "#/backend/entities/Tournament"
+          },
+          "description": "Stores tournament information."
+        }
+      },
+      {
+        "path": "/tournaments/{tournamentId}/teams/{teamId}",
+        "definition": {
+          "entityName": "Team",
+          "schema": {
+            "$ref": "#/backend/entities/Team"
+          },
+          "description": "Stores team information within a specific tournament."
+        }
+      },
+      {
+        "path": "/tournaments/{tournamentId}/players/{playerId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "Stores player information for a specific tournament. Players are queried by teamId."
+        }
+      },
+      {
+        "path": "/tournaments/{tournamentId}/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Stores match information for a specific tournament."
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The structure for tournament management is now nested, with teams, players, and matches stored in subcollections under each tournament. This improves data locality and simplifies security rules, as access to all tournament-related data can be controlled from the parent tournament document."
+  }
+}
+
+    
