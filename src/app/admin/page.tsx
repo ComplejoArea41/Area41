@@ -101,24 +101,8 @@ export default function AdminPage() {
                         </Button>
                     </CardContent>
                 </Card>
-
-                 <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle>Imágenes de Fondo</CardTitle>
-                        <CardDescription>
-                           Gestiona las imágenes de fondo de la aplicación.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/backgrounds')}>
-                            Administrar Fondos <ImageIcon className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
             </div>
         </div>
       </div>
   );
 }
-
-    

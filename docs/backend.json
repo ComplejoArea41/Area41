@@ -214,36 +214,6 @@
         "id",
         "name"
       ]
-    },
-    "BackgroundImage": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "BackgroundImage",
-      "type": "object",
-      "description": "Represents a background image for the application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the image."
-        },
-        "name": {
-          "type": "string",
-          "description": "A descriptive name for the image."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL of the image."
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates if this image is the currently active background."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "imageUrl",
-        "isActive"
-      ]
     }
   },
   "auth": {
@@ -349,25 +319,8 @@
             }
           ]
         }
-      },
-       {
-        "path": "/background_images/{imageId}",
-        "definition": {
-          "entityName": "BackgroundImage",
-          "schema": {
-            "$ref": "#/backend/entities/BackgroundImage"
-          },
-          "description": "Stores background images for the application. Publicly readable, admin-managed.",
-          "params": [
-            {
-              "name": "imageId",
-              "description": "The unique identifier of the image."
-            }
-          ]
-        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features, including court reservations, buffet menu, and tournament management. The structure prioritizes authorization independence, clarity, and scalability. \n\n**Authorization Independence & QAPs:**\n\n*   User data is stored under `/users/{userId}`, ensuring only the authenticated user can access their data. This path-based ownership provides authorization independence, and allows secure `list` operations using security rules.\n*   Courts are stored in a top-level `/courts` collection. Since there are a limited number of courts, and all users should have the ability to view the list of available courts. This supports the required QAP.\n*   Reservations are stored in `/reservations/{reservationId}` and include the `userId` and `courtIds`. This denormalization allows security rules to enforce that a user can only create reservations for courts that exist, without requiring a `get()` call to the `/courts` collection. Security rules can ensure that the `userId` matches the authenticated user, and that if multiple `courtIds` are present, they form a valid set for the soccer fields.\n*   Menu items are stored under `/menu_items/{menuItemId}`. This is a global collection readable by all users.\n*   Tournaments and Teams are stored in their respective top-level collections (`/tournaments` and `/teams`). Tournament documents will contain an array of `teamIds`, and team documents contain an array of `memberIds`. This structure facilitates querying and displaying tournament information.\n*   Background images are stored in `/background_images`. This is a global collection readable by all users so the background can be displayed, but write access is restricted to admins.\n\n**Structural Segregation:**\n\n*   Each top-level collection represents a distinct entity type with its own security requirements. This segregation simplifies security rules and prevents unintended access.\n\n**Access Modeling:**\n\n*   Path-based ownership is used for user data (`/users/{userId}`).\n*   Collaborative data (tournaments and teams) can use membership maps if more complex authorization is required in the future (e.g., team admins).\n\n**Data Clarity and Predictability:**\n\n*   Explicit naming conventions are used for collections and fields.\n*   Arrays of IDs are used to represent relationships (e.g., `teamIds` in tournaments).\n"
+    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features, including court reservations, buffet menu, and tournament management. The structure prioritizes authorization independence, clarity, and scalability. \n\n**Authorization Independence & QAPs:**\n\n*   User data is stored under `/users/{userId}`, ensuring only the authenticated user can access their data. This path-based ownership provides authorization independence, and allows secure `list` operations using security rules.\n*   Courts are stored in a top-level `/courts` collection. Since there are a limited number of courts, and all users should have the ability to view the list of available courts. This supports the required QAP.\n*   Reservations are stored in `/reservations/{reservationId}` and include the `userId` and `courtIds`. This denormalization allows security rules to enforce that a user can only create reservations for courts that exist, without requiring a `get()` call to the `/courts` collection. Security rules can ensure that the `userId` matches the authenticated user, and that if multiple `courtIds` are present, they form a valid set for the soccer fields.\n*   Menu items are stored under `/menu_items/{menuItemId}`. This is a global collection readable by all users.\n*   Tournaments and Teams are stored in their respective top-level collections (`/tournaments` and `/teams`). Tournament documents will contain an array of `teamIds`, and team documents contain an array of `memberIds`. This structure facilitates querying and displaying tournament information.\n*   Background images are stored in `/background_images`. This is a global collection readable by all users so the background can be displayed, but write access is restricted to admins.\n"
   }
 }
-    
