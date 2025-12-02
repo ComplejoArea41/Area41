@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -52,7 +53,7 @@ export default function WelcomePage() {
                 <Button
                   key={option.title}
                   variant="ghost"
-                  className="h-auto w-full p-0 bg-card/80 hover:bg-card/95 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl rounded-lg"
+                  className="h-auto w-full p-0 bg-card/80 hover:bg-card/95 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-primary/20 rounded-lg ring-1 ring-white/10"
                   onClick={() => router.push(option.path)}
                 >
                   <div className="flex flex-row items-center gap-4 p-4 w-full">
