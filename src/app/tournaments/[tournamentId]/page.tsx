@@ -28,6 +28,7 @@ import { useParams } from 'next/navigation';
 import type { Tournament, Team, Player, Match } from '@/lib/types';
 import { Trophy, Users, Shield, ListOrdered, Flame } from 'lucide-react';
 import { useMemo } from 'react';
+import Image from 'next/image';
 
 export default function TournamentPublicPage() {
   const firestore = useFirestore();
@@ -87,8 +88,8 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
         .slice(0, 10);
   }, [allPlayers])
 
-  const getTeamName = (teamId: string) => {
-      return teams?.find(t => t.id === teamId)?.name || 'Desconocido';
+  const getTeam = (teamId: string) => {
+      return teams?.find(t => t.id === teamId);
   }
 
 
@@ -110,6 +111,19 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
       </div>
     );
   }
+
+  const renderTeamDisplay = (team: Team | undefined) => (
+    <div className="flex flex-col items-center gap-2 w-28">
+      {team?.flagUrl ? (
+        <Image src={team.flagUrl} alt={`Bandera de ${team.name}`} width={48} height={32} className="h-8 w-12 object-contain rounded-sm" />
+      ) : (
+        <div className="h-8 w-12 bg-muted rounded-sm flex items-center justify-center">
+            <Shield className="h-6 w-6 text-muted-foreground" />
+        </div>
+      )}
+      <span className="font-semibold text-sm text-center truncate w-full">{team?.name || 'Desconocido'}</span>
+    </div>
+  );
 
   return (
     <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
@@ -229,7 +243,7 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
                            {topScorers.map(player => (
                                <TableRow key={player.id}>
                                    <TableCell>{player.name}</TableCell>
-                                   <TableCell>{getTeamName(player.teamId)}</TableCell>
+                                   <TableCell>{getTeam(player.teamId)?.name || 'N/A'}</TableCell>
                                    <TableCell className="text-right font-bold">{player.goals}</TableCell>
                                </TableRow>
                            ))}
@@ -246,21 +260,27 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
                  </CardHeader>
                  <CardContent>
                     {allMatches && allMatches.length > 0 ? (
-                        <div className="space-y-4">
-                            {allMatches.map(match => (
-                                <div key={match.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                    <span className="text-right flex-1">{getTeamName(match.teamAId)}</span>
-                                    <div className="text-center mx-4">
-                                        <div className="font-bold text-lg">
-                                            {match.status === 'finished' ? `${match.teamAScore} - ${match.teamBScore}` : 'VS'}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {allMatches.map(match => {
+                                const teamA = getTeam(match.teamAId);
+                                const teamB = getTeam(match.teamBId);
+                                return (
+                                    <Card key={match.id} className="p-4 bg-background/50">
+                                        <div className="flex items-center justify-around">
+                                            {renderTeamDisplay(teamA)}
+                                            <div className="text-center mx-4 flex-shrink-0">
+                                                <div className="font-bold text-2xl">
+                                                    {match.status === 'finished' ? `${match.teamAScore} - ${match.teamBScore}` : 'VS'}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                {new Date(match.date).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}, {new Date(match.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
+                                                </div>
+                                            </div>
+                                            {renderTeamDisplay(teamB)}
                                         </div>
-                                        <div className="text-xs text-muted-foreground">
-                                           {new Date(match.date).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}, {new Date(match.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                    </div>
-                                    <span className="text-left flex-1">{getTeamName(match.teamBId)}</span>
-                                </div>
-                            ))}
+                                    </Card>
+                                )
+                            })}
                         </div>
                     ) : (
                         <p className="text-center text-muted-foreground py-8">No hay partidos programados todavía.</p>
@@ -275,4 +295,3 @@ const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(al
   );
 }
 
-    

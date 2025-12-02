@@ -53,6 +53,7 @@ export interface Team {
   lost: number;
   goalsFor: number;
   goalsAgainst: number;
+  flagUrl?: string;
 }
 
 export interface Player {

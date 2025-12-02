@@ -192,6 +192,10 @@
             "type": "string",
             "description": "Name of the team's coach (Director Técnico)."
         },
+        "flagUrl": {
+            "type": "string",
+            "description": "URL for the team's flag image."
+        },
         "points": {
           "type": "number",
           "description": "Points in the tournament."

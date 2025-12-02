@@ -56,7 +56,7 @@ export default function TournamentDetailPage() {
     // Team Dialog
     const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-    const [teamFormData, setTeamFormData] = useState<TeamFormData>({ name: '', coach: '' });
+    const [teamFormData, setTeamFormData] = useState<TeamFormData>({ name: '', coach: '', flagUrl: '' });
     
     // Player Dialog
     const [isPlayerManagementOpen, setIsPlayerManagementOpen] = useState(false);
@@ -118,13 +118,13 @@ export default function TournamentDetailPage() {
     // --- Team Management ---
     const openDialogForNewTeam = () => {
         setEditingTeam(null);
-        setTeamFormData({ name: '', coach: '' });
+        setTeamFormData({ name: '', coach: '', flagUrl: '' });
         setIsTeamDialogOpen(true);
     };
 
     const openDialogForEditTeam = (team: Team) => {
         setEditingTeam(team);
-        setTeamFormData({ name: team.name, coach: team.coach || '' });
+        setTeamFormData({ name: team.name, coach: team.coach || '', flagUrl: team.flagUrl || '' });
         setIsTeamDialogOpen(true);
     };
     
@@ -153,6 +153,7 @@ export default function TournamentDetailPage() {
         const teamData = {
             name: teamFormData.name,
             coach: teamFormData.coach,
+            flagUrl: teamFormData.flagUrl,
             tournamentId: tournamentId,
             points: editingTeam?.points ?? 0,
             played: editingTeam?.played ?? 0,
@@ -291,14 +292,11 @@ export default function TournamentDetailPage() {
                 }
     
                 const allGoalscorers = {...teamAGoals, ...teamBGoals};
-                const playerReads = [];
-                for (const playerId in allGoalscorers) {
-                    if (allGoalscorers[playerId] > 0) {
-                        const playerRef = doc(firestore, 'tournaments', tournamentId, 'players', playerId);
-                        playerReads.push(transaction.get(playerRef));
-                    }
-                }
-                const playerDocs = await Promise.all(playerReads);
+                const playerRefs = Object.keys(allGoalscorers).map(playerId => 
+                    doc(firestore, 'tournaments', tournamentId, 'players', playerId)
+                );
+                const playerDocs = await Promise.all(playerRefs.map(ref => transaction.get(ref)));
+
     
                 // --- 2. WRITES (All writes happen after reads) ---
     
@@ -468,6 +466,7 @@ export default function TournamentDetailPage() {
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="team-name" className="text-right">Nombre</Label><Input id="team-name" value={teamFormData.name} onChange={(e) => setTeamFormData(prev => ({...prev, name: e.target.value}))} className="col-span-3"/></div>
                         <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="team-coach" className="text-right">D.T.</Label><Input id="team-coach" value={teamFormData.coach || ''} onChange={(e) => setTeamFormData(prev => ({...prev, coach: e.target.value}))} className="col-span-3"/></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="team-flag" className="text-right">URL Bandera</Label><Input id="team-flag" value={teamFormData.flagUrl || ''} onChange={(e) => setTeamFormData(prev => ({...prev, flagUrl: e.target.value}))} className="col-span-3"/></div>
                     </div>
                     <DialogFooter><Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)}>Cancelar</Button><Button type="submit" onClick={handleSaveTeam} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</Button></DialogFooter>
                 </DialogContent>
