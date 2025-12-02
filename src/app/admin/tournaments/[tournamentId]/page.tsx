@@ -67,8 +67,6 @@ export default function TournamentDetailPage() {
     // Result Dialog
     const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
     const [editingMatch, setEditingMatch] = useState<Match | null>(null);
-    const [teamAScore, setTeamAScore] = useState("0");
-    const [teamBScore, setTeamBScore] = useState("0");
     const [teamAGoals, setTeamAGoals] = useState<GoalAssignment>({});
     const [teamBGoals, setTeamBGoals] = useState<GoalAssignment>({});
 
@@ -258,8 +256,6 @@ export default function TournamentDetailPage() {
 
     const openResultDialog = (match: Match) => {
         setEditingMatch(match);
-        setTeamAScore(match.teamAScore?.toString() ?? "0");
-        setTeamBScore(match.teamBScore?.toString() ?? "0");
         setTeamAGoals({});
         setTeamBGoals({});
         setIsResultDialogOpen(true);
@@ -273,24 +269,12 @@ export default function TournamentDetailPage() {
         setGoalState(prev => ({ ...prev, [playerId]: newGoals }));
     };
 
+    const teamAScore = useMemo(() => Object.values(teamAGoals).reduce((sum, count) => sum + count, 0), [teamAGoals]);
+    const teamBScore = useMemo(() => Object.values(teamBGoals).reduce((sum, count) => sum + count, 0), [teamBGoals]);
+
     const handleSaveResult = async () => {
         if (!firestore || !editingMatch) return;
-        const scoreA = parseInt(teamAScore, 10);
-        const scoreB = parseInt(teamBScore, 10);
-
-        if (isNaN(scoreA) || isNaN(scoreB)) {
-            toast({ variant: 'destructive', title: 'Resultados inválidos' });
-            return;
-        }
-
-        const teamAGoalsCount = Object.values(teamAGoals).reduce((sum, count) => sum + count, 0);
-        const teamBGoalsCount = Object.values(teamBGoals).reduce((sum, count) => sum + count, 0);
-
-        if (teamAGoalsCount !== scoreA || teamBGoalsCount !== scoreB) {
-            toast({ variant: 'destructive', title: 'Los goles no coinciden', description: 'La suma de goles por jugador debe ser igual al resultado final.'});
-            return;
-        }
-
+        
         setIsSaving(true);
         try {
             await runTransaction(firestore, async (transaction) => {
@@ -302,7 +286,7 @@ export default function TournamentDetailPage() {
                 if (!teamADoc.exists() || !teamBDoc.exists()) throw new Error("Uno o ambos equipos no fueron encontrados.");
 
                 // Update match status
-                transaction.update(matchRef, { teamAScore: scoreA, teamBScore: scoreB, status: 'finished' });
+                transaction.update(matchRef, { teamAScore: teamAScore, teamBScore: teamBScore, status: 'finished' });
 
                 // Update team stats
                 const teamAData = teamADoc.data() as Team;
@@ -310,12 +294,12 @@ export default function TournamentDetailPage() {
                 let { points: pA, won: wA, drawn: dA, lost: lA } = teamAData;
                 let { points: pB, won: wB, drawn: dB, lost: lB } = teamBData;
 
-                if (scoreA > scoreB) { pA += 3; wA += 1; lB += 1; }
-                else if (scoreB > scoreA) { pB += 3; wB += 1; lA += 1; }
+                if (teamAScore > teamBScore) { pA += 3; wA += 1; lB += 1; }
+                else if (teamBScore > teamAScore) { pB += 3; wB += 1; lA += 1; }
                 else { pA += 1; pB += 1; dA += 1; dB += 1; }
                 
-                transaction.update(teamARef, { points: pA, played: teamAData.played + 1, won: wA, drawn: dA, lost: lA, goalsFor: teamAData.goalsFor + scoreA, goalsAgainst: teamAData.goalsAgainst + scoreB });
-                transaction.update(teamBRef, { points: pB, played: teamBData.played + 1, won: wB, drawn: dB, lost: lB, goalsFor: teamBData.goalsFor + scoreB, goalsAgainst: teamBData.goalsAgainst + scoreA });
+                transaction.update(teamARef, { points: pA, played: teamAData.played + 1, won: wA, drawn: dA, lost: lA, goalsFor: teamAData.goalsFor + teamAScore, goalsAgainst: teamAData.goalsAgainst + teamBScore });
+                transaction.update(teamBRef, { points: pB, played: teamBData.played + 1, won: wB, drawn: dB, lost: lB, goalsFor: teamBData.goalsFor + teamBScore, goalsAgainst: teamBData.goalsAgainst + teamAScore });
                 
                 // Update player stats
                 const allGoalscorers = {...teamAGoals, ...teamBGoals};
@@ -488,9 +472,9 @@ export default function TournamentDetailPage() {
                         <div className="grid grid-cols-3 items-center justify-center gap-4 text-center">
                             <h3 className="font-bold text-lg text-right">{getTeamName(editingMatch.teamAId)}</h3>
                             <div className="flex items-center gap-2 justify-center">
-                                <Input type="number" value={teamAScore} onChange={e => setTeamAScore(e.target.value)} className="w-20 h-12 text-2xl text-center"/>
+                                <span className="w-20 h-12 text-2xl text-center font-bold flex items-center justify-center">{teamAScore}</span>
                                 <span className="text-2xl font-bold">-</span>
-                                <Input type="number" value={teamBScore} onChange={e => setTeamBScore(e.target.value)} className="w-20 h-12 text-2xl text-center"/>
+                                <span className="w-20 h-12 text-2xl text-center font-bold flex items-center justify-center">{teamBScore}</span>
                             </div>
                             <h3 className="font-bold text-lg text-left">{getTeamName(editingMatch.teamBId)}</h3>
                         </div>
@@ -510,7 +494,6 @@ export default function TournamentDetailPage() {
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-sm font-bold mt-2 text-right">Total: {Object.values(teamAGoals).reduce((s,c) => s+c, 0)}</p>
                             </div>
                              {/* Team B Scorers */}
                              <div>
@@ -527,7 +510,6 @@ export default function TournamentDetailPage() {
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-sm font-bold mt-2 text-right">Total: {Object.values(teamBGoals).reduce((s,c) => s+c, 0)}</p>
                             </div>
                         </div>
                     </>)}
