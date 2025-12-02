@@ -54,8 +54,10 @@ export default function TournamentDetailPage() {
     const { data: tournament, isLoading: isTournamentLoading } = useDoc<Tournament>(tournamentRef);
 
     const teamsCollectionRef = useMemoFirebase(() => collection(firestore, 'tournaments', tournamentId, 'teams'), [firestore, tournamentId]);
-    const { data: teams, isLoading: areTeamsLoading, setData: setTeams } = useCollection<Team>(teamsCollectionRef);
+    const { data: teamsData, isLoading: areTeamsLoading, setData: setTeams } = useCollection<Team>(teamsCollectionRef);
     
+    const [teams, setTeamsState] = useState<Team[]>([]);
+
     const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
     const [isPlayerDialogOpen, setIsPlayerDialogOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -64,6 +66,12 @@ export default function TournamentDetailPage() {
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
     const [teamFormData, setTeamFormData] = useState<TeamFormData>({ name: '', coach: '' });
     const [playerFormData, setPlayerFormData] = useState<PlayerFormData>({ name: '' });
+
+    useEffect(() => {
+        if (teamsData) {
+            setTeamsState(teamsData);
+        }
+    }, [teamsData]);
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {
@@ -80,7 +88,7 @@ export default function TournamentDetailPage() {
 
     const openDialogForEditTeam = (team: Team) => {
         setEditingTeam(team);
-        setTeamFormData({ name: team.name, coach: team.coach });
+        setTeamFormData({ name: team.name, coach: team.coach || '' });
         setIsTeamDialogOpen(true);
     };
 
@@ -143,7 +151,7 @@ export default function TournamentDetailPage() {
         }
         if (!firestore) return;
         setIsSaving(true);
-    
+
         const playerData = {
             name: playerFormData.name,
             teamId: teamForPlayer.id,
@@ -151,31 +159,25 @@ export default function TournamentDetailPage() {
             yellowCards: 0,
             redCards: 0,
         };
-    
-        const teamRef = doc(firestore, 'tournaments', tournamentId, 'teams', teamForPlayer.id);
-        const playersCollectionRef = collection(teamRef, 'players');
-    
-        // No try/catch block. Let the error boundary handle it.
+
+        const playersCollectionRef = collection(firestore, `tournaments/${tournamentId}/teams/${teamForPlayer.id}/players`);
+
         addDocumentNonBlocking(playersCollectionRef, playerData)
             .then(async (playerDocRef) => {
-                // On success:
                 toast({ title: "¡Jugador agregado!", description: "El nuevo jugador ha sido añadido al equipo." });
                 setIsPlayerDialogOpen(false);
     
-                // Re-fetch players for the specific team to update UI
-                const playersQuery = query(collection(teamRef, 'players'));
-                const playersSnapshot = await getDocs(playersQuery);
-                const updatedPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Player[];
-    
-                // Update local state for teams
-                if (teams && setTeams) {
-                    const newTeams = teams.map(t => t.id === teamForPlayer.id ? { ...t, players: updatedPlayers } : t);
-                    setTeams(newTeams);
-                }
+                const newPlayer = { id: playerDocRef.id, ...playerData };
+
+                setTeamsState(prevTeams => prevTeams.map(t => {
+                    if (t.id === teamForPlayer.id) {
+                        const existingPlayers = t.players || [];
+                        return { ...t, players: [...existingPlayers, newPlayer] };
+                    }
+                    return t;
+                }));
             })
             .catch(() => {
-                // Error is handled by the global error emitter in addDocumentNonBlocking.
-                // We can show a generic toast if we want, but the dev error overlay will appear.
                 toast({ variant: "destructive", title: "Error de Permiso", description: "No se pudo guardar el jugador. Revisa los permisos." });
             })
             .finally(() => {
@@ -317,4 +319,5 @@ export default function TournamentDetailPage() {
             </Dialog>
         </div>
     );
-}
+
+    
