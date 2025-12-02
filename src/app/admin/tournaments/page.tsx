@@ -17,13 +17,12 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
   } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking } from "@/firebase";
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc, deleteDoc, writeBatch, getDocs, Firestore } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -97,7 +96,6 @@ export default function AdminTournamentsPage() {
         setIsDialogOpen(true);
     };
 
-    // Placeholder for future edit functionality
     const openDialogForEdit = (tournament: Tournament) => {
         setEditingTournament(tournament);
         setTournamentName(tournament.name);
@@ -126,19 +124,21 @@ export default function AdminTournamentsPage() {
         if (!firestore) return;
         setIsSaving(true);
 
-        const tournamentData: Omit<Tournament, 'id'> = {
+        const tournamentData = {
             name: tournamentName,
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
-            teamIds: editingTournament?.teamIds || [],
         };
         
         try {
             if (editingTournament) {
-                // Update functionality to be implemented
-                toast({ title: "Próximamente", description: "La edición de torneos estará disponible pronto." });
+                const tournamentRef = doc(firestore, 'tournaments', editingTournament.id);
+                setDocumentNonBlocking(tournamentRef, tournamentData, { merge: true });
+                toast({ title: "¡Torneo actualizado!", description: "Los cambios se han guardado correctamente." });
+
             } else {
-                await addDocumentNonBlocking(collection(firestore, 'tournaments'), tournamentData);
+                const newTournamentData = { ...tournamentData, teamIds: [] };
+                await addDocumentNonBlocking(collection(firestore, 'tournaments'), newTournamentData);
                 toast({ title: "¡Torneo creado!", description: "El nuevo torneo ha sido creado con éxito." });
             }
             setIsDialogOpen(false);
@@ -193,7 +193,7 @@ export default function AdminTournamentsPage() {
                                         <Button variant="outline" size="sm" disabled>
                                             <ArrowRight className="mr-2 h-4 w-4" /> Ver Detalles
                                         </Button>
-                                        <Button variant="outline" size="icon" onClick={() => openDialogForEdit(tournament)} disabled>
+                                        <Button variant="outline" size="icon" onClick={() => openDialogForEdit(tournament)}>
                                             <Edit className="h-4 w-4" />
                                         </Button>
                                         <Button variant="destructive" size="icon" onClick={() => handleDeleteTournament(tournament.id)}>
@@ -278,7 +278,7 @@ export default function AdminTournamentsPage() {
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                         <Button type="submit" onClick={handleSaveChanges} disabled={isSaving}>
-                            {isSaving ? 'Guardando...' : 'Guardar Torneo'}
+                            {isSaving ? 'Guardando...' : 'Guardar'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
