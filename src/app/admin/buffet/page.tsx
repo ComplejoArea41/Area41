@@ -18,45 +18,17 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
   } from "@/components/ui/dialog"
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
-import { collection, doc, writeBatch, getDocs, Firestore, deleteDoc } from "firebase/firestore";
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { MenuItem } from "@/lib/types";
-import { Trash2, Edit, PlusCircle } from "lucide-react";
+import { Trash2, Edit, PlusCircle, Utensils } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { placeholderImages } from "@/lib/placeholder-images.json";
 import Image from "next/image";
-
-const initialMenuItems: Omit<MenuItem, 'id'>[] = [
-    { name: "Sándwich de Hamburguesa", description: "Carne, queso, lechuga, tomate, jamón y huevo", price: 8500, type: "Comida", imageUrl: "https://images.unsplash.com/photo-1551992445-d3a95da43f57?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoYW1idXJnZXIlMjBzYW5kd2ljaHxlbnwwfHx8fDE3NjQ2MjM3MjN8MA&ixlib=rb-4.1.0&q=80&w=1080" },
-    { name: "Pizza Muzzarella", description: "Salsa de tomate, muzzarella y aceitunas", price: 12000, type: "Comida", imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtb3p6YXJlbGxhJTIwcGl6emF8ZW58MHx8fHwxNzY0NjIzNzIzfDA&ixlib=rb-4.1.0&q=80&w=1080" },
-    { name: "Sándwich de bondiola", description: "Sándwich de bondiola de cerdo a la parrilla con chimichurri", price: 9500, type: "Comida", imageUrl: "https://www.lanacion.com.ar/resizer/v2/sanguchito-de-bondiola-con-tomates-confitados-y-MTR4F5HIWFFLTMEOHMPBMTOQVA.jpg?auth=55efa35d6b0f787395440ecfd8b8e0fcc87bd1f19cf0d8985d7a587afc4ee9ae&width=880&height=586&quality=70&smart=true" },
-    { name: "Papas fritas en cono", description: "Porción de papas fritas en cono", price: 4000, type: "Comida", imageUrl: "https://foodit.lanacion.com.ar/resizer/v2/-OOYKN3HEDJFQXF3SOECAICFQWQ.jpg?auth=0f40a359db815154c30b0a689942817b35c4526464fff89970d39e1a625914d9&width=880&height=586&quality=70&smart=true" },
-    { name: "Gaseosa 500ml", description: "Línea Coca-Cola o Pepsi", price: 2500, type: "Bebida", imageUrl: "https://images.unsplash.com/photo-1696739696228-eee49592ff07?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzb2RhJTIwY2FufGVufDB8fHx8MTc2NDQ1MDc0M3ww&ixlib=rb-4.1.0&q=80&w=1080" },
-    { name: "Agua Mineral 500ml", description: "Agua sin gas o gasificada", price: 2000, type: "Bebida", imageUrl: "https://images.unsplash.com/photo-1523362628745-0c100150b504?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3YXRlciUyMGJvdHRsZXxlbnwwfHx8fDE3NjQ0OTQ5NDd8MA&ixlib=rb-4.1.0&q=80&w=1080" },
-    { name: "Cerveza en lata", description: "Quilmes, Stella Artois, Andes", price: 3500, type: "Bebida", imageUrl: "https://images.unsplash.com/photo-1559019736-dcf2caefe954?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxiZWVyJTIwY2FufGVufDB8fHx8MTc2NDU1NDQxOHww&ixlib=rb-4.1.0&q=80&w=1080" },
-];
-
-async function seedInitialMenuItems(firestore: Firestore) {
-    const menuItemsCollectionRef = collection(firestore, 'menu_items');
-    const snapshot = await getDocs(menuItemsCollectionRef);
-    if (snapshot.empty) {
-        console.log("No menu items found, seeding initial data...");
-        const batch = writeBatch(firestore);
-        initialMenuItems.forEach(item => {
-            const docRef = doc(menuItemsCollectionRef); // Create a new doc with a generated ID
-            batch.set(docRef, item);
-        });
-        await batch.commit();
-        console.log("Initial menu items seeded successfully.");
-    }
-}
-
 
 type FormData = Omit<MenuItem, 'id'>;
 
@@ -76,13 +48,6 @@ export default function AdminBuffetPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
     const [formData, setFormData] = useState<FormData>({ name: '', description: '', price: 0, type: 'Comida', imageUrl: '' });
-
-
-    useEffect(() => {
-        if (firestore) {
-            seedInitialMenuItems(firestore).catch(console.error);
-        }
-    }, [firestore]);
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {
@@ -116,7 +81,7 @@ export default function AdminBuffetPage() {
         if (!firestore) return;
         const itemRef = doc(firestore, 'menu_items', itemId);
         try {
-            await deleteDoc(itemRef);
+            await deleteDocumentNonBlocking(itemRef);
             toast({ title: "¡Artículo eliminado!", description: "El artículo ha sido eliminado correctamente." });
         } catch (error) {
             console.error("Error deleting item: ", error);
@@ -128,11 +93,11 @@ export default function AdminBuffetPage() {
         if (!firestore) return;
         setIsSaving(true);
         try {
-            if (editingItem) { // Update existing item
+            if (editingItem) { 
                 const itemRef = doc(firestore, 'menu_items', editingItem.id);
                 setDocumentNonBlocking(itemRef, formData, { merge: true });
                 toast({ title: "¡Artículo actualizado!", description: "Los cambios se han guardado." });
-            } else { // Add new item
+            } else { 
                 const collectionRef = collection(firestore, 'menu_items');
                 await addDocumentNonBlocking(collectionRef, formData);
                 toast({ title: "¡Artículo agregado!", description: "El nuevo artículo ya está en el menú." });
@@ -145,7 +110,6 @@ export default function AdminBuffetPage() {
             setIsSaving(false);
         }
     };
-    
 
     const isLoading = isUserLoading || isProfileLoading || areMenuItemsLoading;
     
@@ -162,7 +126,7 @@ export default function AdminBuffetPage() {
 
     const renderMenuItem = (item: MenuItem) => (
         <Card key={item.id} className="bg-card/60 flex flex-col overflow-hidden">
-            {item.imageUrl && (
+             {item.imageUrl && (
                 <div className="aspect-video relative">
                     <Image
                         src={item.imageUrl}
@@ -190,6 +154,13 @@ export default function AdminBuffetPage() {
         </Card>
     );
 
+    const renderEmptyState = (category: string) => (
+        <div className="text-center py-16 text-muted-foreground col-span-full">
+            <Utensils className="mx-auto h-12 w-12" />
+            <p className="mt-4">No hay {category} todavía. ¡Añade la primera!</p>
+        </div>
+    );
+
     return (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
             <Card className="bg-card/80 backdrop-blur-sm w-full max-w-7xl">
@@ -208,13 +179,13 @@ export default function AdminBuffetPage() {
                     <div>
                         <h3 className="text-2xl font-bold mb-4">Comidas</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {foodItems.map(renderMenuItem)}
+                            {foodItems.length > 0 ? foodItems.map(renderMenuItem) : renderEmptyState('comidas')}
                         </div>
                     </div>
                     <div>
                         <h3 className="text-2xl font-bold mb-4">Bebidas</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {drinkItems.map(renderMenuItem)}
+                            {drinkItems.length > 0 ? drinkItems.map(renderMenuItem) : renderEmptyState('bebidas')}
                         </div>
                     </div>
                 </CardContent>
