@@ -90,6 +90,10 @@ export default function ProfilePage() {
 
   const handleSaveChanges = () => {
     if (!userRef || !user) return;
+    
+    // Prevent multiple clicks
+    if (isSaving) return;
+
     setIsSaving(true);
       
     const updatedProfileData = {
@@ -103,14 +107,18 @@ export default function ProfilePage() {
     try {
         setDocumentNonBlocking(userRef, updatedProfileData, { merge: true });
         toast({
-          title: '¡Éxito!',
-          description: 'Tu perfil ha sido actualizado. Los cambios pueden tardar unos segundos en reflejarse.',
+          title: '¡Perfil actualizado!',
+          description: 'Serás redirigido a la página de reservas.',
         });
+
+        // Redirect after a short delay to allow the user to read the toast
+        setTimeout(() => {
+            router.push('/reservations');
+        }, 1500);
+
     } catch (error) {
-        // The error is already being emitted globally by setDocumentNonBlocking
-        // We could add a toast here if we wanted, but the global handler should catch it.
-    } finally {
-        setTimeout(() => setIsSaving(false), 1000); // Give some visual feedback
+        // Error is emitted globally, but we can stop the saving state here
+        setIsSaving(false);
     }
   };
 
