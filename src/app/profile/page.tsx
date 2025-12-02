@@ -34,8 +34,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useCollection, useDoc, useFirestore, useUser, errorEmitter, FirestorePermissionError, setDocumentNonBlocking } from '@/firebase';
-import { collection, deleteDoc, doc, query, setDoc, where, getDocs } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useUser, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Reservation, Court } from '@/lib/types';
@@ -118,20 +118,12 @@ export default function ProfilePage() {
     if (!firestore) return;
     const reservationRef = doc(firestore, 'reservations', reservationId);
     
-    deleteDoc(reservationRef)
-        .then(() => {
-            toast({
-                title: '¡Reserva Cancelada!',
-                description: 'La reserva ha sido cancelada con éxito.',
-            });
-        })
-        .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-                path: reservationRef.path,
-                operation: 'delete',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+    deleteDocumentNonBlocking(reservationRef);
+    
+    toast({
+        title: '¡Reserva Cancelada!',
+        description: 'La reserva ha sido cancelada con éxito. El cambio se reflejará en breve.',
+    });
   };
 
   const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');
