@@ -88,16 +88,24 @@ export default function ReservationPage() {
   const selectedCourtId = form.watch("courtId");
   const selectedTimes = form.watch("times");
 
+  const [dateForQuery, setDateForQuery] = useState(startOfDay(new Date()));
+
+  useEffect(() => {
+    if (selectedDate) {
+      setDateForQuery(startOfDay(selectedDate));
+    }
+  }, [selectedDate]);
+
   const reservationsQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedDate || isUserLoading || !user) return null;
-    const start = startOfDay(selectedDate);
+    if (!firestore || !dateForQuery || isUserLoading || !user) return null;
+    const start = dateForQuery;
     const end = addDays(start, 1);
     return query(
       collection(firestore, 'reservations'),
       where('reservationDateTime', '>=', Timestamp.fromDate(start)),
       where('reservationDateTime', '<', Timestamp.fromDate(end))
     );
-  }, [firestore, selectedDate, user, isUserLoading]);
+  }, [firestore, dateForQuery, user, isUserLoading]);
 
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
 
@@ -439,3 +447,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
