@@ -75,6 +75,7 @@ export interface Match {
     teamBScore: number | null;
     date: string; // ISO 8601 format
     status: 'pending' | 'finished';
+    phase?: string; // e.g., "Final Copa de Oro", "Semi Final"
 }
 
 

@@ -67,6 +67,7 @@ export default function TournamentDetailPage() {
     // Result Dialog
     const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
     const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+    const [matchPhase, setMatchPhase] = useState('');
     const [teamAGoals, setTeamAGoals] = useState<GoalAssignment>({});
     const [teamBGoals, setTeamBGoals] = useState<GoalAssignment>({});
 
@@ -242,6 +243,7 @@ export default function TournamentDetailPage() {
                         teamBScore: null,
                         date: match.date,
                         status: 'pending',
+                        phase: 'Fase de Grupos'
                     } as Omit<Match, 'id'>);
                 });
                 await batch.commit();
@@ -259,6 +261,7 @@ export default function TournamentDetailPage() {
         setEditingMatch(match);
         setTeamAGoals({});
         setTeamBGoals({});
+        setMatchPhase(match.phase || '');
         setIsResultDialogOpen(true);
     };
 
@@ -301,7 +304,7 @@ export default function TournamentDetailPage() {
                 // --- 2. WRITES (All writes happen after reads) ---
     
                 // Update match status
-                transaction.update(matchRef, { teamAScore: teamAScore, teamBScore: teamBScore, status: 'finished' });
+                transaction.update(matchRef, { teamAScore: teamAScore, teamBScore: teamBScore, status: 'finished', phase: matchPhase });
     
                 // Update team stats
                 const teamAData = teamADoc.data() as Team;
@@ -494,7 +497,7 @@ export default function TournamentDetailPage() {
                             </div>
                             <h3 className="font-bold text-lg text-left">{getTeamName(editingMatch.teamBId)}</h3>
                         </div>
-                        <div className="grid grid-cols-2 gap-8 pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                             {/* Team A Scorers */}
                             <div>
                                 <h4 className="font-semibold mb-2">Goleadores - {getTeamName(editingMatch.teamAId)}</h4>
@@ -527,6 +530,10 @@ export default function TournamentDetailPage() {
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                         <div className="grid grid-cols-4 items-center gap-4 pt-4">
+                            <Label htmlFor="match-phase" className="text-right">Fase</Label>
+                            <Input id="match-phase" value={matchPhase} onChange={(e) => setMatchPhase(e.target.value)} className="col-span-3" placeholder="Ej: Final Copa de Oro"/>
                         </div>
                     </>)}
                     <DialogFooter>

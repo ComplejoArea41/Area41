@@ -315,6 +315,10 @@
             "finished"
           ],
           "description": "Status of the match."
+        },
+        "phase": {
+          "type": "string",
+          "description": "The phase of the tournament this match belongs to (e.g., 'Final Copa de Oro')."
         }
       },
       "required": [

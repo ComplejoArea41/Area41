@@ -2,11 +2,24 @@
 'use client';
 
 import Header from "./header";
+import { usePathname } from 'next/navigation';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  const isTournamentPublicPage = /^\/tournaments\/[^/]+$/.test(pathname);
+  const isLoginPage = pathname === '/login';
+
+  if (isTournamentPublicPage || isLoginPage) {
+    return (
+        <div className="flex min-h-screen w-full flex-col bg-transparent relative">
+            {children}
+        </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-transparent relative">
-      {/* The main content is now responsible for its own background */}
       <Header />
       <div className="flex flex-1 flex-col">
         {children}
@@ -17,5 +30,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     </div>
   );
 }
-
-    
