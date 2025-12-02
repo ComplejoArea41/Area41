@@ -245,6 +245,10 @@
           "type": "string",
           "description": "ID of the team the player belongs to."
         },
+        "tournamentId": {
+          "type": "string",
+          "description": "ID of the tournament the player belongs to."
+        },
         "goals": {
           "type": "number",
           "description": "Goals scored by the player."
@@ -261,7 +265,8 @@
       "required": [
         "id",
         "name",
-        "teamId"
+        "teamId",
+        "tournamentId"
       ]
     },
     "Match": {
@@ -316,6 +321,18 @@
         "date",
         "status"
       ]
+    },
+    "BackgroundImage": {
+      "title": "BackgroundImage",
+      "type": "object",
+      "description": "Represents a background image for the application.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the background image." },
+        "name": { "type": "string", "description": "Name or title of the image." },
+        "imageUrl": { "type": "string", "description": "URL of the image." },
+        "isActive": { "type": "boolean", "description": "Indicates if the image is the active background." }
+      },
+      "required": ["id", "name", "imageUrl", "isActive"]
     }
   },
   "auth": {
@@ -366,6 +383,16 @@
           "description": "Stores the menu items offered by the buffet."
         }
       },
+       {
+        "path": "/background_images/{imageId}",
+        "definition": {
+          "entityName": "BackgroundImage",
+          "schema": {
+            "$ref": "#/backend/entities/BackgroundImage"
+          },
+          "description": "Stores background images for the application."
+        }
+      },
       {
         "path": "/tournaments/{tournamentId}",
         "definition": {
@@ -387,13 +414,13 @@
         }
       },
       {
-        "path": "/tournaments/{tournamentId}/teams/{teamId}/players/{playerId}",
+        "path": "/tournaments/{tournamentId}/players/{playerId}",
         "definition": {
           "entityName": "Player",
           "schema": {
             "$ref": "#/backend/entities/Player"
           },
-          "description": "Stores player information for a specific team within a tournament."
+          "description": "Stores player information for a specific tournament. Players are queried by teamId."
         }
       },
       {

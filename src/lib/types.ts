@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   firstName: string;
@@ -60,6 +61,7 @@ export interface Player {
     id: string;
     name: string;
     teamId: string;
+    tournamentId: string;
     goals: number;
     yellowCards: number;
     redCards: number;
@@ -82,5 +84,12 @@ export interface RecentMember {
     name: string;
     email: string;
     avatarId: string;
+}
+
+export interface BackgroundImage {
+    id: string;
+    name: string;
+    imageUrl: string;
+    isActive: boolean;
 }
     

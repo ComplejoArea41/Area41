@@ -4,7 +4,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 2.3.0
+ * @version 2.4.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -111,6 +111,14 @@ service cloud.firestore {
         allow get, list: if true;
         allow write: if isAdmin();
     }
+    
+    /**
+     * @description Rules for Background Images. Publicly readable, admin-managed.
+     */
+    match /background_images/{imageId} {
+        allow get, list: if true;
+        allow write: if isAdmin();
+    }
 
 
     // -------------------------------------------------------------------------
@@ -130,14 +138,14 @@ service cloud.firestore {
         match /teams/{teamId} {
             allow get, list: if true;
             allow write: if isAdmin();
+        }
 
-             /**
-             * @description Rules for Players within a team.
-             */
-            match /players/{playerId} {
-                allow get, list: if true;
-                allow write: if isAdmin();
-            }
+        /**
+         * @description Rules for Players within a tournament.
+         */
+        match /players/{playerId} {
+            allow get, list: if true;
+            allow write: if isAdmin();
         }
         
         /**
