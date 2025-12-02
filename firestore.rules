@@ -4,7 +4,7 @@
  * @file firestore.rules
  * @description Security rules for the "Complejo deportivo Area41" Firestore database.
  *
- * @version 2.2.0
+ * @version 2.3.0
  *
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
@@ -15,6 +15,7 @@
  *   - Users can only create reservations for themselves.
  *   - Any authenticated user can LIST reservations to check for availability.
  *   - Users can only GET, UPDATE, or DELETE their own reservations.
+ * - Tournament Data: Tournament data (teams, matches, players) is publicly readable but only managed by admins.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -92,7 +93,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // Public, Read-Only Collections
+    // Public Read / Admin Write Collections
     // -------------------------------------------------------------------------
 
     /**
@@ -100,7 +101,7 @@ service cloud.firestore {
      */
     match /courts/{courtId} {
         allow get, list: if true;
-        allow create, update, delete: if isAdmin();
+        allow write: if isAdmin();
     }
 
     /**
@@ -108,31 +109,44 @@ service cloud.firestore {
      */
     match /menu_items/{menuItemId} {
         allow get, list: if true;
-        allow create, update, delete: if isAdmin();
+        allow write: if isAdmin();
     }
 
+
+    // -------------------------------------------------------------------------
+    // Tournament Data (Nested Structure)
+    // -------------------------------------------------------------------------
+    
     /**
-     * @description Rules for Tournaments. Publicly readable, admin-managed.
+     * @description Rules for Tournaments and their nested data. Publicly readable, admin-managed.
      */
     match /tournaments/{tournamentId} {
         allow get, list: if true;
         allow create, update, delete: if isAdmin();
-    }
 
-    /**
-     * @description Rules for Teams. Publicly readable, admin-managed.
-     */
-    match /teams/{teamId} {
-        allow get, list: if true;
-        allow create, update, delete: if isAdmin();
-    }
-    
-    /**
-     * @description Rules for Background Images. Publicly readable, admin-managed.
-     */
-    match /background_images/{imageId} {
-        allow get, list: if true;
-        allow create, update, delete: if isAdmin();
+        /**
+         * @description Rules for Teams within a tournament.
+         */
+        match /teams/{teamId} {
+            allow get, list: if true;
+            allow write: if isAdmin();
+        }
+
+        /**
+         * @description Rules for Players within a tournament.
+         */
+        match /players/{playerId} {
+            allow get, list: if true;
+            allow write: if isAdmin();
+        }
+
+        /**
+         * @description Rules for Matches within a tournament.
+         */
+        match /matches/{matchId} {
+            allow get, list: if true;
+            allow write: if isAdmin();
+        }
     }
 
 
@@ -158,5 +172,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
