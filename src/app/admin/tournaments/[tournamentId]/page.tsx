@@ -281,19 +281,36 @@ export default function TournamentDetailPage() {
                 const matchRef = doc(firestore, 'tournaments', tournamentId, 'matches', editingMatch.id);
                 const teamARef = doc(firestore, 'tournaments', tournamentId, 'teams', editingMatch.teamAId);
                 const teamBRef = doc(firestore, 'tournaments', tournamentId, 'teams', editingMatch.teamBId);
-
-                const [teamADoc, teamBDoc] = await Promise.all([transaction.get(teamARef), transaction.get(teamBRef)]);
-                if (!teamADoc.exists() || !teamBDoc.exists()) throw new Error("Uno o ambos equipos no fueron encontrados.");
-
+                
+                // --- 1. READS (All reads must happen before writes) ---
+                const teamADoc = await transaction.get(teamARef);
+                const teamBDoc = await transaction.get(teamBRef);
+    
+                if (!teamADoc.exists() || !teamBDoc.exists()) {
+                    throw new Error("Uno o ambos equipos no fueron encontrados.");
+                }
+    
+                const allGoalscorers = {...teamAGoals, ...teamBGoals};
+                const playerReads = [];
+                for (const playerId in allGoalscorers) {
+                    if (allGoalscorers[playerId] > 0) {
+                        const playerRef = doc(firestore, 'tournaments', tournamentId, 'players', playerId);
+                        playerReads.push(transaction.get(playerRef));
+                    }
+                }
+                const playerDocs = await Promise.all(playerReads);
+    
+                // --- 2. WRITES (All writes happen after reads) ---
+    
                 // Update match status
                 transaction.update(matchRef, { teamAScore: teamAScore, teamBScore: teamBScore, status: 'finished' });
-
+    
                 // Update team stats
                 const teamAData = teamADoc.data() as Team;
                 const teamBData = teamBDoc.data() as Team;
                 let { points: pA, won: wA, drawn: dA, lost: lA } = teamAData;
                 let { points: pB, won: wB, drawn: dB, lost: lB } = teamBData;
-
+    
                 if (teamAScore > teamBScore) { pA += 3; wA += 1; lB += 1; }
                 else if (teamBScore > teamAScore) { pB += 3; wB += 1; lA += 1; }
                 else { pA += 1; pB += 1; dA += 1; dB += 1; }
@@ -302,25 +319,25 @@ export default function TournamentDetailPage() {
                 transaction.update(teamBRef, { points: pB, played: teamBData.played + 1, won: wB, drawn: dB, lost: lB, goalsFor: teamBData.goalsFor + teamBScore, goalsAgainst: teamBData.goalsAgainst + teamAScore });
                 
                 // Update player stats
-                const allGoalscorers = {...teamAGoals, ...teamBGoals};
-                for (const playerId in allGoalscorers) {
-                    const goalsScored = allGoalscorers[playerId];
-                    if (goalsScored > 0) {
-                        const playerRef = doc(firestore, 'tournaments', tournamentId, 'players', playerId);
-                        const playerDoc = await transaction.get(playerRef);
-                        if (playerDoc.exists()) {
+                playerDocs.forEach(playerDoc => {
+                    if (playerDoc.exists()) {
+                        const goalsScored = allGoalscorers[playerDoc.id];
+                        if (goalsScored > 0) {
                             const currentGoals = playerDoc.data().goals || 0;
-                            transaction.update(playerRef, { goals: currentGoals + goalsScored });
+                            transaction.update(playerDoc.ref, { goals: currentGoals + goalsScored });
                         }
                     }
-                }
+                });
             });
+    
             toast({ title: '¡Resultado guardado!', description: 'La tabla de posiciones y goleadores se ha actualizado.' });
             setIsResultDialogOpen(false);
         } catch (error) {
             console.error("Error saving match result: ", error);
             toast({ variant: 'destructive', title: 'Error al guardar', description: (error as Error).message });
-        } finally { setIsSaving(false); }
+        } finally {
+            setIsSaving(false);
+        }
     };
     
     const isLoadingPage = isUserLoading || isProfileLoading || isTournamentLoading;
