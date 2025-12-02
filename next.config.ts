@@ -45,6 +45,12 @@ const nextConfig: NextConfig = {
         hostname: 'foodit.lanacion.com.ar',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
