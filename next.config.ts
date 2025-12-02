@@ -58,6 +58,12 @@ const nextConfig: NextConfig = {
         hostname: 'www.delabahia.com.ar',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.freepik.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
