@@ -116,7 +116,6 @@ export default function TournamentDetailPage() {
                     name: teamFormData.name,
                     coach: teamFormData.coach,
                     tournamentId: tournamentId,
-                    players: [],
                     points: 0,
                     played: 0,
                     won: 0,
@@ -144,7 +143,7 @@ export default function TournamentDetailPage() {
         }
         if (!firestore) return;
         setIsSaving(true);
-
+    
         const playerData = {
             name: playerFormData.name,
             teamId: teamForPlayer.id,
@@ -152,31 +151,36 @@ export default function TournamentDetailPage() {
             yellowCards: 0,
             redCards: 0,
         };
-        
+    
         const teamRef = doc(firestore, 'tournaments', tournamentId, 'teams', teamForPlayer.id);
-
-        try {
-            await addDocumentNonBlocking(collection(teamRef, 'players'), playerData);
-            
-            // Re-fetch players for the specific team to update UI
-            const playersQuery = query(collection(teamRef, 'players'));
-            const playersSnapshot = await getDocs(playersQuery);
-            const updatedPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Player[];
-
-            // Update local state for teams
-            if (teams && setTeams) {
-                const newTeams = teams.map(t => t.id === teamForPlayer.id ? { ...t, players: updatedPlayers } : t);
-                setTeams(newTeams);
-            }
-
-            toast({ title: "¡Jugador agregado!", description: "El nuevo jugador ha sido añadido al equipo." });
-            setIsPlayerDialogOpen(false);
-        } catch (error) {
-            console.error("Error saving player: ", error);
-            toast({ variant: "destructive", title: "Error al guardar", description: "No se pudo guardar el jugador." });
-        } finally {
-            setIsSaving(false);
-        }
+        const playersCollectionRef = collection(teamRef, 'players');
+    
+        // No try/catch block. Let the error boundary handle it.
+        addDocumentNonBlocking(playersCollectionRef, playerData)
+            .then(async (playerDocRef) => {
+                // On success:
+                toast({ title: "¡Jugador agregado!", description: "El nuevo jugador ha sido añadido al equipo." });
+                setIsPlayerDialogOpen(false);
+    
+                // Re-fetch players for the specific team to update UI
+                const playersQuery = query(collection(teamRef, 'players'));
+                const playersSnapshot = await getDocs(playersQuery);
+                const updatedPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Player[];
+    
+                // Update local state for teams
+                if (teams && setTeams) {
+                    const newTeams = teams.map(t => t.id === teamForPlayer.id ? { ...t, players: updatedPlayers } : t);
+                    setTeams(newTeams);
+                }
+            })
+            .catch(() => {
+                // Error is handled by the global error emitter in addDocumentNonBlocking.
+                // We can show a generic toast if we want, but the dev error overlay will appear.
+                toast({ variant: "destructive", title: "Error de Permiso", description: "No se pudo guardar el jugador. Revisa los permisos." });
+            })
+            .finally(() => {
+                setIsSaving(false);
+            });
     };
     
     const isLoading = isUserLoading || isProfileLoading || isTournamentLoading;
