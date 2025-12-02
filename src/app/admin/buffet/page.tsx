@@ -30,6 +30,7 @@ import { Trash2, Edit, PlusCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { placeholderImages } from "@/lib/placeholder-images.json";
+import Image from "next/image";
 
 const initialMenuItems: Omit<MenuItem, 'id'>[] = [
     { name: "Sándwich de Hamburguesa", description: "Carne, queso, lechuga, tomate, jamón y huevo", price: 8500, type: "Comida", imageUrl: "https://images.unsplash.com/photo-1551992445-d3a95da43f57?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoYW1idXJnZXIlMjBzYW5kd2ljaHxlbnwwfHx8fDE3NjQ2MjM3MjN8MA&ixlib=rb-4.1.0&q=80&w=1080" },
@@ -160,28 +161,38 @@ export default function AdminBuffetPage() {
     const drinkItems = menuItems?.filter(item => item.type === 'Bebida') || [];
 
     const renderMenuItem = (item: MenuItem) => (
-        <Card key={item.id} className="bg-card/60">
-            <CardHeader>
-                <CardTitle className="truncate">{item.name}</CardTitle>
-                <CardDescription className="truncate">{item.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-lg font-bold">${item.price.toLocaleString('es-AR')}</p>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)}>
-                    <Trash2 className="h-4 w-4" />
-                </Button>
-            </CardFooter>
+        <Card key={item.id} className="bg-card/60 flex flex-col overflow-hidden">
+            {item.imageUrl && (
+                <div className="aspect-video relative">
+                    <Image
+                        src={item.imageUrl}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                    />
+                </div>
+            )}
+            <div className="p-4 flex flex-col flex-1">
+                <div className="flex-1">
+                    <CardTitle className="truncate text-xl">{item.name}</CardTitle>
+                    <CardDescription className="truncate text-sm mt-1">{item.description}</CardDescription>
+                    <p className="text-lg font-bold mt-2">${item.price.toLocaleString('es-AR')}</p>
+                </div>
+                <CardFooter className="p-0 pt-4 flex justify-end gap-2">
+                    <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)}>
+                        <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </CardFooter>
+            </div>
         </Card>
     );
 
     return (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-5xl">
+            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-7xl">
                 <CardHeader className="flex-row items-center justify-between">
                     <div>
                         <CardTitle>Gestionar Menú del Buffet</CardTitle>
@@ -196,13 +207,13 @@ export default function AdminBuffetPage() {
                 <CardContent className="space-y-8">
                     <div>
                         <h3 className="text-2xl font-bold mb-4">Comidas</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {foodItems.map(renderMenuItem)}
                         </div>
                     </div>
                     <div>
                         <h3 className="text-2xl font-bold mb-4">Bebidas</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {drinkItems.map(renderMenuItem)}
                         </div>
                     </div>
@@ -258,5 +269,3 @@ export default function AdminBuffetPage() {
         </div>
     );
 }
-
-    
