@@ -29,6 +29,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -304,6 +305,18 @@ export default function ReservationPage() {
     setIsDialogOpen(false); 
   }
 
+  const handleConfirmClick = async (event: React.MouseEvent) => {
+    const isValid = await form.trigger();
+    if (!isValid) {
+      event.preventDefault();
+      toast({
+        title: 'Formulario incompleto',
+        description: 'Por favor, selecciona una cancha y al menos un horario.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
   const courtsForType = useMemo(() => {
@@ -478,15 +491,11 @@ export default function ReservationPage() {
                 </div>
 
                 <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <Button type="button" className="w-full mt-8" disabled={!form.formState.isValid} onClick={() => {
-                        form.trigger().then((isValid) => {
-                            if (isValid) {
-                                setIsDialogOpen(true);
-                            }
-                        });
-                    }}>
-                      Confirmar Reserva
-                  </Button>
+                    <AlertDialogTrigger asChild>
+                        <Button type="button" className="w-full mt-8" onClick={handleConfirmClick} disabled={!form.formState.isValid}>
+                            Confirmar Reserva
+                        </Button>
+                    </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
