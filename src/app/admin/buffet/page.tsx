@@ -107,7 +107,7 @@ export default function AdminBuffetPage() {
 
     const openDialogForEdit = (item: MenuItem) => {
         setEditingItem(item);
-        setFormData({ name: item.name, description: item.description, price: item.price, type: item.type, imageUrl: item.imageUrl });
+        setFormData({ name: item.name, description: item.description, price: item.price, type: item.type, imageUrl: item.imageUrl || '' });
         setIsDialogOpen(true);
     };
 
@@ -258,3 +258,5 @@ export default function AdminBuffetPage() {
         </div>
     );
 }
+
+    
