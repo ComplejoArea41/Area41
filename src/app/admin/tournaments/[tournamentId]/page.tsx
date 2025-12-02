@@ -7,6 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,12 +29,13 @@ import {
     TableRow,
   } from "@/components/ui/table";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, query, where } from "firebase/firestore";
+import { collection, doc, query, where, writeBatch } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { Tournament, Team, Player } from "@/lib/types";
-import { PlusCircle, Trash2, Edit, Trophy, Users, UserPlus, Eye } from "lucide-react";
+import type { Tournament, Team, Player, Match } from "@/lib/types";
+import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, Bot, ShieldCheck } from "lucide-react";
+import { generateFixtures } from '@/ai/flows/generate-fixtures-flow';
 
 type TeamFormData = Omit<Team, 'id' | 'tournamentId' | 'players' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst'>;
 type PlayerFormData = Omit<Player, 'id' | 'teamId' | 'tournamentId' | 'goals' | 'yellowCards' | 'redCards'>;
@@ -51,11 +53,12 @@ export default function TournamentDetailPage() {
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
     const [teamFormData, setTeamFormData] = useState<TeamFormData>({ name: '', coach: '' });
     
-    // State for player management dialog
     const [isPlayerManagementOpen, setIsPlayerManagementOpen] = useState(false);
     const [managingPlayersOfTeam, setManagingPlayersOfTeam] = useState<Team | null>(null);
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
     const [playerFormData, setPlayerFormData] = useState<PlayerFormData>({ name: '' });
+    
+    const [isFixtureGenerationRunning, setIsFixtureGenerationRunning] = useState(false);
 
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
@@ -69,6 +72,11 @@ export default function TournamentDetailPage() {
     
     const playersQuery = useMemoFirebase(() => query(collection(firestore, 'tournaments', tournamentId, 'players'), where('teamId', '==', managingPlayersOfTeam?.id ?? ' ')), [firestore, tournamentId, managingPlayersOfTeam]);
     const { data: teamPlayers, isLoading: arePlayersLoading } = useCollection<Player>(playersQuery);
+
+    const matchesCollectionRef = useMemoFirebase(() => collection(firestore, 'tournaments', tournamentId, 'matches'), [firestore, tournamentId]);
+    const { data: matches, isLoading: areMatchesLoading } = useCollection<Match>(matchesCollectionRef);
+    
+    const getTeamName = (teamId: string) => teams?.find(t => t.id === teamId)?.name || 'Equipo Desconocido';
 
 
     useEffect(() => {
@@ -136,7 +144,6 @@ export default function TournamentDetailPage() {
         }
     };
     
-    // Player Management Functions
     const openPlayerManager = (team: Team) => {
         setManagingPlayersOfTeam(team);
         setIsPlayerManagementOpen(true);
@@ -147,6 +154,73 @@ export default function TournamentDetailPage() {
         setPlayerFormData({ name: '' });
     };
 
+
+    const handleGenerateFixtures = async () => {
+        if (!teams || teams.length < 2) {
+            toast({
+                variant: 'destructive',
+                title: 'Equipos insuficientes',
+                description: 'Se necesitan al menos 2 equipos para generar un fixture.',
+            });
+            return;
+        }
+        setIsFixtureGenerationRunning(true);
+        toast({
+            title: 'Generando Fixture...',
+            description: 'La IA está creando el calendario de partidos. Esto puede tardar un momento.'
+        });
+
+        try {
+            const teamIds = teams.map(t => t.id);
+            const result = await generateFixtures({
+                teamIds,
+                tournamentId,
+                format: 'round-robin',
+            });
+
+            if (result.matches && result.matches.length > 0) {
+                const batch = writeBatch(firestore);
+                const matchesCollection = collection(firestore, 'tournaments', tournamentId, 'matches');
+
+                result.matches.forEach(match => {
+                    const matchRef = doc(matchesCollection);
+                    const newMatch: Omit<Match, 'id'> = {
+                        tournamentId,
+                        teamAId: match.teamAId,
+                        teamBId: match.teamBId,
+                        teamAScore: null,
+                        teamBScore: null,
+                        date: match.date, // ISO string from AI
+                        status: 'pending',
+                    };
+                    batch.set(matchRef, newMatch);
+                });
+
+                await batch.commit();
+                toast({
+                    title: '¡Fixture Generado!',
+                    description: `Se han creado ${result.matches.length} partidos.`,
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'No se generaron partidos',
+                    description: 'La IA no devolvió ningún partido. Inténtalo de nuevo.',
+                });
+            }
+
+        } catch (error) {
+            console.error("Error generating fixtures: ", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error al generar el fixture',
+                description: 'No se pudo comunicar con el servicio de IA o guardar los partidos.',
+            });
+        } finally {
+            setIsFixtureGenerationRunning(false);
+        }
+    };
+    
     const openDialogForEditPlayer = (player: Player) => {
         setEditingPlayer(player);
         setPlayerFormData({ name: player.name });
@@ -217,59 +291,97 @@ export default function TournamentDetailPage() {
                 </CardHeader>
             </Card>
 
-            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-6xl">
-                <CardHeader className="flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                           <Users className="h-6 w-6" /> Equipos
-                        </CardTitle>
-                        <CardDescription>Añade equipos y gestiona sus plantillas.</CardDescription>
-                    </div>
-                    <Button onClick={openDialogForNewTeam}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Equipo
-                    </Button>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Equipo / Director Técnico</TableHead>
-                                <TableHead className="text-center">Jugadores</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {areTeamsLoading ? (
-                                <TableRow><TableCell colSpan={3} className="text-center">Cargando equipos...</TableCell></TableRow>
-                            ) : teams && teams.length > 0 ? (
-                                teams.map(team => (
-                                    <TableRow key={team.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{team.name}</div>
-                                            <div className="text-sm text-muted-foreground">{team.coach || 'DT no asignado'}</div>
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Button variant="outline" size="sm" onClick={() => openPlayerManager(team)}>
-                                                <Eye className="mr-2 h-4 w-4" /> Ver Jugadores
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Button variant="outline" size="icon" onClick={() => openDialogForEditTeam(team)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="destructive" size="icon" onClick={() => handleDeleteTeam(team.id)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+                <div className="lg:col-span-2">
+                    <Card className="bg-card/80 backdrop-blur-sm w-full">
+                        <CardHeader className="flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                <Users className="h-6 w-6" /> Equipos
+                                </CardTitle>
+                                <CardDescription>Añade equipos y gestiona sus plantillas.</CardDescription>
+                            </div>
+                            <Button onClick={openDialogForNewTeam}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Equipo
+                            </Button>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Equipo / Director Técnico</TableHead>
+                                        <TableHead className="text-center">Jugadores</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
-                                ))
+                                </TableHeader>
+                                <TableBody>
+                                    {areTeamsLoading ? (
+                                        <TableRow><TableCell colSpan={3} className="text-center">Cargando equipos...</TableCell></TableRow>
+                                    ) : teams && teams.length > 0 ? (
+                                        teams.map(team => (
+                                            <TableRow key={team.id}>
+                                                <TableCell>
+                                                    <div className="font-medium">{team.name}</div>
+                                                    <div className="text-sm text-muted-foreground">{team.coach || 'DT no asignado'}</div>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Button variant="outline" size="sm" onClick={() => openPlayerManager(team)}>
+                                                        <Eye className="mr-2 h-4 w-4" /> Ver Jugadores
+                                                    </Button>
+                                                </TableCell>
+                                                <TableCell className="text-right space-x-2">
+                                                    <Button variant="outline" size="icon" onClick={() => openDialogForEditTeam(team)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="destructive" size="icon" onClick={() => handleDeleteTeam(team.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow><TableCell colSpan={3} className="text-center h-24">No hay equipos inscritos todavía.</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+                 <div className="lg:col-span-1">
+                     <Card className="bg-card/80 backdrop-blur-sm w-full">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <ShieldCheck className="h-6 w-6" /> Partidos y Resultados
+                            </CardTitle>
+                             <CardDescription>Genera el fixture y carga los resultados de los partidos.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {areMatchesLoading ? (
+                                <p>Cargando partidos...</p>
+                            ) : matches && matches.length > 0 ? (
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {matches.map(match => (
+                                        <div key={match.id} className="p-2 border rounded-md text-sm">
+                                            <span>{getTeamName(match.teamAId)} vs {getTeamName(match.teamBId)}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : (
-                                <TableRow><TableCell colSpan={3} className="text-center h-24">No hay equipos inscritos todavía.</TableCell></TableRow>
+                                <div className="text-center py-4">
+                                     <p className="text-muted-foreground mb-4">Aún no se ha generado un fixture.</p>
+                                     <Button 
+                                        onClick={handleGenerateFixtures} 
+                                        disabled={isFixtureGenerationRunning || (teams?.length ?? 0) < 2}
+                                    >
+                                        <Bot className="mr-2 h-4 w-4" /> 
+                                        {isFixtureGenerationRunning ? 'Generando...' : 'Generar Fixture con IA'}
+                                    </Button>
+                                </div>
                             )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        </CardContent>
+                    </Card>
+                 </div>
+            </div>
 
             {/* Dialog for Add/Edit Team */}
             <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>

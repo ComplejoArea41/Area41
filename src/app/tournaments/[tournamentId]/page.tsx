@@ -22,7 +22,7 @@ import {
   useFirestore,
   useMemoFirebase,
 } from '@/firebase';
-import { collection, doc, query } from 'firebase/firestore';
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 import type { Tournament, Team, Player, Match } from '@/lib/types';
 import { Trophy, Users, Shield, ListOrdered, Flame } from 'lucide-react';
@@ -57,7 +57,7 @@ export default function TournamentPublicPage() {
 
 
   const allMatchesQuery = useMemoFirebase(
-    () => tournamentId ? query(collection(firestore, `tournaments/${tournamentId}/matches`)) : null,
+    () => tournamentId ? query(collection(firestore, `tournaments/${tournamentId}/matches`), orderBy('date', 'asc')) : null,
     [firestore, tournamentId]
 )
 const {data: allMatches, isLoading: areMatchesLoading} = useCollection<Match>(allMatchesQuery);
