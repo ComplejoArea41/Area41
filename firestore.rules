@@ -78,8 +78,8 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       
-      // A user can create their own profile.
-      allow create: if isOwner(userId);
+      // A user can create their own profile. An admin can create any.
+      allow create: if isOwner(userId) || isAdmin();
 
       // An owner can update their own profile but not become admin.
       // An admin can update any profile.
@@ -88,7 +88,7 @@ service cloud.firestore {
                      (request.auth.token.email == 'matias@vascohogar.com') || 
                      isAdmin();
       
-      allow delete: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // -------------------------------------------------------------------------
@@ -126,6 +126,14 @@ service cloud.firestore {
         allow get, list: if true;
         allow create, update, delete: if isAdmin();
     }
+    
+    /**
+     * @description Rules for Background Images. Publicly readable, admin-managed.
+     */
+    match /background_images/{imageId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin();
+    }
 
 
     // -------------------------------------------------------------------------
@@ -150,3 +158,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

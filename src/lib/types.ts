@@ -55,3 +55,12 @@ export interface RecentMember {
     email: string;
     avatarId: string;
 }
+
+export interface BackgroundImage {
+  id: string;
+  name: string;
+  imageUrl: string;
+  isActive: boolean;
+}
+
+    

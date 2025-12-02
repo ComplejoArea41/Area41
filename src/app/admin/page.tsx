@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert, ArrowRight } from "lucide-react";
+import { ShieldAlert, ArrowRight, Image as ImageIcon } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -59,7 +59,7 @@ export default function AdminPage() {
                 </CardHeader>
             </Card>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <Card className="bg-card/80 backdrop-blur-sm">
                     <CardHeader>
                         <CardTitle>Gestión de Canchas</CardTitle>
@@ -101,8 +101,24 @@ export default function AdminPage() {
                         </Button>
                     </CardContent>
                 </Card>
+
+                 <Card className="bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle>Imágenes de Fondo</CardTitle>
+                        <CardDescription>
+                           Gestiona las imágenes de fondo de la aplicación.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <Button onClick={() => router.push('/admin/backgrounds')}>
+                            Administrar Fondos <ImageIcon className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         </div>
       </div>
   );
 }
+
+    
