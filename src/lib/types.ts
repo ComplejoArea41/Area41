@@ -5,6 +5,7 @@ export interface User {
   lastName: string;
   phoneNumber: string;
   email: string;
+  isAdmin?: boolean;
 }
 
 export interface Court {
@@ -38,14 +39,41 @@ export interface MenuItem {
 export interface Tournament {
   id: string;
   name: string;
-  teamIds: string[];
 }
 
 export interface Team {
   id: string;
   name: string;
-  memberIds: string[];
+  tournamentId: string;
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
 }
+
+export interface Player {
+    id: string;
+    name: string;
+    teamId: string;
+    goals: number;
+    yellowCards: number;
+    redCards: number;
+}
+
+export interface Match {
+    id: string;
+    tournamentId: string;
+    teamAId: string;
+    teamBId: string;
+    teamAScore: number | null;
+    teamBScore: number | null;
+    date: string; // ISO 8601 format
+    status: 'pending' | 'finished';
+}
+
 
 export interface RecentMember {
     id: string;

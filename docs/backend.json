@@ -29,8 +29,8 @@
           "format": "email"
         },
         "isAdmin": {
-            "type": "boolean",
-            "description": "Indicates if the user is an administrator."
+          "type": "boolean",
+          "description": "Indicates if the user is an administrator."
         }
       },
       "required": [
@@ -60,8 +60,8 @@
           "description": "The number of the court."
         },
         "price": {
-            "type": "number",
-            "description": "The hourly price for reserving the court."
+          "type": "number",
+          "description": "The hourly price for reserving the court."
         },
         "isAvailable": {
           "type": "boolean",
@@ -163,13 +163,6 @@
         "name": {
           "type": "string",
           "description": "Name of the tournament."
-        },
-        "teamIds": {
-          "type": "array",
-          "description": "References to Teams. (Relationship: Tournament N:N Team)",
-          "items": {
-            "type": "string"
-          }
         }
       },
       "required": [
@@ -191,17 +184,133 @@
           "type": "string",
           "description": "Name of the team."
         },
-        "memberIds": {
-          "type": "array",
-          "description": "References to Users. (Relationship: Team N:N User)",
-          "items": {
-            "type": "string"
-          }
+        "tournamentId": {
+          "type": "string",
+          "description": "ID of the tournament this team belongs to."
+        },
+        "points": {
+          "type": "number",
+          "description": "Points in the tournament."
+        },
+        "played": {
+          "type": "number",
+          "description": "Matches played."
+        },
+        "won": {
+          "type": "number",
+          "description": "Matches won."
+        },
+        "drawn": {
+          "type": "number",
+          "description": "Matches drawn."
+        },
+        "lost": {
+          "type": "number",
+          "description": "Matches lost."
+        },
+        "goalsFor": {
+          "type": "number",
+          "description": "Goals scored."
+        },
+        "goalsAgainst": {
+          "type": "number",
+          "description": "Goals conceded."
         }
       },
       "required": [
         "id",
-        "name"
+        "name",
+        "tournamentId"
+      ]
+    },
+    "Player": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Player",
+      "type": "object",
+      "description": "Represents a player in a team.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the player."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the player."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "ID of the team the player belongs to."
+        },
+        "goals": {
+          "type": "number",
+          "description": "Goals scored by the player."
+        },
+        "yellowCards": {
+          "type": "number",
+          "description": "Number of yellow cards."
+        },
+        "redCards": {
+          "type": "number",
+          "description": "Number of red cards."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "teamId"
+      ]
+    },
+    "Match": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Match",
+      "type": "object",
+      "description": "Represents a match between two teams in a tournament.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the match."
+        },
+        "tournamentId": {
+          "type": "string",
+          "description": "ID of the tournament this match belongs to."
+        },
+        "teamAId": {
+          "type": "string",
+          "description": "ID of team A."
+        },
+        "teamBId": {
+          "type": "string",
+          "description": "ID of team B."
+        },
+        "teamAScore": {
+          "type": "number",
+          "description": "Score of team A."
+        },
+        "teamBScore": {
+          "type": "number",
+          "description": "Score of team B."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date and time of the match."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "finished"
+          ],
+          "description": "Status of the match."
+        }
+      },
+      "required": [
+        "id",
+        "tournamentId",
+        "teamAId",
+        "teamBId",
+        "date",
+        "status"
       ]
     }
   },
@@ -220,13 +329,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile information. Accessible only by the authenticated user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
+          "description": "Stores user profile information. Accessible only by the authenticated user."
         }
       },
       {
@@ -236,13 +339,7 @@
           "schema": {
             "$ref": "#/backend/entities/Court"
           },
-          "description": "Stores information about available courts.",
-          "params": [
-            {
-              "name": "courtId",
-              "description": "The unique identifier of the court."
-            }
-          ]
+          "description": "Stores information about available courts."
         }
       },
       {
@@ -252,13 +349,7 @@
           "schema": {
             "$ref": "#/backend/entities/Reservation"
           },
-          "description": "Stores reservation details. Includes userId and courtIds for authorization independence.",
-          "params": [
-            {
-              "name": "reservationId",
-              "description": "The unique identifier of the reservation."
-            }
-          ]
+          "description": "Stores reservation details. Includes userId and courtIds for authorization independence."
         }
       },
       {
@@ -268,13 +359,7 @@
           "schema": {
             "$ref": "#/backend/entities/MenuItem"
           },
-          "description": "Stores the menu items offered by the buffet.",
-          "params": [
-            {
-              "name": "menuItemId",
-              "description": "The unique identifier of the menu item."
-            }
-          ]
+          "description": "Stores the menu items offered by the buffet."
         }
       },
       {
@@ -284,32 +369,40 @@
           "schema": {
             "$ref": "#/backend/entities/Tournament"
           },
-          "description": "Stores tournament information, including participating team IDs.",
-          "params": [
-            {
-              "name": "tournamentId",
-              "description": "The unique identifier of the tournament."
-            }
-          ]
+          "description": "Stores tournament information."
         }
       },
       {
-        "path": "/teams/{teamId}",
+        "path": "/tournaments/{tournamentId}/teams/{teamId}",
         "definition": {
           "entityName": "Team",
           "schema": {
             "$ref": "#/backend/entities/Team"
           },
-          "description": "Stores team information, including member IDs.",
-          "params": [
-            {
-              "name": "teamId",
-              "description": "The unique identifier of the team."
-            }
-          ]
+          "description": "Stores team information within a specific tournament."
+        }
+      },
+      {
+        "path": "/tournaments/{tournamentId}/players/{playerId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "Stores player information for a specific tournament."
+        }
+      },
+      {
+        "path": "/tournaments/{tournamentId}/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Stores match information for a specific tournament."
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features, including court reservations, buffet menu, and tournament management. The structure prioritizes authorization independence, clarity, and scalability. \n\n**Authorization Independence & QAPs:**\n\n*   User data is stored under `/users/{userId}`, ensuring only the authenticated user can access their data. This path-based ownership provides authorization independence, and allows secure `list` operations using security rules.\n*   Courts are stored in a top-level `/courts` collection. Since there are a limited number of courts, and all users should have the ability to view the list of available courts. This supports the required QAP.\n*   Reservations are stored in `/reservations/{reservationId}` and include the `userId` and `courtIds`. This denormalization allows security rules to enforce that a user can only create reservations for courts that exist, without requiring a `get()` call to the `/courts` collection. Security rules can ensure that the `userId` matches the authenticated user, and that if multiple `courtIds` are present, they form a valid set for the soccer fields.\n*   Menu items are stored under `/menu_items/{menuItemId}`. This is a global collection readable by all users.\n*   Tournaments and Teams are stored in their respective top-level collections (`/tournaments` and `/teams`). Tournament documents will contain an array of `teamIds`, and team documents contain an array of `memberIds`. This structure facilitates querying and displaying tournament information.\n*   Background images are stored in `/background_images`. This is a global collection readable by all users so the background can be displayed, but write access is restricted to admins.\n"
+    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The structure for tournament management is now nested, with teams, players, and matches stored in subcollections under each tournament. This improves data locality and simplifies security rules, as access to all tournament-related data can be controlled from the parent tournament document."
   }
 }

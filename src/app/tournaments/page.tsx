@@ -14,9 +14,11 @@ import { Trophy, ArrowRight } from "lucide-react";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import type { Tournament } from "@/lib/types";
+import { useRouter } from "next/navigation";
 
 export default function TournamentsPage() {
   const firestore = useFirestore();
+  const router = useRouter();
   const tournamentsCollectionRef = useMemoFirebase(() => collection(firestore, 'tournaments'), [firestore]);
   const { data: tournaments, isLoading } = useCollection<Tournament>(tournamentsCollectionRef);
   
@@ -54,10 +56,10 @@ export default function TournamentsPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-muted-foreground">{tournament.teamIds?.length || 0} equipos inscritos. ¡Aún hay lugares!</p>
+                                <p className="text-sm text-muted-foreground">¡Sigue los resultados y la tabla de posiciones!</p>
                             </CardContent>
                             <CardFooter>
-                                <Button disabled>
+                                <Button onClick={() => router.push(`/tournaments/${tournament.id}`)}>
                                     Ver Detalles y Equipos <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </CardFooter>

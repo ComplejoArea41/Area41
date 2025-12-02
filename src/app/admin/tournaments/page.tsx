@@ -38,7 +38,6 @@ async function seedInitialTournament(firestore: Firestore) {
         const docRef = doc(tournamentsCollectionRef);
         const initialTournament: Omit<Tournament, 'id'> = {
             name: "Copa Verano 2024",
-            teamIds: [],
         };
         batch.set(docRef, initialTournament);
         await batch.commit();
@@ -122,8 +121,7 @@ export default function AdminTournamentsPage() {
                 toast({ title: "¡Torneo actualizado!", description: "Los cambios se han guardado correctamente." });
 
             } else {
-                const newTournamentData = { ...tournamentData, teamIds: [] };
-                await addDocumentNonBlocking(collection(firestore, 'tournaments'), newTournamentData);
+                await addDocumentNonBlocking(collection(firestore, 'tournaments'), tournamentData);
                 toast({ title: "¡Torneo creado!", description: "El nuevo torneo ha sido creado con éxito." });
             }
             setIsDialogOpen(false);
@@ -170,9 +168,9 @@ export default function AdminTournamentsPage() {
                                     <CardTitle>{tournament.name}</CardTitle>
                                 </CardHeader>
                                 <CardFooter className="flex justify-between">
-                                     <p className="text-sm text-muted-foreground">{tournament.teamIds?.length || 0} equipos inscritos</p>
+                                     <div />
                                      <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" disabled>
+                                        <Button variant="outline" size="sm" onClick={() => router.push(`/admin/tournaments/${tournament.id}`)}>
                                             <ArrowRight className="mr-2 h-4 w-4" /> Ver Detalles
                                         </Button>
                                         <Button variant="outline" size="icon" onClick={() => openDialogForEdit(tournament)}>
