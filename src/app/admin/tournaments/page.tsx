@@ -20,18 +20,13 @@ import {
   } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc, deleteDoc, writeBatch, getDocs, Firestore } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tournament } from "@/lib/types";
-import { PlusCircle, CalendarIcon, Trash2, Edit, Trophy, ArrowRight } from "lucide-react";
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { cn } from "@/lib/utils";
+import { PlusCircle, Trash2, Edit, Trophy, ArrowRight } from "lucide-react";
 
 
 async function seedInitialTournament(firestore: Firestore) {
@@ -43,8 +38,6 @@ async function seedInitialTournament(firestore: Firestore) {
         const docRef = doc(tournamentsCollectionRef);
         const initialTournament: Omit<Tournament, 'id'> = {
             name: "Copa Verano 2024",
-            startDate: new Date().toISOString(),
-            endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
             teamIds: [],
         };
         batch.set(docRef, initialTournament);
@@ -71,8 +64,6 @@ export default function AdminTournamentsPage() {
     const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
 
     const [tournamentName, setTournamentName] = useState('');
-    const [startDate, setStartDate] = useState<Date | undefined>();
-    const [endDate, setEndDate] = useState<Date | undefined>();
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {
@@ -91,16 +82,12 @@ export default function AdminTournamentsPage() {
     const openDialogForNew = () => {
         setEditingTournament(null);
         setTournamentName('');
-        setStartDate(undefined);
-        setEndDate(undefined);
         setIsDialogOpen(true);
     };
 
     const openDialogForEdit = (tournament: Tournament) => {
         setEditingTournament(tournament);
         setTournamentName(tournament.name);
-        setStartDate(new Date(tournament.startDate));
-        setEndDate(new Date(tournament.endDate));
         setIsDialogOpen(true);
     };
 
@@ -117,7 +104,7 @@ export default function AdminTournamentsPage() {
     };
 
     const handleSaveChanges = async () => {
-        if (!tournamentName || !startDate || !endDate) {
+        if (!tournamentName) {
             toast({ variant: "destructive", title: "Datos incompletos", description: "Por favor, completa todos los campos." });
             return;
         }
@@ -126,8 +113,6 @@ export default function AdminTournamentsPage() {
 
         const tournamentData = {
             name: tournamentName,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
         };
         
         try {
@@ -183,9 +168,6 @@ export default function AdminTournamentsPage() {
                             <Card key={tournament.id} className="bg-card/70">
                                 <CardHeader>
                                     <CardTitle>{tournament.name}</CardTitle>
-                                    <CardDescription>
-                                        {format(new Date(tournament.startDate), "d 'de' LLLL 'de' yyyy", { locale: es })} - {format(new Date(tournament.endDate), "d 'de' LLLL 'de' yyyy", { locale: es })}
-                                    </CardDescription>
                                 </CardHeader>
                                 <CardFooter className="flex justify-between">
                                      <p className="text-sm text-muted-foreground">{tournament.teamIds?.length || 0} equipos inscritos</p>
@@ -222,57 +204,6 @@ export default function AdminTournamentsPage() {
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">Nombre</Label>
                             <Input id="name" value={tournamentName} onChange={(e) => setTournamentName(e.target.value)} className="col-span-3" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Inicio</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "col-span-3 justify-start text-left font-normal",
-                                    !startDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {startDate ? format(startDate, 'PPP', {locale: es}) : <span>Elige una fecha</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={startDate}
-                                    onSelect={setStartDate}
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Fin</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "col-span-3 justify-start text-left font-normal",
-                                    !endDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {endDate ? format(endDate, 'PPP', {locale: es}) : <span>Elige una fecha</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={endDate}
-                                    onSelect={setEndDate}
-                                    disabled={(date) => startDate ? date < startDate : false}
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
                         </div>
                     </div>
                     <DialogFooter>

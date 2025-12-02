@@ -38,8 +38,6 @@ export interface MenuItem {
 export interface Tournament {
   id: string;
   name: string;
-  startDate: string; // ISO 8601 format
-  endDate: string;   // ISO 8601 format
   teamIds: string[];
 }
 

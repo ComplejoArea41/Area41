@@ -14,8 +14,6 @@ import { Trophy, ArrowRight } from "lucide-react";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import type { Tournament } from "@/lib/types";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 
 export default function TournamentsPage() {
   const firestore = useFirestore();
@@ -52,7 +50,7 @@ export default function TournamentsPage() {
                             <CardHeader>
                                 <CardTitle>{tournament.name}</CardTitle>
                                 <CardDescription>
-                                    Del {format(new Date(tournament.startDate), "d 'de' LLLL", { locale: es })} al {format(new Date(tournament.endDate), "d 'de' LLLL 'de' yyyy", { locale: es })}
+                                    Torneo abierto a inscripciones.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
