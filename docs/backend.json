@@ -188,6 +188,10 @@
           "type": "string",
           "description": "ID of the tournament this team belongs to."
         },
+        "coach": {
+            "type": "string",
+            "description": "Name of the team's coach (Director Técnico)."
+        },
         "points": {
           "type": "number",
           "description": "Points in the tournament."
@@ -383,13 +387,13 @@
         }
       },
       {
-        "path": "/tournaments/{tournamentId}/players/{playerId}",
+        "path": "/tournaments/{tournamentId}/teams/{teamId}/players/{playerId}",
         "definition": {
           "entityName": "Player",
           "schema": {
             "$ref": "#/backend/entities/Player"
           },
-          "description": "Stores player information for a specific tournament."
+          "description": "Stores player information for a specific team within a tournament."
         }
       },
       {

@@ -29,14 +29,15 @@ import {
     TableRow,
   } from "@/components/ui/table";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, query, where, getDocs } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { Tournament, Team } from "@/lib/types";
-import { PlusCircle, Trash2, Edit, Trophy, Users } from "lucide-react";
+import type { Tournament, Team, Player } from "@/lib/types";
+import { PlusCircle, Trash2, Edit, Trophy, Users, UserPlus } from "lucide-react";
 
-type TeamFormData = Omit<Team, 'id' | 'tournamentId' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst'>;
+type TeamFormData = Omit<Team, 'id' | 'tournamentId' | 'players' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst'>;
+type PlayerFormData = Omit<Player, 'id' | 'teamId' | 'goals' | 'yellowCards' | 'redCards'>;
 
 export default function TournamentDetailPage() {
     const { user, isUserLoading } = useUser();
@@ -46,23 +47,23 @@ export default function TournamentDetailPage() {
     const { toast } = useToast();
     const tournamentId = params.tournamentId as string;
 
-    // Admin verification
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-    // Tournament data
     const tournamentRef = useMemoFirebase(() => doc(firestore, 'tournaments', tournamentId), [firestore, tournamentId]);
     const { data: tournament, isLoading: isTournamentLoading } = useDoc<Tournament>(tournamentRef);
 
-    // Teams data
     const teamsCollectionRef = useMemoFirebase(() => collection(firestore, 'tournaments', tournamentId, 'teams'), [firestore, tournamentId]);
-    const { data: teams, isLoading: areTeamsLoading } = useCollection<Team>(teamsCollectionRef);
-
-    // Team management states
+    const { data: teams, isLoading: areTeamsLoading, setData: setTeams } = useCollection<Team>(teamsCollectionRef);
+    
     const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
-    const [isSavingTeam, setIsSavingTeam] = useState(false);
+    const [isPlayerDialogOpen, setIsPlayerDialogOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-    const [teamFormData, setTeamFormData] = useState<TeamFormData>({ name: '' });
+    const [teamForPlayer, setTeamForPlayer] = useState<Team | null>(null);
+    const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+    const [teamFormData, setTeamFormData] = useState<TeamFormData>({ name: '', coach: '' });
+    const [playerFormData, setPlayerFormData] = useState<PlayerFormData>({ name: '' });
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {
@@ -73,16 +74,23 @@ export default function TournamentDetailPage() {
 
     const openDialogForNewTeam = () => {
         setEditingTeam(null);
-        setTeamFormData({ name: '' });
+        setTeamFormData({ name: '', coach: '' });
         setIsTeamDialogOpen(true);
     };
 
     const openDialogForEditTeam = (team: Team) => {
         setEditingTeam(team);
-        setTeamFormData({ name: team.name });
+        setTeamFormData({ name: team.name, coach: team.coach });
         setIsTeamDialogOpen(true);
     };
 
+    const openDialogForNewPlayer = (team: Team) => {
+        setTeamForPlayer(team);
+        setEditingPlayer(null);
+        setPlayerFormData({ name: '' });
+        setIsPlayerDialogOpen(true);
+    };
+    
     const handleDeleteTeam = async (teamId: string) => {
         if (!firestore) return;
         const teamRef = doc(firestore, 'tournaments', tournamentId, 'teams', teamId);
@@ -96,27 +104,27 @@ export default function TournamentDetailPage() {
             return;
         }
         if (!firestore) return;
-        setIsSavingTeam(true);
-
-        const teamData = {
-            name: teamFormData.name,
-            tournamentId: tournamentId,
-            points: 0,
-            played: 0,
-            won: 0,
-            drawn: 0,
-            lost: 0,
-            goalsFor: 0,
-            goalsAgainst: 0,
-        };
-
+        setIsSaving(true);
+        
         try {
             if (editingTeam) {
                 const teamRef = doc(firestore, 'tournaments', tournamentId, 'teams', editingTeam.id);
-                // We only allow editing the name for now
-                setDocumentNonBlocking(teamRef, { name: teamFormData.name }, { merge: true });
-                toast({ title: "¡Equipo actualizado!", description: "El nombre del equipo ha sido actualizado." });
+                setDocumentNonBlocking(teamRef, { name: teamFormData.name, coach: teamFormData.coach }, { merge: true });
+                toast({ title: "¡Equipo actualizado!", description: "Los datos del equipo han sido actualizados." });
             } else {
+                const teamData = {
+                    name: teamFormData.name,
+                    coach: teamFormData.coach,
+                    tournamentId: tournamentId,
+                    players: [],
+                    points: 0,
+                    played: 0,
+                    won: 0,
+                    drawn: 0,
+                    lost: 0,
+                    goalsFor: 0,
+                    goalsAgainst: 0,
+                };
                 await addDocumentNonBlocking(collection(firestore, 'tournaments', tournamentId, 'teams'), teamData);
                 toast({ title: "¡Equipo agregado!", description: "El nuevo equipo se ha inscrito en el torneo." });
             }
@@ -125,10 +133,52 @@ export default function TournamentDetailPage() {
             console.error("Error saving team: ", error);
             toast({ variant: "destructive", title: "Error al guardar", description: "No se pudo guardar el equipo." });
         } finally {
-            setIsSavingTeam(false);
+            setIsSaving(false);
         }
     };
+    
+    const handleSavePlayer = async () => {
+        if (!playerFormData.name || !teamForPlayer) {
+            toast({ variant: "destructive", title: "Datos incompletos", description: "El nombre del jugador es requerido." });
+            return;
+        }
+        if (!firestore) return;
+        setIsSaving(true);
 
+        const playerData = {
+            name: playerFormData.name,
+            teamId: teamForPlayer.id,
+            goals: 0,
+            yellowCards: 0,
+            redCards: 0,
+        };
+        
+        const teamRef = doc(firestore, 'tournaments', tournamentId, 'teams', teamForPlayer.id);
+
+        try {
+            await addDocumentNonBlocking(collection(teamRef, 'players'), playerData);
+            
+            // Re-fetch players for the specific team to update UI
+            const playersQuery = query(collection(teamRef, 'players'));
+            const playersSnapshot = await getDocs(playersQuery);
+            const updatedPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Player[];
+
+            // Update local state for teams
+            if (teams && setTeams) {
+                const newTeams = teams.map(t => t.id === teamForPlayer.id ? { ...t, players: updatedPlayers } : t);
+                setTeams(newTeams);
+            }
+
+            toast({ title: "¡Jugador agregado!", description: "El nuevo jugador ha sido añadido al equipo." });
+            setIsPlayerDialogOpen(false);
+        } catch (error) {
+            console.error("Error saving player: ", error);
+            toast({ variant: "destructive", title: "Error al guardar", description: "No se pudo guardar el jugador." });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
     const isLoading = isUserLoading || isProfileLoading || isTournamentLoading;
 
     if (isLoading || !userProfile || !userProfile.isAdmin) {
@@ -148,19 +198,18 @@ export default function TournamentDetailPage() {
                         {tournament?.name || 'Torneo'}
                     </CardTitle>
                     <CardDescription>
-                        Gestiona los equipos, partidos, y la tabla de posiciones de este torneo.
+                        Gestiona los equipos, jugadores, partidos y la tabla de posiciones de este torneo.
                     </CardDescription>
                 </CardHeader>
             </Card>
 
-            {/* Team Management Card */}
             <Card className="bg-card/80 backdrop-blur-sm w-full max-w-6xl">
                 <CardHeader className="flex-row items-center justify-between">
                     <div>
                         <CardTitle className="flex items-center gap-2">
-                           <Users className="h-6 w-6" /> Equipos
+                           <Users className="h-6 w-6" /> Equipos y Jugadores
                         </CardTitle>
-                        <CardDescription>Añade, edita o elimina los equipos participantes.</CardDescription>
+                        <CardDescription>Añade equipos y gestiona sus plantillas.</CardDescription>
                     </div>
                     <Button onClick={openDialogForNewTeam}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Equipo
@@ -170,21 +219,31 @@ export default function TournamentDetailPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nombre del Equipo</TableHead>
+                                <TableHead>Equipo / Director Técnico</TableHead>
+                                <TableHead>Jugadores</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {areTeamsLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="text-center">Cargando equipos...</TableCell>
-                                </TableRow>
+                                <TableRow><TableCell colSpan={3} className="text-center">Cargando equipos...</TableCell></TableRow>
                             ) : teams && teams.length > 0 ? (
                                 teams.map(team => (
                                     <TableRow key={team.id}>
-                                        <TableCell className="font-medium">{team.name}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="outline" size="icon" className="mr-2" onClick={() => openDialogForEditTeam(team)}>
+                                        <TableCell>
+                                            <div className="font-medium">{team.name}</div>
+                                            <div className="text-sm text-muted-foreground">{team.coach || 'DT no asignado'}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <ul className="list-disc pl-5 text-sm">
+                                                {team.players && team.players.map(player => <li key={player.id}>{player.name}</li>)}
+                                            </ul>
+                                        </TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="icon" onClick={() => openDialogForNewPlayer(team)}>
+                                                <UserPlus className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="outline" size="icon" onClick={() => openDialogForEditTeam(team)}>
                                                 <Edit className="h-4 w-4" />
                                             </Button>
                                             <Button variant="destructive" size="icon" onClick={() => handleDeleteTeam(team.id)}>
@@ -194,9 +253,7 @@ export default function TournamentDetailPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="text-center h-24">No hay equipos inscritos todavía.</TableCell>
-                                </TableRow>
+                                <TableRow><TableCell colSpan={3} className="text-center h-24">No hay equipos inscritos todavía.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -209,24 +266,47 @@ export default function TournamentDetailPage() {
                     <DialogHeader>
                         <DialogTitle>{editingTeam ? 'Editar Equipo' : 'Nuevo Equipo'}</DialogTitle>
                         <DialogDescription>
-                            {editingTeam ? 'Modifica el nombre del equipo.' : 'Añade un nuevo equipo a la competición.'}
+                            {editingTeam ? 'Modifica los datos del equipo.' : 'Añade un nuevo equipo a la competición.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="team-name" className="text-right">Nombre</Label>
-                            <Input
-                                id="team-name"
-                                value={teamFormData.name}
-                                onChange={(e) => setTeamFormData({ name: e.target.value })}
-                                className="col-span-3"
-                            />
+                            <Input id="team-name" value={teamFormData.name} onChange={(e) => setTeamFormData(prev => ({...prev, name: e.target.value}))} className="col-span-3"/>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="team-coach" className="text-right">D.T.</Label>
+                            <Input id="team-coach" value={teamFormData.coach} onChange={(e) => setTeamFormData(prev => ({...prev, coach: e.target.value}))} className="col-span-3"/>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsTeamDialogOpen(false)}>Cancelar</Button>
-                        <Button type="submit" onClick={handleSaveTeam} disabled={isSavingTeam}>
-                            {isSavingTeam ? 'Guardando...' : 'Guardar'}
+                        <Button type="submit" onClick={handleSaveTeam} disabled={isSaving}>
+                            {isSaving ? 'Guardando...' : 'Guardar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+             {/* Dialog for Add/Edit Player */}
+             <Dialog open={isPlayerDialogOpen} onOpenChange={setIsPlayerDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Añadir Jugador a {teamForPlayer?.name}</DialogTitle>
+                        <DialogDescription>
+                            Introduce el nombre del nuevo jugador para el equipo.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="player-name" className="text-right">Nombre</Label>
+                            <Input id="player-name" value={playerFormData.name} onChange={(e) => setPlayerFormData({name: e.target.value})} className="col-span-3"/>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsPlayerDialogOpen(false)}>Cancelar</Button>
+                        <Button type="submit" onClick={handleSavePlayer} disabled={isSaving}>
+                            {isSaving ? 'Guardando...' : 'Guardar Jugador'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

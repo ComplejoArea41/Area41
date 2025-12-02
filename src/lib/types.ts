@@ -45,6 +45,8 @@ export interface Team {
   id: string;
   name: string;
   tournamentId: string;
+  coach: string; // Director Técnico
+  players: Player[]; // Lista de jugadores
   points: number;
   played: number;
   won: number;
