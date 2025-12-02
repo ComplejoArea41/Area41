@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -28,16 +27,22 @@ import {
     TableRow,
   } from "@/components/ui/table";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, query, where, writeBatch, runTransaction, orderBy } from "firebase/firestore";
+import { collection, doc, query, writeBatch, runTransaction, orderBy, Timestamp } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tournament, Team, Player, Match } from "@/lib/types";
-import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, Bot, ShieldCheck, Save, ListOrdered, Flame, Goal } from "lucide-react";
-import { generateFixtures } from '@/ai/flows/generate-fixtures-flow';
+import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, ShieldCheck, Save, ListOrdered, Flame } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type TeamFormData = Omit<Team, 'id' | 'tournamentId' | 'players' | 'points' | 'played' | 'won' | 'drawn' | 'lost' | 'goalsFor' | 'goalsAgainst'>;
 type PlayerFormData = Omit<Player, 'id' | 'teamId' | 'tournamentId' | 'goals' | 'yellowCards' | 'redCards'>;
+type MatchFormData = { teamAId: string; teamBId: string; date: Date | undefined; time: string; phase: string; };
 
 type GoalAssignment = { [playerId: string]: number };
 
@@ -51,7 +56,6 @@ export default function TournamentDetailPage() {
 
     // --- State Management ---
     const [isSaving, setIsSaving] = useState(false);
-    const [isFixtureGenerationRunning, setIsFixtureGenerationRunning] = useState(false);
 
     // Team Dialog
     const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
@@ -63,6 +67,10 @@ export default function TournamentDetailPage() {
     const [managingPlayersOfTeam, setManagingPlayersOfTeam] = useState<Team | null>(null);
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
     const [playerFormData, setPlayerFormData] = useState<PlayerFormData>({ name: '' });
+
+    // New Match Dialog
+    const [isMatchDialogOpen, setIsMatchDialogOpen] = useState(false);
+    const [matchFormData, setMatchFormData] = useState<MatchFormData>({ teamAId: '', teamBId: '', date: new Date(), time: '20:00', phase: 'Fase de Grupos'});
 
     // Result Dialog
     const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
@@ -131,7 +139,6 @@ export default function TournamentDetailPage() {
     
     const handleDeleteTeam = async (teamId: string) => {
         if (!firestore) return;
-        // Also delete players of this team
         const playersToDelete = allPlayers?.filter(p => p.teamId === teamId) || [];
         const batch = writeBatch(firestore);
         playersToDelete.forEach(player => {
@@ -219,44 +226,52 @@ export default function TournamentDetailPage() {
     };
     
     // --- Fixture & Result Management ---
-    const handleGenerateFixtures = async () => {
-        if (!teams || teams.length < 2) {
-            toast({ variant: 'destructive', title: 'Equipos insuficientes', description: 'Se necesitan al menos 2 equipos.' });
-            return;
-        }
-        setIsFixtureGenerationRunning(true);
-        toast({ title: 'Generando Fixture...', description: 'La IA está creando el calendario de partidos.' });
-        try {
-            const teamIds = teams.map(t => t.id);
-            const result = await generateFixtures({ teamIds, tournamentId, format: 'round-robin' });
-
-            if (result.matches && result.matches.length > 0) {
-                const batch = writeBatch(firestore);
-                const matchesCollection = collection(firestore, 'tournaments', tournamentId, 'matches');
-                result.matches.forEach(match => {
-                    const matchRef = doc(matchesCollection);
-                    batch.set(matchRef, {
-                        tournamentId,
-                        teamAId: match.teamAId,
-                        teamBId: match.teamBId,
-                        teamAScore: null,
-                        teamBScore: null,
-                        date: match.date,
-                        status: 'pending',
-                        phase: 'Fase de Grupos'
-                    } as Omit<Match, 'id'>);
-                });
-                await batch.commit();
-                toast({ title: '¡Fixture Generado!', description: `Se han creado ${result.matches.length} partidos.` });
-            } else {
-                 toast({ variant: 'destructive', title: 'No se generaron partidos' });
-            }
-        } catch (error) {
-            console.error("Error generating fixtures: ", error);
-            toast({ variant: 'destructive', title: 'Error al generar el fixture' });
-        } finally { setIsFixtureGenerationRunning(false); }
+    const openNewMatchDialog = () => {
+        setMatchFormData({ teamAId: '', teamBId: '', date: new Date(), time: '20:00', phase: 'Fase de Grupos' });
+        setIsMatchDialogOpen(true);
     };
 
+    const handleSaveNewMatch = async () => {
+        const { teamAId, teamBId, date, time, phase } = matchFormData;
+        if (!teamAId || !teamBId || !date || !time || !phase) {
+            toast({ variant: 'destructive', title: 'Campos requeridos', description: 'Por favor, completa todos los campos del partido.' });
+            return;
+        }
+        if (teamAId === teamBId) {
+            toast({ variant: 'destructive', title: 'Equipos inválidos', description: 'Un equipo no puede jugar contra sí mismo.' });
+            return;
+        }
+        if (!firestore) return;
+        setIsSaving(true);
+
+        const [hour, minute] = time.split(':').map(Number);
+        const matchDateTime = new Date(date);
+        matchDateTime.setHours(hour, minute);
+
+        const newMatchData = {
+            tournamentId,
+            teamAId,
+            teamBId,
+            teamAScore: null,
+            teamBScore: null,
+            date: Timestamp.fromDate(matchDateTime),
+            status: 'pending',
+            phase: phase
+        };
+        
+        try {
+            const matchesCollection = collection(firestore, 'tournaments', tournamentId, 'matches');
+            await addDocumentNonBlocking(matchesCollection, newMatchData);
+            toast({ title: '¡Partido Creado!', description: 'El nuevo partido ha sido añadido al fixture.' });
+            setIsMatchDialogOpen(false);
+        } catch (error) {
+             console.error("Error creating match: ", error);
+            toast({ variant: 'destructive', title: 'Error al crear partido' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
     const openResultDialog = (match: Match) => {
         setEditingMatch(match);
         setTeamAGoals({});
@@ -286,20 +301,21 @@ export default function TournamentDetailPage() {
                 const teamARef = doc(firestore, 'tournaments', tournamentId, 'teams', editingMatch.teamAId);
                 const teamBRef = doc(firestore, 'tournaments', tournamentId, 'teams', editingMatch.teamBId);
                 
-                // --- 1. READS (All reads must happen before writes) ---
-                const teamADoc = await transaction.get(teamARef);
-                const teamBDoc = await transaction.get(teamBRef);
-    
-                if (!teamADoc.exists() || !teamBDoc.exists()) {
-                    throw new Error("Uno o ambos equipos no fueron encontrados.");
-                }
-    
                 const allGoalscorers = {...teamAGoals, ...teamBGoals};
                 const playerRefs = Object.keys(allGoalscorers).map(playerId => 
                     doc(firestore, 'tournaments', tournamentId, 'players', playerId)
                 );
-                const playerDocs = await Promise.all(playerRefs.map(ref => transaction.get(ref)));
-
+                
+                // --- 1. READS (All reads must happen before writes) ---
+                const [teamADoc, teamBDoc, ...playerDocs] = await Promise.all([
+                    transaction.get(teamARef),
+                    transaction.get(teamBRef),
+                    ...playerRefs.map(ref => transaction.get(ref))
+                ]);
+    
+                if (!teamADoc.exists() || !teamBDoc.exists()) {
+                    throw new Error("Uno o ambos equipos no fueron encontrados.");
+                }
     
                 // --- 2. WRITES (All writes happen after reads) ---
     
@@ -381,7 +397,15 @@ export default function TournamentDetailPage() {
                                 {areTeamsLoading ? <TableRow><TableCell colSpan={3} className="text-center">Cargando equipos...</TableCell></TableRow>
                                 : teams && teams.length > 0 ? teams.map(team => (
                                     <TableRow key={team.id}>
-                                        <TableCell><div className="font-medium">{team.name}</div><div className="text-sm text-muted-foreground">{team.coach || 'DT no asignado'}</div></TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                {team.flagUrl ? <img src={team.flagUrl} alt={team.name} className="h-6 w-6 rounded-full object-cover" /> : <div className="h-6 w-6 rounded-full bg-muted" />}
+                                                <div>
+                                                    <div className="font-medium">{team.name}</div>
+                                                    <div className="text-sm text-muted-foreground">{team.coach || 'DT no asignado'}</div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-center"><Button variant="outline" size="sm" onClick={() => openPlayerManager(team)}><Eye className="mr-2 h-4 w-4" /> Ver ({getTeamPlayers(team.id).length})</Button></TableCell>
                                         <TableCell className="text-right space-x-2">
                                             <Button variant="outline" size="icon" onClick={() => openDialogForEditTeam(team)}><Edit className="h-4 w-4" /></Button>
@@ -398,9 +422,12 @@ export default function TournamentDetailPage() {
                      {/* --- Fixtures Card --- */}
                     <div className="lg:col-span-2">
                         <Card className="bg-card/80 backdrop-blur-sm w-full">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-6 w-6" />Partidos y Resultados</CardTitle>
-                                <CardDescription>Genera el fixture y carga los resultados de los partidos finalizados.</CardDescription>
+                             <CardHeader className="flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-6 w-6" />Partidos y Resultados</CardTitle>
+                                    <CardDescription>Crea partidos manualmente y carga los resultados.</CardDescription>
+                                </div>
+                                <Button onClick={openNewMatchDialog}><PlusCircle className="mr-2 h-4 w-4" /> Nuevo Partido</Button>
                             </CardHeader>
                             <CardContent>
                                 {areMatchesLoading ? <p>Cargando partidos...</p> : matches && matches.length > 0 ? (
@@ -410,19 +437,18 @@ export default function TournamentDetailPage() {
                                                 <div className="flex-1 text-right font-medium truncate">{getTeamName(match.teamAId)}</div>
                                                 <div className="mx-4 text-center">
                                                     <div className="font-bold text-xl">{match.status === 'finished' ? `${match.teamAScore} - ${match.teamBScore}` : "VS"}</div>
-                                                    <div className="text-xs text-muted-foreground">{new Date(match.date).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit'})} - {new Date(match.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</div>
+                                                    <div className="text-xs text-muted-foreground">{format((match.date as any).toDate(), 'dd/MM/yy HH:mm')}hs</div>
                                                 </div>
                                                 <div className="flex-1 font-medium truncate">{getTeamName(match.teamBId)}</div>
-                                                <Button size="sm" className="ml-4" onClick={() => openResultDialog(match)} disabled={isSaving || match.status === 'finished'}>
-                                                    <Save className="mr-2 h-4 w-4" /> {match.status === 'pending' ? 'Cargar' : 'Ver'}
+                                                <Button size="sm" className="ml-4" onClick={() => openResultDialog(match)} disabled={isSaving}>
+                                                    <Save className="mr-2 h-4 w-4" /> {match.status === 'pending' ? 'Cargar' : 'Editar'}
                                                 </Button>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-4">
-                                        <p className="text-muted-foreground mb-4">Aún no se ha generado un fixture.</p>
-                                        <Button onClick={handleGenerateFixtures} disabled={isFixtureGenerationRunning || (teams?.length ?? 0) < 2}><Bot className="mr-2 h-4 w-4" />{isFixtureGenerationRunning ? 'Generando...' : 'Generar Fixture con IA'}</Button>
+                                    <div className="text-center py-4 text-muted-foreground">
+                                        <p>No hay partidos creados todavía.</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -481,6 +507,55 @@ export default function TournamentDetailPage() {
                         <div className="space-y-4"><h3 className="font-semibold">{editingPlayer ? 'Editar Jugador' : 'Añadir Jugador'}</h3><div className="grid items-center gap-2"><Label htmlFor="player-name">Nombre del Jugador</Label><Input id="player-name" value={playerFormData.name} onChange={(e) => setPlayerFormData({name: e.target.value})} /></div><div className="flex gap-2"><Button onClick={handleSavePlayer} disabled={isSaving} className="w-full">{isSaving ? 'Guardando...' : (editingPlayer ? 'Guardar Cambios' : 'Añadir Jugador')}</Button>{editingPlayer && (<Button variant="outline" onClick={() => { setEditingPlayer(null); setPlayerFormData({name:''}) }}>Cancelar</Button>)}</div></div>
                         <div className="space-y-2"><h3 className="font-semibold">Plantilla</h3><div className="border rounded-lg max-h-64 overflow-y-auto"><Table><TableBody>{arePlayersLoading && <TableRow><TableCell>Cargando...</TableCell></TableRow>}{getTeamPlayers(managingPlayersOfTeam?.id ?? '').length > 0 ? (getTeamPlayers(managingPlayersOfTeam?.id ?? '').map(player => (<TableRow key={player.id}><TableCell>{player.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => { setEditingPlayer(player); setPlayerFormData({name: player.name})}}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => handleDeletePlayer(player.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))) : (!arePlayersLoading && <TableRow><TableCell>No hay jugadores en este equipo.</TableCell></TableRow>)}</TableBody></Table></div></div>
                     </div><DialogFooter><Button type="button" variant="outline" onClick={() => setIsPlayerManagementOpen(false)}>Cerrar</Button></DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isMatchDialogOpen} onOpenChange={setIsMatchDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Crear Nuevo Partido</DialogTitle>
+                        <DialogDescription>Selecciona los equipos, la fecha y la fase del partido.</DialogDescription>
+                    </DialogHeader>
+                     <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="teamA" className="text-right">Equipo A</Label>
+                            <Select value={matchFormData.teamAId} onValueChange={(value) => setMatchFormData(prev => ({...prev, teamAId: value}))}>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                                <SelectContent>{teams?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="teamB" className="text-right">Equipo B</Label>
+                             <Select value={matchFormData.teamBId} onValueChange={(value) => setMatchFormData(prev => ({...prev, teamBId: value}))}>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                                <SelectContent>{teams?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="date" className="text-right">Fecha</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !matchFormData.date && "text-muted-foreground" )}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {matchFormData.date ? format(matchFormData.date, "PPP") : <span>Elige una fecha</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={matchFormData.date} onSelect={(d) => setMatchFormData(p => ({...p, date: d}))} initialFocus/></PopoverContent>
+                            </Popover>
+                        </div>
+                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="time" className="text-right">Hora</Label>
+                            <Input id="time" type="time" value={matchFormData.time} onChange={e => setMatchFormData(p => ({...p, time: e.target.value}))} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="phase" className="text-right">Fase</Label>
+                            <Input id="phase" value={matchFormData.phase} onChange={e => setMatchFormData(p => ({...p, phase: e.target.value}))} className="col-span-3" placeholder="Ej: Fase de Grupos, Final Copa de Oro"/>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsMatchDialogOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleSaveNewMatch} disabled={isSaving}>{isSaving ? "Creando..." : "Crear Partido"}</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -545,4 +620,3 @@ export default function TournamentDetailPage() {
         </div>
     );
 }
-
