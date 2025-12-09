@@ -23,6 +23,7 @@ export interface Reservation {
   courtIds: string[];
   reservationDateTime: string; // ISO 8601 format
   durationMinutes: number;
+  videoUrl?: string; // URL to the recorded match video
   // For display purposes, will be constructed
   date?: string;
   time?: string;

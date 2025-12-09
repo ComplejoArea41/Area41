@@ -15,33 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { placeholderImages } from '@/lib/placeholder-images.json';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useCollection, useDoc, useFirestore, useUser, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useDoc, useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Reservation, Court } from '@/lib/types';
-import { format } from 'date-fns';
 import { useMemoFirebase } from '@/firebase/provider';
-import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
 
@@ -56,18 +34,6 @@ export default function ProfilePage() {
     [user, firestore]
   );
   const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userRef);
-
-  const reservationsQuery = useMemoFirebase(
-    () =>
-      user
-        ? query(collection(firestore, 'reservations'), where('userId', '==', user.uid))
-        : null,
-    [user, firestore]
-  );
-  const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsQuery);
-  const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
-  const {data: courts, isLoading: areCourtsLoading} = useCollection<Court>(courtsRef);
-
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -108,13 +74,9 @@ export default function ProfilePage() {
         setDocumentNonBlocking(userRef, updatedProfileData, { merge: true });
         toast({
           title: '¡Perfil actualizado!',
-          description: 'Serás redirigido a la página de reservas.',
+          description: 'Tus cambios han sido guardados.',
         });
-
-        // Redirect after a short delay to allow the user to read the toast
-        setTimeout(() => {
-            router.push('/reservations');
-        }, 1500);
+        setIsSaving(false);
 
     } catch (error) {
         // Error is emitted globally, but we can stop the saving state here
@@ -122,37 +84,12 @@ export default function ProfilePage() {
     }
   };
 
-  const handleCancelReservation = (reservationId: string) => {
-    if (!firestore) return;
-    const reservationRef = doc(firestore, 'reservations', reservationId);
-    
-    deleteDocumentNonBlocking(reservationRef);
-    
-    toast({
-        title: '¡Reserva Cancelada!',
-        description: 'La reserva ha sido cancelada con éxito. El cambio se reflejará en breve.',
-    });
-  };
 
   const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');
   const userFullName = `${firstName} ${lastName}`;
 
-  const getCourtDescription = (courtId: string) => {
-      const court = courts?.find(c => c.id === courtId);
-      return court ? `${court.courtType} - Cancha ${court.courtNumber}` : 'Cancha Desconocida';
-  }
 
-  const sortedReservations = useMemo(() => {
-    if (!reservations) return [];
-    return [...reservations].sort((a, b) => {
-      const dateA = a.reservationDateTime && (a.reservationDateTime as any).toDate ? (a.reservationDateTime as any).toDate() : new Date(a.reservationDateTime);
-      const dateB = b.reservationDateTime && (b.reservationDateTime as any).toDate ? (b.reservationDateTime as any).toDate() : new Date(b.reservationDateTime);
-      return dateB.getTime() - dateA.getTime();
-    });
-  }, [reservations]);
-
-
-  if (isUserLoading || (isProfileLoading && !profileError) || areCourtsLoading) {
+  if (isUserLoading || (isProfileLoading && !profileError)) {
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
         <p className="text-primary-foreground">Cargando perfil...</p>
@@ -171,8 +108,7 @@ export default function ProfilePage() {
 
   return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
-        <div className="grid gap-8 md:grid-cols-3 w-full max-w-6xl">
-          <div className="md:col-span-1">
+        <div className="w-full max-w-lg">
             <Card className="bg-card/80 backdrop-blur-sm">
               <CardHeader className="flex flex-col items-center gap-4 text-center">
                 {userAvatar && (
@@ -240,81 +176,6 @@ export default function ProfilePage() {
               </CardFooter>
             </Card>
           </div>
-          <div className="md:col-span-2">
-            <Card className="bg-card/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle>Mis Reservas</CardTitle>
-                <CardDescription>
-                  Aquí encontrarás el historial de todas tus batallas épicas en nuestras canchas. ¡Revisa tus próximos partidos y revive tus victorias!
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cancha</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Hora</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {areReservationsLoading ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">Cargando reservas...</TableCell>
-                        </TableRow>
-                    ) : sortedReservations.length > 0 ? (
-                      sortedReservations.map(reservation => {
-                        const reservationDate = reservation.reservationDateTime && (reservation.reservationDateTime as any).toDate ? (reservation.reservationDateTime as any).toDate() : new Date(reservation.reservationDateTime);
-                        const isUpcoming = reservationDate > new Date();
-                        return(
-                          <TableRow key={reservation.id}>
-                            <TableCell>{getCourtDescription(reservation.courtIds[0])}</TableCell>
-                            <TableCell>{format(reservationDate, 'dd/MM/yyyy')}</TableCell>
-                            <TableCell>{format(reservationDate, 'HH:mm')}</TableCell>
-                            <TableCell>
-                              <Badge variant={isUpcoming ? "secondary" : "outline"}>
-                                {isUpcoming ? "Próxima" : "Finalizada"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {isUpcoming && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm">Cancelar</Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>¿Estás seguro de que quieres cancelar?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta acción no se puede deshacer. Se eliminará permanentemente tu reserva.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>No, mantener reserva</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleCancelReservation(reservation.id)}>
-                                        Sí, cancelar reserva
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center">No hay reservas todavía.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   LogOut,
   Home,
+  Video,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
@@ -46,15 +47,15 @@ export default function Header() {
   const navLinks = [
     { href: '/', label: 'Inicio', icon: <Home className="h-4 w-4" /> },
     { href: '/reservations', label: 'Reservar', icon: <Calendar className="h-4 w-4" /> },
+    { href: '/my-matches', label: 'Mis Partidos', icon: <Video className="h-4 w-4" /> },
     { href: '/buffet', label: 'Buffet', icon: <Utensils className="h-4 w-4" /> },
-    // { href: '/tournaments', label: 'Torneos', icon: <Trophy className="h-4 w-4" /> },
     { href: '/profile', label: 'Perfil', icon: <UserIcon className="h-4 w-4" /> },
   ];
 
   const isLoading = isUserLoading || isProfileLoading;
 
-  // Don't render header on login page
-  if (pathname === '/login') {
+  // Don't render header on login page or video playback page
+  if (pathname === '/login' || pathname.startsWith('/reservations/')) {
     return null;
   }
 

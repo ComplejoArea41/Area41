@@ -7,10 +7,10 @@ import { usePathname } from 'next/navigation';
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const isTournamentPublicPage = /^\/tournaments\/[^/]+$/.test(pathname);
-  const isLoginPage = pathname === '/login';
+  const isSpecialPage = /^\/tournaments\/[^/]+$/.test(pathname) || /^\/reservations\/[^/]+$/.test(pathname) || pathname === '/login';
 
-  if (isTournamentPublicPage || isLoginPage) {
+
+  if (isSpecialPage) {
     return (
         <div className="flex min-h-screen w-full flex-col bg-transparent relative">
             {children}
