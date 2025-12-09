@@ -40,6 +40,8 @@ interface MatchCardProps {
 }
 
 const MatchCard: React.FC<MatchCardProps> = ({ match, teamA, teamB }) => {
+    const matchDate = match.date && (match.date as any).toDate ? (match.date as any).toDate() : new Date(match.date);
+
     return (
         <div className="bg-white/5 rounded-lg p-4">
             {match.phase && <p className="text-center text-sm font-semibold mb-3 text-primary">{match.phase}</p>}
@@ -64,7 +66,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, teamA, teamB }) => {
                         <div className="text-xl font-bold text-muted-foreground">VS</div>
                     )}
                      <div className="text-xs text-muted-foreground mt-1">
-                        {new Date(match.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}, {new Date(match.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
+                        {matchDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}, {matchDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs
                     </div>
                 </div>
 
@@ -89,7 +91,6 @@ export default function TournamentPublicPage() {
   const tournamentId = params.tournamentId as string;
 
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
-  const [selectedStage, setSelectedStage] = useState<string>('all');
 
   const tournamentRef = useMemoFirebase(
     () => (tournamentId ? doc(firestore, 'tournaments', tournamentId) : null),
@@ -139,30 +140,18 @@ export default function TournamentPublicPage() {
 
   const getTeam = (teamId: string) => teams?.find(t => t.id === teamId);
 
-  const { phases, stages, filteredMatches } = useMemo(() => {
-    if (!allMatches) return { phases: [], stages: [], filteredMatches: [] };
+  const { phases, filteredMatches } = useMemo(() => {
+    if (!allMatches) return { phases: [], filteredMatches: {} };
     
     const phaseSet = new Set<string>();
     allMatches.forEach(m => m.phase && phaseSet.add(m.phase));
     const phases = Array.from(phaseSet);
 
-    const filteredByPhase = selectedPhase === 'all' 
+    const matchesToShow = selectedPhase === 'all' 
         ? allMatches 
         : allMatches.filter(m => m.phase === selectedPhase);
 
-    const stageSet = new Set<string>();
-    filteredByPhase.forEach(m => {
-        if(m.phase?.toLowerCase().includes('final')) stageSet.add('Final');
-        if(m.phase?.toLowerCase().includes('semi')) stageSet.add('Semi Final');
-        if(m.phase?.toLowerCase().includes('cuartos')) stageSet.add('Cuartos');
-    });
-    const stages = Array.from(stageSet);
-    
-    const filteredMatches = selectedStage === 'all'
-        ? filteredByPhase
-        : filteredByPhase.filter(m => m.phase?.toLowerCase().includes(selectedStage.toLowerCase()));
-
-    const groupedByPhase = filteredMatches.reduce((acc, match) => {
+    const groupedByPhase = matchesToShow.reduce((acc, match) => {
         const phase = match.phase || 'Sin Fase';
         if (!acc[phase]) {
             acc[phase] = [];
@@ -171,8 +160,8 @@ export default function TournamentPublicPage() {
         return acc;
     }, {} as Record<string, Match[]>);
 
-    return { phases, stages, filteredMatches: groupedByPhase };
-  }, [allMatches, selectedPhase, selectedStage]);
+    return { phases, filteredMatches: groupedByPhase };
+  }, [allMatches, selectedPhase]);
 
   const isLoading = isTournamentLoading || areTeamsLoading || arePlayersLoading || areMatchesLoading;
 
@@ -193,19 +182,18 @@ export default function TournamentPublicPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[#538442]">
-        <header className="p-4 flex items-center gap-4 text-white">
+    <div className="flex flex-1 flex-col bg-background text-foreground">
+        <header className="p-4 flex items-center gap-4 text-foreground bg-card/80 backdrop-blur-sm border-b">
             <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft /></Button>
             <div>
                 <h1 className="text-xl font-bold">{tournament.name}</h1>
-                <p className="text-sm opacity-80">2° Torneo Femenino</p>
             </div>
         </header>
 
-        <main className="flex-1 bg-background rounded-t-2xl p-4 space-y-4">
-            <Tabs defaultValue="final-phases" className="w-full">
+        <main className="flex-1 p-4 space-y-4">
+            <Tabs defaultValue="fixtures" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="final-phases"><Shield className="mr-2 h-4 w-4" />Fases</TabsTrigger>
+                <TabsTrigger value="fixtures"><Shield className="mr-2 h-4 w-4" />Partidos</TabsTrigger>
                 <TabsTrigger value="positions"><ListOrdered className="mr-2 h-4 w-4" />Posiciones</TabsTrigger>
                 <TabsTrigger value="teams"><Users className="mr-2 h-4 w-4" />Equipos</TabsTrigger>
                 <TabsTrigger value="scorers"><Flame className="mr-2 h-4 w-4" />Goleadores</TabsTrigger>
@@ -254,11 +242,11 @@ export default function TournamentPublicPage() {
                 </Card>
             </TabsContent>
 
-            <TabsContent value="final-phases">
+            <TabsContent value="fixtures">
                 <div className="space-y-4">
                     <div className="flex gap-2">
                         <Select value={selectedPhase} onValueChange={setSelectedPhase}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-[240px]">
                                 <SelectValue placeholder="Seleccionar Fase" />
                             </SelectTrigger>
                             <SelectContent>
@@ -266,12 +254,6 @@ export default function TournamentPublicPage() {
                                 {phases.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        <div className="flex items-center gap-1 bg-muted p-1 rounded-md">
-                            {stages.map(s => (
-                                <Button key={s} size="sm" variant={selectedStage === s ? 'default' : 'ghost'} onClick={() => setSelectedStage(s)}>{s}</Button>
-                            ))}
-                            {selectedStage !== 'all' && <Button size="sm" variant="ghost" onClick={() => setSelectedStage('all')}>Todas</Button>}
-                        </div>
                     </div>
                 
                     <div className="space-y-6">

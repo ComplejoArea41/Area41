@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   firstName: string;
@@ -45,7 +46,7 @@ export interface Team {
   id: string;
   name: string;
   tournamentId: string;
-  coach: string; // Director Técnico
+  coach?: string; // Director Técnico
   points: number;
   played: number;
   won: number;

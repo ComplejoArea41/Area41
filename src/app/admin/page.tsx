@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert, ArrowRight, Image as ImageIcon } from "lucide-react";
+import { ShieldAlert, ArrowRight, Image as ImageIcon, Utensils, Goal } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -62,7 +62,7 @@ export default function AdminPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <Card className="bg-card/80 backdrop-blur-sm">
                     <CardHeader>
-                        <CardTitle>Gestión de Canchas</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Goal />Gestión de Canchas</CardTitle>
                         <CardDescription>
                             Modifica los precios y la disponibilidad de las canchas de Fútbol 5 y Fútbol 7.
                         </CardDescription>
@@ -76,7 +76,7 @@ export default function AdminPage() {
 
                 <Card className="bg-card/80 backdrop-blur-sm">
                     <CardHeader>
-                        <CardTitle>Gestión de Buffet</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Utensils />Gestión de Buffet</CardTitle>
                         <CardDescription>
                            Añade o modifica los precios y artículos del menú del buffet.
                         </CardDescription>
@@ -90,14 +90,14 @@ export default function AdminPage() {
 
                 <Card className="bg-card/80 backdrop-blur-sm">
                     <CardHeader>
-                        <CardTitle>Gestión de Torneos</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><ImageIcon />Imágenes de Fondo</CardTitle>
                         <CardDescription>
-                           Crea y administra los torneos del complejo.
+                           Gestiona las imágenes de fondo de la aplicación.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
-                        <Button onClick={() => router.push('/admin/tournaments')}>
-                            Administrar Torneos <ArrowRight className="ml-2 h-4 w-4" />
+                        <Button onClick={() => router.push('/admin/backgrounds')}>
+                            Administrar Imágenes <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardContent>
                 </Card>
