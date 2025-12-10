@@ -117,7 +117,7 @@ export default function ReservationPage() {
   const selectedTimes = form.watch("times");
 
   const reservationsQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedDate || isUserLoading || !user) return null;
+    if (!firestore || !selectedDate) return null;
     const start = startOfDay(selectedDate);
     const end = addDays(start, 1);
     return query(
@@ -125,7 +125,7 @@ export default function ReservationPage() {
       where('reservationDateTime', '>=', Timestamp.fromDate(start)),
       where('reservationDateTime', '<', Timestamp.fromDate(end))
     );
-  }, [firestore, selectedDate, user, isUserLoading]);
+  }, [firestore, selectedDate]);
 
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
 
@@ -306,9 +306,11 @@ export default function ReservationPage() {
   }
 
   const handleConfirmClick = async (event: React.MouseEvent) => {
+    event.preventDefault(); // Always prevent default to control dialog manually
     const isValid = await form.trigger();
-    if (!isValid) {
-      event.preventDefault();
+    if (isValid) {
+      setIsDialogOpen(true);
+    } else {
       toast({
         title: 'Formulario incompleto',
         description: 'Por favor, selecciona una cancha y al menos un horario.',
@@ -519,3 +521,4 @@ export default function ReservationPage() {
   );
 }
 
+    
