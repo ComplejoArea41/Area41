@@ -45,7 +45,7 @@ export default function LayoutWrapperContent({
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
         </>
       )}
-      <main className="flex-1 flex flex-col relative z-10">{children}</main>
+      <div className="relative z-10 flex flex-col flex-1 h-full">{children}</div>
     </div>
   );
 }
