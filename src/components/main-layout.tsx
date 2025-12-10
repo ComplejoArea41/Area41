@@ -4,6 +4,7 @@
 import Header from "./header";
 import LayoutWrapper from "./layout-wrapper";
 import { usePathname } from 'next/navigation';
+import { Logo } from "./logo";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -30,6 +31,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </footer>
         </div>
       </LayoutWrapper>
+      <div className="fixed bottom-4 right-4 z-20 opacity-50 pointer-events-none">
+        <Logo />
+      </div>
     </div>
   );
 }
