@@ -66,6 +66,10 @@
         "isAvailable": {
           "type": "boolean",
           "description": "Indicates if the court is currently available."
+        },
+        "liveStreamUrl": {
+          "type": "string",
+          "description": "The URL for the live camera stream of the court."
         }
       },
       "required": [
@@ -105,6 +109,14 @@
         "durationMinutes": {
           "type": "number",
           "description": "Duration of the reservation in minutes."
+        },
+        "videoUrl": {
+            "type": "string",
+            "description": "URL to the recorded match video."
+        },
+        "matchId": {
+            "type": "string",
+            "description": "ID of the match if this reservation is for a tournament."
         }
       },
       "required": [
@@ -192,6 +204,10 @@
             "type": "string",
             "description": "Name of the team's coach (Director Técnico)."
         },
+        "flagUrl": {
+            "type": "string",
+            "description": "URL for the team's flag image."
+        },
         "points": {
           "type": "number",
           "description": "Points in the tournament."
@@ -224,14 +240,7 @@
       "required": [
         "id",
         "name",
-        "tournamentId",
-        "points",
-        "played",
-        "won",
-        "drawn",
-        "lost",
-        "goalsFor",
-        "goalsAgainst"
+        "tournamentId"
       ]
     },
     "Player": {
@@ -318,6 +327,14 @@
             "finished"
           ],
           "description": "Status of the match."
+        },
+        "phase": {
+          "type": "string",
+          "description": "The phase of the tournament this match belongs to (e.g., 'Final Copa de Oro')."
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "URL to the recorded match video."
         }
       },
       "required": [
