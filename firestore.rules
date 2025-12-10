@@ -169,7 +169,7 @@ service cloud.firestore {
     match /reservations/{reservationId} {
       // A user can read their own reservation. Admins can read any.
       allow get: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
-      // Any signed-in user can list reservations to check for availability.
+      // Any signed-in user can list reservations to check for availability by date.
       allow list: if isSignedIn();
       // A user can only create a reservation for themselves.
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
