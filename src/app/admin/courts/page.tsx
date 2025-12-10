@@ -33,8 +33,12 @@ import { Trash2, Video } from "lucide-react";
 
 
 const initialCourtsData: Omit<Court, 'id'>[] = [
-    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
-    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
+    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000, liveStreamUrl: "" },
+    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000, liveStreamUrl: "" },
+    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000, liveStreamUrl: "" },
+    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000, liveStreamUrl: "" },
+    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000, liveStreamUrl: "" },
+    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000, liveStreamUrl: "" },
 ];
 
 async function seedInitialCourts(firestore: Firestore) {
@@ -267,4 +271,3 @@ export default function AdminCourtsPage() {
     );
 }
 
-    
