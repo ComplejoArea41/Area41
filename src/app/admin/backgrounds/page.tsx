@@ -164,7 +164,7 @@ export default function AdminBackgroundsPage() {
         }
     };
     
-    const handleSaveChanges = () => {
+    const handleSaveChanges = async () => {
         if (!firestore || !storage) return;
 
         if (formData.name.trim() === '') {
@@ -209,30 +209,30 @@ export default function AdminBackgroundsPage() {
                             toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
                         }
                         setIsDialogOpen(false);
+                    } catch (error) {
+                        console.error("Error saving document to Firestore:", error);
+                        toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos de la imagen." });
                     } finally {
                         setIsSaving(false);
                     }
                 }
             );
         } else if (editingImage) {
-            // No new file, just updating details
             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
             };
             const imageRef = doc(firestore, 'background_images', editingImage.id);
-            setDocumentNonBlocking(imageRef, imageData, { merge: true })
-                .then(() => {
-                    toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
-                    setIsDialogOpen(false);
-                })
-                .catch((error) => {
-                     console.error("Error updating document:", error);
-                     toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
-                })
-                .finally(() => {
-                    setIsSaving(false);
-                });
+            try {
+                await setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+                setIsDialogOpen(false);
+            } catch (error) {
+                 console.error("Error updating document:", error);
+                 toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
+            } finally {
+                setIsSaving(false);
+            }
         } else {
             toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para una nueva imagen." });
             setIsSaving(false);

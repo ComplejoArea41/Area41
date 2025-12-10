@@ -162,7 +162,7 @@ export default function AdminLogoPage() {
         }
     };
     
-    const handleSaveChanges = () => {
+    const handleSaveChanges = async () => {
         if (!firestore || !storage) return;
 
         if (formData.name.trim() === '') {
@@ -207,30 +207,30 @@ export default function AdminLogoPage() {
                             toast({ title: "¡Logo agregado!", description: "El nuevo logo ya está disponible." });
                         }
                         setIsDialogOpen(false);
+                    } catch (error) {
+                        console.error("Error saving document to Firestore:", error);
+                        toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos del logo." });
                     } finally {
                         setIsSaving(false);
                     }
                 }
             );
         } else if (editingImage) {
-            // No new file, just updating details
             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
             };
              const imageRef = doc(firestore, 'logo_images', editingImage.id);
-            setDocumentNonBlocking(imageRef, imageData, { merge: true })
-                .then(() => {
-                    toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
-                    setIsDialogOpen(false);
-                })
-                .catch((error) => {
-                    console.error("Error updating document:", error);
-                    toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
-                })
-                .finally(() => {
-                    setIsSaving(false);
-                });
+             try {
+                await setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
+                setIsDialogOpen(false);
+             } catch (error) {
+                console.error("Error updating document:", error);
+                toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
+             } finally {
+                setIsSaving(false);
+             }
         } else {
             toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para un nuevo logo." });
             setIsSaving(false);
@@ -345,5 +345,3 @@ export default function AdminLogoPage() {
         </div>
     );
 }
-
-    
