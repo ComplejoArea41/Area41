@@ -87,7 +87,6 @@ TimeSlotButton.displayName = 'TimeSlotButton';
 
 export default function ReservationPage() {
   const { toast } = useToast();
-  const [courtType, setCourtType] = React.useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
@@ -204,13 +203,6 @@ export default function ReservationPage() {
     return false;
 }, [reservations, areReservationsLoading, selectedDate, allCourts]);
 
-
-  const handleCourtTypeChange = (type: 'Futbol 5' | 'Futbol 7') => {
-    setCourtType(type);
-    form.setValue("courtId", "", { shouldValidate: true });
-    form.setValue("times", []);
-  }
-
   const handleTimeClick = (time: string) => {
     const currentTimes = form.getValues("times");
     const newTimes = currentTimes.includes(time)
@@ -322,8 +314,8 @@ export default function ReservationPage() {
   const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
 
   const courtsForType = useMemo(() => {
-    return allCourts?.filter(c => c.courtType === courtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
-  }, [allCourts, courtType]);
+    return allCourts?.filter(c => c.courtType === 'Futbol 5').sort((a,b) => a.courtNumber - b.courtNumber) || [];
+  }, [allCourts]);
 
   const isLoading = isUserLoading || !user || areCourtsLoading || !allCourts;
 
@@ -359,7 +351,7 @@ export default function ReservationPage() {
           <CardHeader>
             <CardTitle>Reserva Tu Cancha</CardTitle>
             <CardDescription>
-              ¿Listos para el partido? Asegura tu lugar en Area41. Selecciona el tipo de cancha, la fecha y la hora. ¡El fútbol te espera!
+              ¿Listos para el partido? Asegura tu lugar en Area41. Selecciona la cancha, la fecha y la hora. ¡El fútbol te espera!
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -371,30 +363,11 @@ export default function ReservationPage() {
                   render={() => (
                     <FormItem>
                       <div className="mb-4">
-                        <FormLabel className="text-base">1. Tipo de Cancha</FormLabel>
+                        <FormLabel className="text-base">1. Selecciona la cancha</FormLabel>
                         <FormDescription>
-                          Elige entre Fútbol 5 o Fútbol 7.
+                          Todas las canchas son de Fútbol 5.
                         </FormDescription>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                          <Button
-                            type="button"
-                            variant={courtType === 'Futbol 5' ? "default" : "outline"}
-                            onClick={() => handleCourtTypeChange('Futbol 5')}
-                            className="text-lg py-6"
-                          >
-                            Fútbol 5
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={courtType === 'Futbol 7' ? "default" : "outline"}
-                            onClick={() => handleCourtTypeChange('Futbol 7')}
-                            className="text-lg py-6"
-                          >
-                            Fútbol 7
-                          </Button>
-                      </div>
-
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
                           {courtsForType.map((court) => (
                               <Button
@@ -521,4 +494,3 @@ export default function ReservationPage() {
   );
 }
 
-    
