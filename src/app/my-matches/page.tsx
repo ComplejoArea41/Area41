@@ -16,7 +16,6 @@ import {
 } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { Reservation, Court } from '@/lib/types';
 import { format } from 'date-fns';
 import { useMemoFirebase } from '@/firebase/provider';
@@ -45,10 +44,21 @@ export default function MyMatchesPage() {
     return court ? `${court.courtType} - Cancha ${court.courtNumber}` : 'Cancha Desconocida';
   }
 
-  if (isUserLoading || areReservationsLoading || areCourtsLoading) {
+  const filteredReservations = useMemo(() => {
+    if (!reservations || !courts) return null; // Return null while loading
+    const courtsMap = new Map(courts.map(c => [c.id, c]));
+    return reservations.filter(res => {
+      const court = courtsMap.get(res.courtIds[0]);
+      return court && court.courtType === 'Futbol 5';
+    });
+  }, [reservations, courts]);
+
+  const isLoading = isUserLoading || areReservationsLoading || areCourtsLoading || filteredReservations === null;
+
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
-        <p className="text-primary-foreground">Cargando tus partidos...</p>
+        <p className="text-primary-foreground">Cargando tus partidos grabados...</p>
       </div>
     );
   }
@@ -71,8 +81,8 @@ export default function MyMatchesPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reservations && reservations.length > 0 ? (
-                reservations.map(reservation => {
+            {filteredReservations && filteredReservations.length > 0 ? (
+                filteredReservations.map(reservation => {
                     const reservationDate = reservation.reservationDateTime && (reservation.reservationDateTime as any).toDate ? (reservation.reservationDateTime as any).toDate() : new Date(reservation.reservationDateTime);
                     const isUpcoming = reservationDate > new Date();
 
@@ -105,9 +115,9 @@ export default function MyMatchesPage() {
                 })
             ) : (
                 <div className="col-span-full text-center py-16 bg-card/60 rounded-lg">
-                    <h2 className="text-2xl font-bold">No tienes reservas</h2>
+                    <h2 className="text-2xl font-bold">No tienes partidos grabados</h2>
                     <p className="text-muted-foreground mt-2">
-                        ¡Reserva tu primera cancha para empezar a jugar!
+                        ¡Las reservas de canchas con cámara aparecerán aquí!
                     </p>
                     <Button onClick={() => router.push('/reservations')} className="mt-4">
                         Ir a Reservas
