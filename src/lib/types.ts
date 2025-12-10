@@ -96,6 +96,7 @@ export interface BackgroundImage {
     name: string;
     imageUrl: string;
     isActive: boolean;
+    storagePath?: string;
 }
 
     
