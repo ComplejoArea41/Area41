@@ -311,7 +311,7 @@ export default function ReservationPage() {
     }
   };
 
-  const availableTimes = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00"];
+  const availableTimes = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00"];
 
   const courtsForType = useMemo(() => {
     return allCourts?.filter(c => c.courtType === 'Futbol 5').sort((a,b) => a.courtNumber - b.courtNumber) || [];
@@ -365,7 +365,7 @@ export default function ReservationPage() {
                       <div className="mb-4">
                         <FormLabel className="text-base">1. Selecciona la cancha</FormLabel>
                         <FormDescription>
-                          Todas las canchas son de Fútbol 5.
+                          Todas las canchas son de Fútbol 5 y cuentan con grabación automática.
                         </FormDescription>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
@@ -427,7 +427,7 @@ export default function ReservationPage() {
                             <div>
                                 <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
                                 <FormDescription>
-                                    Cada turno dura 60 minutos.
+                                    Cada turno dura 60 minutos. Horarios de 18:00 a 00:00.
                                 </FormDescription>
                             </div>
                             {courtPrice > 0 && (
@@ -497,5 +497,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
