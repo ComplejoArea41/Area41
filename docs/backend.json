@@ -66,6 +66,10 @@
         "isAvailable": {
           "type": "boolean",
           "description": "Indicates if the court is currently available."
+        },
+        "liveStreamUrl": {
+          "type": "string",
+          "description": "The URL for the live camera stream of the court."
         }
       },
       "required": [

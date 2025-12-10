@@ -15,6 +15,7 @@ export interface Court {
   courtNumber: number;
   isAvailable: boolean;
   price: number;
+  liveStreamUrl?: string;
 }
 
 export interface Reservation {
