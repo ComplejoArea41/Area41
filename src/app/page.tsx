@@ -27,12 +27,12 @@ export default function WelcomePage() {
       icon: <Utensils className="h-10 w-10 text-primary-foreground" />,
       path: '/buffet',
     },
-    // {
-    //   title: 'Ver Torneos',
-    //   description: 'Compite por la gloria y siéntete un campeón.',
-    //   icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
-    //   path: '/tournaments',
-    // },
+    {
+      title: 'Ver Torneos',
+      description: 'Compite por la gloria y siéntete un campeón.',
+      icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
+      path: '/tournaments',
+    },
   ];
 
   return (

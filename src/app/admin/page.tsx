@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert, ArrowRight, Image as ImageIcon, Utensils, Goal } from "lucide-react";
+import { ShieldAlert, ArrowRight, Image as ImageIcon, Utensils, Goal, Trophy } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -98,6 +98,20 @@ export default function AdminPage() {
                      <CardContent>
                         <Button onClick={() => router.push('/admin/backgrounds')}>
                             Administrar Imágenes <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                 <Card className="bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Trophy />Gestión de Torneos</CardTitle>
+                        <CardDescription>
+                           Crea y administra los torneos, equipos y partidos.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <Button onClick={() => router.push('/admin/tournaments')}>
+                            Administrar Torneos <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardContent>
                 </Card>
