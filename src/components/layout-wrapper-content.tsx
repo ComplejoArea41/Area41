@@ -4,8 +4,9 @@
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import type { BackgroundImage } from "@/lib/types";
 import { collection, query, where } from "firebase/firestore";
-import { usePathname, useRouter } from "next/navigation";
 import React, { useMemo } from "react";
+
+const DEFAULT_BACKGROUND_URL = "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop";
 
 export default function LayoutWrapperContent({
   children,
@@ -18,14 +19,20 @@ export default function LayoutWrapperContent({
     () => query(collection(firestore, 'background_images'), where('isActive', '==', true)),
     [firestore]
   );
-  const { data: activeBgImages } = useCollection<BackgroundImage>(activeBgQuery);
+  const { data: activeBgImages, isLoading } = useCollection<BackgroundImage>(activeBgQuery);
 
   const activeBgUrl = useMemo(() => {
+    // If we have an active image from the database, use it.
     if (activeBgImages && activeBgImages.length > 0) {
       return activeBgImages[0].imageUrl;
     }
+    // If we are done loading and there are no active images, use the default.
+    if (!isLoading && (!activeBgImages || activeBgImages.length === 0)) {
+        return DEFAULT_BACKGROUND_URL;
+    }
+    // If still loading, return null to wait.
     return null;
-  }, [activeBgImages]);
+  }, [activeBgImages, isLoading]);
 
   return (
     <div className="flex flex-1 flex-col relative">
@@ -42,5 +49,3 @@ export default function LayoutWrapperContent({
     </div>
   );
 }
-
-    
