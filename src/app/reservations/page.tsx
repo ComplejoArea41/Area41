@@ -317,9 +317,9 @@ export default function ReservationPage() {
     return allCourts?.filter(c => c.courtType === 'Futbol 5').sort((a,b) => a.courtNumber - b.courtNumber) || [];
   }, [allCourts]);
 
-  const isLoading = isUserLoading || !user || areCourtsLoading || !allCourts;
+  const isLoadingPage = isUserLoading || !user || areCourtsLoading;
 
-  if (isLoading) {
+  if (isLoadingPage) {
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
           <p className="text-primary-foreground">Cargando disponibilidad...</p>
@@ -369,7 +369,7 @@ export default function ReservationPage() {
                         </FormDescription>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                          {areCourtsLoading ? (
+                          {areCourtsLoading || !allCourts ? (
                              Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 w-full bg-muted animate-pulse rounded-md" />)
                           ) : (
                             courtsForType.map((court) => (
@@ -497,3 +497,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
