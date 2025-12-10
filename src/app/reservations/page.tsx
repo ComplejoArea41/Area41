@@ -92,6 +92,8 @@ export default function ReservationPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
+  const [selectedCourtType, setSelectedCourtType] = useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
+
   const userRef = useMemoFirebase(
     () => (user ? doc(firestore, 'users', user.uid) : null),
     [user, firestore]
@@ -212,7 +214,7 @@ export default function ReservationPage() {
   };
 
   async function onSubmit(data: ReservationFormValues) {
-    if (!user) {
+    if (!user || !allCourts) {
       toast({
         title: 'Error',
         description: 'Debes iniciar sesión para hacer una reserva.',
@@ -239,6 +241,18 @@ export default function ReservationPage() {
       setIsDialogOpen(false);
       return;
     }
+
+    let courtIdsToReserve = [data.courtId];
+    const selectedCourt = allCourts.find(c => c.id === data.courtId);
+    if(selectedCourt?.courtType === 'Futbol 7') {
+        const f7Number = selectedCourt.courtNumber;
+        const f5Number1 = (f7Number * 2) - 1;
+        const f5Number2 = f7Number * 2;
+        const f5Court1 = allCourts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f5Number1);
+        const f5Court2 = allCourts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f5Number2);
+        if(f5Court1) courtIdsToReserve.push(f5Court1.id);
+        if(f5Court2) courtIdsToReserve.push(f5Court2.id);
+    }
   
     const reservationsCollection = collection(firestore, 'reservations');
     const reservationPromises = data.times.map((time) => {
@@ -251,7 +265,7 @@ export default function ReservationPage() {
       });
       return addDocumentNonBlocking(reservationsCollection, {
         userId: user.uid,
-        courtIds: [data.courtId], 
+        courtIds: courtIdsToReserve, 
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
         durationMinutes: 60,
       });
@@ -311,11 +325,16 @@ export default function ReservationPage() {
     }
   };
 
-  const availableTimes = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00"];
+  const availableTimes: string[] = [];
+    for (let i = 8; i < 24; i++) {
+        availableTimes.push(`${String(i).padStart(2, '0')}:00`);
+    }
+    availableTimes.push("00:00", "01:00", "02:00");
+
 
   const courtsForType = useMemo(() => {
-    return allCourts?.filter(c => c.courtType === 'Futbol 5').sort((a,b) => a.courtNumber - b.courtNumber) || [];
-  }, [allCourts]);
+    return allCourts?.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
+  }, [allCourts, selectedCourtType]);
 
   const isLoadingPage = isUserLoading || !user || areCourtsLoading;
 
@@ -363,13 +382,37 @@ export default function ReservationPage() {
                   render={() => (
                     <FormItem>
                       <div className="mb-4">
-                        <FormLabel className="text-base">1. Selecciona la cancha</FormLabel>
+                        <FormLabel className="text-base">1. Selecciona el tipo y número de cancha</FormLabel>
                         <FormDescription>
-                          Todas las canchas son de Fútbol 5 y cuentan con grabación automática.
+                          Elige el tipo de cancha y luego selecciona una de las disponibles.
                         </FormDescription>
                       </div>
+                       <div className="flex gap-4">
+                            <Button
+                                type="button"
+                                variant={selectedCourtType === 'Futbol 5' ? 'default' : 'outline'}
+                                onClick={() => {
+                                    setSelectedCourtType('Futbol 5');
+                                    form.setValue('courtId', '');
+                                    form.setValue('times', []);
+                                }}
+                            >
+                                Fútbol 5
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={selectedCourtType === 'Futbol 7' ? 'default' : 'outline'}
+                                onClick={() => {
+                                    setSelectedCourtType('Futbol 7');
+                                    form.setValue('courtId', '');
+                                    form.setValue('times', []);
+                                }}
+                            >
+                                Fútbol 7
+                            </Button>
+                        </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                          {areCourtsLoading || !allCourts ? (
+                          {areCourtsLoading ? (
                              Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 w-full bg-muted animate-pulse rounded-md" />)
                           ) : (
                             courtsForType.map((court) => (
@@ -427,7 +470,7 @@ export default function ReservationPage() {
                             <div>
                                 <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
                                 <FormDescription>
-                                    Cada turno dura 60 minutos. Horarios de 18:00 a 00:00.
+                                    Cada turno dura 60 minutos.
                                 </FormDescription>
                             </div>
                             {courtPrice > 0 && (
