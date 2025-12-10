@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import { placeholderImages } from "@/lib/placeholder-images.json";
 

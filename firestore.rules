@@ -119,6 +119,14 @@ service cloud.firestore {
         allow get, list: if true;
         allow write: if isAdmin();
     }
+    
+    /**
+     * @description Rules for Logo Images. Publicly readable, admin-managed.
+     */
+    match /logo_images/{logoId} {
+        allow get, list: if true;
+        allow write: if isAdmin();
+    }
 
 
     // -------------------------------------------------------------------------

@@ -357,6 +357,18 @@
         "isActive": { "type": "boolean", "description": "Indicates if the image is the active background." }
       },
       "required": ["id", "name", "imageUrl", "isActive"]
+    },
+     "LogoImage": {
+      "title": "LogoImage",
+      "type": "object",
+      "description": "Represents a logo image for the application.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the logo." },
+        "name": { "type": "string", "description": "Name or title of the logo." },
+        "imageUrl": { "type": "string", "description": "URL of the logo image." },
+        "isActive": { "type": "boolean", "description": "Indicates if the logo is the active one." }
+      },
+      "required": ["id", "name", "imageUrl", "isActive"]
     }
   },
   "auth": {
@@ -415,6 +427,16 @@
             "$ref": "#/backend/entities/BackgroundImage"
           },
           "description": "Stores background images for the application."
+        }
+      },
+      {
+        "path": "/logo_images/{logoId}",
+        "definition": {
+          "entityName": "LogoImage",
+          "schema": {
+            "$ref": "#/backend/entities/LogoImage"
+          },
+          "description": "Stores logo images for the application."
         }
       },
       {

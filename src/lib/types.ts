@@ -1,5 +1,6 @@
 
 
+
 export interface User {
   id: string;
   firstName: string;
@@ -99,5 +100,12 @@ export interface BackgroundImage {
     storagePath?: string;
 }
 
+export interface LogoImage {
+  id: string;
+  name: string;
+  imageUrl: string;
+  isActive: boolean;
+  storagePath?: string;
+}
     
     
