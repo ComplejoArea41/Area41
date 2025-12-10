@@ -164,67 +164,77 @@ export default function AdminBackgroundsPage() {
         }
     };
     
-    const handleSaveChanges = async () => {
+    const handleSaveChanges = () => {
         if (!firestore || !storage) return;
-        
+
         if (formData.name.trim() === '') {
             toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
             return;
         }
 
         setIsSaving(true);
-        let finalImageUrl = editingImage?.imageUrl || '';
-        let storagePath: string | undefined = editingImage?.storagePath;
+        setUploadProgress(0);
 
-        // --- File Upload Logic ---
         if (selectedFile) {
-            storagePath = `backgrounds/${uuidv4()}-${selectedFile.name}`;
+            const storagePath = `backgrounds/${uuidv4()}-${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
 
-            await new Promise<void>((resolve, reject) => {
-                uploadTask.on('state_changed',
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        setUploadProgress(progress);
-                    },
-                    (error) => {
-                        console.error("Upload failed:", error);
-                        toast({ variant: "destructive", title: "Error al subir", description: "No se pudo subir el archivo." });
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(progress);
+                },
+                (error) => {
+                    console.error("Upload failed:", error);
+                    toast({ variant: "destructive", title: "Error al subir", description: "No se pudo subir el archivo." });
+                    setIsSaving(false);
+                },
+                async () => {
+                    const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                    const imageData = {
+                        name: formData.name,
+                        imageUrl: finalImageUrl,
+                        storagePath: storagePath,
+                    };
+
+                    try {
+                        if (editingImage) {
+                            const imageRef = doc(firestore, 'background_images', editingImage.id);
+                            await setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                            toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+                        } else {
+                            const collectionRef = collection(firestore, 'background_images');
+                            await addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                            toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
+                        }
+                        setIsDialogOpen(false);
+                    } finally {
                         setIsSaving(false);
-                        reject(error);
-                    },
-                    async () => {
-                        finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                        resolve();
                     }
-                );
-            });
-        } else if (!editingImage) {
+                }
+            );
+        } else if (editingImage) {
+            // No new file, just updating details
+            const imageData = {
+                name: formData.name,
+                imageUrl: formData.imageUrl,
+            };
+            const imageRef = doc(firestore, 'background_images', editingImage.id);
+            setDocumentNonBlocking(imageRef, imageData, { merge: true })
+                .then(() => {
+                    toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+                    setIsDialogOpen(false);
+                })
+                .catch((error) => {
+                     console.error("Error updating document:", error);
+                     toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
+                })
+                .finally(() => {
+                    setIsSaving(false);
+                });
+        } else {
             toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para una nueva imagen." });
-            setIsSaving(false);
-            return;
-        }
-
-
-        const imageData = {
-            name: formData.name,
-            imageUrl: finalImageUrl,
-            storagePath: storagePath,
-        };
-
-        try {
-            if (editingImage) {
-                const imageRef = doc(firestore, 'background_images', editingImage.id);
-                await setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
-            } else {
-                const collectionRef = collection(firestore, 'background_images');
-                await addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
-                toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
-            }
-            setIsDialogOpen(false);
-        } finally {
             setIsSaving(false);
         }
     };
@@ -336,3 +346,5 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
+
+    
