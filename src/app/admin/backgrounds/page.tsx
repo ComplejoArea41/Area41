@@ -21,7 +21,7 @@ import {
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, writeBatch } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, Firestore, addDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,28 @@ import { Trash2, Edit, PlusCircle, Image as ImageIcon } from "lucide-react";
 import NextImage from "next/image";
 
 type FormData = Omit<BackgroundImage, 'id' | 'isActive'>;
+
+const initialImageData: Omit<BackgroundImage, 'id'> = {
+    name: "Campo de Juego",
+    imageUrl: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop",
+    isActive: true,
+};
+
+
+async function seedInitialBackground(firestore: Firestore) {
+    const bgCollectionRef = collection(firestore, 'background_images');
+    const snapshot = await getDocs(bgCollectionRef);
+    if (snapshot.empty) {
+        console.log("No background images found, seeding initial data...");
+        try {
+             await addDoc(bgCollectionRef, initialImageData);
+             console.log("Initial background seeded successfully.");
+        } catch (error) {
+            console.error("Error seeding initial background:", error);
+        }
+    }
+}
+
 
 export default function AdminBackgroundsPage() {
     const { user, isUserLoading } = useUser();
@@ -41,12 +63,18 @@ export default function AdminBackgroundsPage() {
     const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
     const backgroundsCollectionRef = useMemoFirebase(() => collection(firestore, 'background_images'), [firestore]);
-    const { data: backgroundImages, isLoading: areBgsLoading } = useCollection<BackgroundImage>(backgroundsCollectionRef);
+    const { data: backgroundImages, isLoading: areBgsLoading, error: bgsError } = useCollection<BackgroundImage>(backgroundsCollectionRef);
 
     const [isSaving, setIsSaving] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingImage, setEditingImage] = useState<BackgroundImage | null>(null);
     const [formData, setFormData] = useState<FormData>({ name: '', imageUrl: '' });
+
+    useEffect(() => {
+        if (firestore) {
+            seedInitialBackground(firestore).catch(console.error);
+        }
+    }, [firestore]);
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {
@@ -75,31 +103,21 @@ export default function AdminBackgroundsPage() {
     const handleDeleteImage = async (imageId: string) => {
         if (!firestore) return;
         const imageRef = doc(firestore, 'background_images', imageId);
-        try {
-            await deleteDocumentNonBlocking(imageRef);
-            toast({ title: "¡Imagen eliminada!", description: "La imagen de fondo ha sido eliminada." });
-        } catch (error) {
-            console.error("Error deleting image: ", error);
-            toast({ variant: "destructive", title: "Error al eliminar", description: "No se pudo eliminar la imagen." });
-        }
+        deleteDocumentNonBlocking(imageRef);
+        toast({ title: "¡Imagen eliminada!", description: "La imagen de fondo ha sido eliminada." });
     };
 
     const handleSetActive = async (activeImage: BackgroundImage) => {
         if (!firestore || !backgroundImages) return;
-
         const batch = writeBatch(firestore);
-
-        // Deactivate all other images
         backgroundImages.forEach(img => {
-            if (img.id !== activeImage.id && img.isActive) {
-                const docRef = doc(firestore, 'background_images', img.id);
+            const docRef = doc(firestore, 'background_images', img.id);
+            if (img.id === activeImage.id) {
+                batch.update(docRef, { isActive: !img.isActive });
+            } else if (img.isActive) {
                 batch.update(docRef, { isActive: false });
             }
         });
-        
-        // Activate the selected one
-        const activeDocRef = doc(firestore, 'background_images', activeImage.id);
-        batch.update(activeDocRef, { isActive: !activeImage.isActive });
 
         try {
             await batch.commit();
@@ -120,6 +138,14 @@ export default function AdminBackgroundsPage() {
     const handleSaveChanges = async () => {
         if (!firestore) return;
         setIsSaving(true);
+
+        const isFormValid = formData.name.trim() !== '' && formData.imageUrl.trim() !== '';
+        if (!isFormValid) {
+            toast({ variant: "destructive", title: "Error", description: "El nombre y la URL de la imagen no pueden estar vacíos." });
+            setIsSaving(false);
+            return;
+        }
+
         try {
             if (editingImage) {
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
@@ -131,9 +157,6 @@ export default function AdminBackgroundsPage() {
                 toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
             }
             setIsDialogOpen(false);
-        } catch (error) {
-            console.error("Error saving image: ", error);
-            toast({ variant: "destructive", title: "Error al guardar", description: "No se pudo guardar la imagen." });
         } finally {
             setIsSaving(false);
         }
@@ -200,6 +223,11 @@ export default function AdminBackgroundsPage() {
                             <p className="mt-4">No hay imágenes de fondo. ¡Añade la primera!</p>
                         </div>
                     )}
+                    {bgsError && (
+                        <div className="text-center py-16 text-destructive col-span-full">
+                             <p className="mt-4">Error al cargar las imágenes: {bgsError.message}</p>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -232,5 +260,3 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
-
-    
