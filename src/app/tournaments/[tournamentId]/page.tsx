@@ -24,14 +24,13 @@ import {
   useMemoFirebase,
 } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import type { Tournament, Team, Player, Match } from '@/lib/types';
 import { Trophy, Users, Shield, ListOrdered, Flame, ArrowLeft } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRouter } from 'next/navigation';
 
 interface MatchCardProps {
     match: Match;
@@ -86,9 +85,8 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, teamA, teamB }) => {
 
 export default function TournamentPublicPage() {
   const firestore = useFirestore();
-  const params = useParams();
+  const { tournamentId } = useParams<{ tournamentId: string }>();
   const router = useRouter();
-  const tournamentId = params.tournamentId as string;
 
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
 
@@ -280,3 +278,5 @@ export default function TournamentPublicPage() {
     </div>
   );
 }
+
+    

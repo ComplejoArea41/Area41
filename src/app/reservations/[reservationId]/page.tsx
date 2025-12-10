@@ -11,9 +11,8 @@ import { ArrowLeft } from "lucide-react";
 export default function ReservationVideoPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
-    const params = useParams();
+    const { reservationId } = useParams<{ reservationId: string }>();
     const router = useRouter();
-    const reservationId = params.reservationId as string;
 
     const reservationRef = useMemoFirebase(
         () => (reservationId ? doc(firestore, 'reservations', reservationId) : null),
@@ -76,3 +75,5 @@ export default function ReservationVideoPage() {
     )
 
 }
+
+    

@@ -50,9 +50,8 @@ export default function TournamentDetailPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
-    const params = useParams();
+    const { tournamentId } = useParams<{ tournamentId: string }>();
     const { toast } = useToast();
-    const tournamentId = params.tournamentId as string;
 
     // --- State Management ---
     const [isSaving, setIsSaving] = useState(false);
@@ -658,3 +657,5 @@ export default function TournamentDetailPage() {
         </div>
     );
 }
+
+    
