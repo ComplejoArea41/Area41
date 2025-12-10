@@ -113,6 +113,10 @@
         "videoUrl": {
             "type": "string",
             "description": "URL to the recorded match video."
+        },
+        "matchId": {
+            "type": "string",
+            "description": "ID of the match if this reservation is for a tournament."
         }
       },
       "required": [
@@ -327,6 +331,10 @@
         "phase": {
           "type": "string",
           "description": "The phase of the tournament this match belongs to (e.g., 'Final Copa de Oro')."
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "URL to the recorded match video."
         }
       },
       "required": [

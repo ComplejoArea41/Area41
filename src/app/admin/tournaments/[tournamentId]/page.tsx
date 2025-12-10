@@ -26,13 +26,13 @@ import {
     TableHeader,
     TableRow,
   } from "@/components/ui/table";
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, query, writeBatch, runTransaction, orderBy, Timestamp } from "firebase/firestore";
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { collection, doc, query, writeBatch, runTransaction, orderBy, Timestamp, getDocs, where } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tournament, Team, Player, Match } from "@/lib/types";
-import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, ShieldCheck, Save, ListOrdered, Flame } from "lucide-react";
+import { PlusCircle, Trash2, Edit, Trophy, Users, Eye, ShieldCheck, Save, ListOrdered, Flame, Video } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -76,6 +76,7 @@ export default function TournamentDetailPage() {
     const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
     const [editingMatch, setEditingMatch] = useState<Match | null>(null);
     const [matchPhase, setMatchPhase] = useState('');
+    const [videoUrl, setVideoUrl] = useState('');
     const [teamAGoals, setTeamAGoals] = useState<GoalAssignment>({});
     const [teamBGoals, setTeamBGoals] = useState<GoalAssignment>({});
 
@@ -261,7 +262,22 @@ export default function TournamentDetailPage() {
         
         try {
             const matchesCollection = collection(firestore, 'tournaments', tournamentId, 'matches');
-            await addDocumentNonBlocking(matchesCollection, newMatchData);
+            const matchDocRef = await addDocumentNonBlocking(matchesCollection, newMatchData);
+            
+            // Now, find the corresponding reservation to link the matchId
+            const reservationsRef = collection(firestore, 'reservations');
+            const q = query(
+                reservationsRef, 
+                where('reservationDateTime', '==', Timestamp.fromDate(matchDateTime))
+            );
+            const querySnapshot = await getDocs(q);
+
+            // Assuming only one reservation matches the exact date and time
+            querySnapshot.forEach((reservationDoc) => {
+                const reservationRef = doc(firestore, 'reservations', reservationDoc.id);
+                updateDocumentNonBlocking(reservationRef, { matchId: matchDocRef.id });
+            });
+
             toast({ title: '¡Partido Creado!', description: 'El nuevo partido ha sido añadido al fixture.' });
             setIsMatchDialogOpen(false);
         } catch (error) {
@@ -277,6 +293,7 @@ export default function TournamentDetailPage() {
         setTeamAGoals({});
         setTeamBGoals({});
         setMatchPhase(match.phase || '');
+        setVideoUrl(match.videoUrl || '');
         setIsResultDialogOpen(true);
     };
 
@@ -319,8 +336,14 @@ export default function TournamentDetailPage() {
     
                 // --- 2. WRITES (All writes happen after reads) ---
     
-                // Update match status
-                transaction.update(matchRef, { teamAScore: teamAScore, teamBScore: teamBScore, status: 'finished', phase: matchPhase });
+                // Update match status and video URL
+                transaction.update(matchRef, { 
+                    teamAScore: teamAScore, 
+                    teamBScore: teamBScore, 
+                    status: 'finished', 
+                    phase: matchPhase,
+                    videoUrl: videoUrl,
+                });
     
                 // Update team stats
                 const teamAData = teamADoc.data() as Team;
@@ -345,9 +368,20 @@ export default function TournamentDetailPage() {
                         }
                     }
                 });
+
+                // Find and update the reservation with the video URL
+                const reservationsRef = collection(firestore, 'reservations');
+                const q = query(reservationsRef, where('matchId', '==', editingMatch.id));
+                const querySnapshot = await getDocs(q); // Use getDocs directly inside transaction for reads
+                
+                querySnapshot.forEach((reservationDoc) => {
+                    if(videoUrl) {
+                        transaction.update(reservationDoc.ref, { videoUrl: videoUrl });
+                    }
+                });
             });
     
-            toast({ title: '¡Resultado guardado!', description: 'La tabla de posiciones y goleadores se ha actualizado.' });
+            toast({ title: '¡Resultado guardado!', description: 'La tabla de posiciones y la reserva se han actualizado.' });
             setIsResultDialogOpen(false);
         } catch (error) {
             console.error("Error saving match result: ", error);
@@ -609,6 +643,10 @@ export default function TournamentDetailPage() {
                          <div className="grid grid-cols-4 items-center gap-4 pt-4">
                             <Label htmlFor="match-phase" className="text-right">Fase</Label>
                             <Input id="match-phase" value={matchPhase} onChange={(e) => setMatchPhase(e.target.value)} className="col-span-3" placeholder="Ej: Final Copa de Oro"/>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4 pt-2">
+                            <Label htmlFor="video-url" className="text-right flex items-center gap-2"><Video className="h-4 w-4"/> URL Video</Label>
+                            <Input id="video-url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className="col-span-3" placeholder="Pega aquí la URL de la grabación"/>
                         </div>
                     </>)}
                     <DialogFooter>

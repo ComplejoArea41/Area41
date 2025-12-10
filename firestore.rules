@@ -174,7 +174,7 @@ service cloud.firestore {
       // A user can only create a reservation for themselves.
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
       // A user can only update their own reservation, and cannot change the owner. Admins can update any.
-      // Admins can add/update the videoUrl.
+      // Admins can add/update the videoUrl or matchId.
       allow update: if (isSignedIn() && ((isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId))) || isAdmin();
        // A user can delete their own reservation. Admins can delete any.
       allow delete: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());

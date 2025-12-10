@@ -28,6 +28,7 @@ export interface Reservation {
   // For display purposes, will be constructed
   date?: string;
   time?: string;
+  matchId?: string; // Link to the match if it's a tournament match
 }
 
 export interface MenuItem {
@@ -79,6 +80,7 @@ export interface Match {
     date: string; // ISO 8601 format
     status: 'pending' | 'finished';
     phase?: string; // e.g., "Final Copa de Oro", "Semi Final"
+    videoUrl?: string;
 }
 
 
