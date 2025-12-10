@@ -138,30 +138,32 @@ export default function AdminCourtsPage() {
         if (!courts || !firestore) return;
         setIsSaving(true);
     
-        const updatePromises: Promise<void>[] = [];
-        for (const court of courts) {
+        const batch = writeBatch(firestore);
+        courts.forEach(court => {
             const details = courtDetails[court.id];
-            if (details && (details.price !== court.price || details.liveStreamUrl !== court.liveStreamUrl)) {
+            if (details) {
                 const courtRef = doc(firestore, 'courts', court.id);
-                const promise = new Promise<void>((resolve, reject) => {
-                    try {
-                        setDocumentNonBlocking(courtRef, { price: details.price, liveStreamUrl: details.liveStreamUrl }, { merge: true });
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-                updatePromises.push(promise);
+                const updatedData: Partial<Court> = {};
+                if (details.price !== court.price) {
+                    updatedData.price = details.price;
+                }
+                if (details.liveStreamUrl !== court.liveStreamUrl) {
+                    updatedData.liveStreamUrl = details.liveStreamUrl;
+                }
+                if (Object.keys(updatedData).length > 0) {
+                    batch.update(courtRef, updatedData);
+                }
             }
-        }
+        });
     
         try {
-            await Promise.all(updatePromises);
+            await batch.commit();
             toast({
                 title: "¡Datos de canchas actualizados!",
                 description: "Los datos de las canchas se han guardado correctamente.",
             });
         } catch (error) {
+             console.error("Error saving court data:", error);
              toast({
                 variant: "destructive",
                 title: "Error al guardar",
@@ -186,7 +188,7 @@ export default function AdminCourtsPage() {
         <div key={court.id} className="p-4 border rounded-lg bg-card/50 space-y-4">
             <div className="flex items-center justify-between">
                 <Label htmlFor={`price-${court.id}`} className="text-lg font-semibold">
-                    {`Cancha ${court.courtNumber}`}
+                    {`${court.courtType} - Cancha ${court.courtNumber}`}
                 </Label>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -271,3 +273,4 @@ export default function AdminCourtsPage() {
     );
 }
 
+    
