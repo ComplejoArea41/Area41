@@ -105,7 +105,7 @@ export default function MyMatchesPage() {
               className="py-6 text-lg"
             >
               <Camera className="mr-2 h-5 w-5"/>
-              Cancha {court.courtNumber}
+              {`Cancha ${court.courtNumber}`}
             </Button>
           ))}
         </div>
