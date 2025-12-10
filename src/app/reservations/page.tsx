@@ -369,19 +369,23 @@ export default function ReservationPage() {
                         </FormDescription>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                          {courtsForType.map((court) => (
-                              <Button
-                              key={court.id}
-                              variant={selectedCourtId === court.id ? "default" : "outline"}
-                              onClick={() => {
-                                  form.setValue("courtId", court.id, { shouldValidate: true });
-                                  form.setValue("times", []);
-                              }}
-                              type="button"
-                              >
-                              Cancha {court.courtNumber}
-                              </Button>
-                          ))}
+                          {areCourtsLoading ? (
+                             Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 w-full bg-muted animate-pulse rounded-md" />)
+                          ) : (
+                            courtsForType.map((court) => (
+                                <Button
+                                key={court.id}
+                                variant={selectedCourtId === court.id ? "default" : "outline"}
+                                onClick={() => {
+                                    form.setValue("courtId", court.id, { shouldValidate: true });
+                                    form.setValue("times", []);
+                                }}
+                                type="button"
+                                >
+                                {`Cancha ${court.courtNumber}`}
+                                </Button>
+                            ))
+                          )}
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -493,4 +497,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
