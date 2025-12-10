@@ -14,7 +14,7 @@ import {
   useFirestore,
   useUser,
 } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Reservation, Court } from '@/lib/types';
@@ -32,7 +32,7 @@ export default function MyMatchesPage() {
   const reservationsQuery = useMemoFirebase(
     () =>
       user
-        ? query(collection(firestore, 'reservations'), where('userId', '==', user.uid), orderBy('reservationDateTime', 'desc'))
+        ? query(collection(firestore, 'reservations'), where('userId', '==', user.uid))
         : null,
     [user, firestore]
   );
