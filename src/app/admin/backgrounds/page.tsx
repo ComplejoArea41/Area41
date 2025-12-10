@@ -34,28 +34,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 type FormData = Omit<BackgroundImage, 'id' | 'isActive' | 'storagePath'>;
 
-const initialImageData: Omit<BackgroundImage, 'id' | 'storagePath'> = {
-    name: "Campo de Juego",
-    imageUrl: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop",
-    isActive: true,
-};
-
-
-async function seedInitialBackground(firestore: Firestore) {
-    const bgCollectionRef = collection(firestore, 'background_images');
-    const snapshot = await getDocs(bgCollectionRef);
-    if (snapshot.empty) {
-        console.log("No background images found, seeding initial data...");
-        try {
-             await addDoc(bgCollectionRef, initialImageData);
-             console.log("Initial background seeded successfully.");
-        } catch (error) {
-            console.error("Error seeding initial background:", error);
-        }
-    }
-}
-
-
 export default function AdminBackgroundsPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
@@ -75,12 +53,6 @@ export default function AdminBackgroundsPage() {
     const [formData, setFormData] = useState<FormData>({ name: '', imageUrl: '' });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
-
-    useEffect(() => {
-        if (firestore) {
-            seedInitialBackground(firestore).catch(console.error);
-        }
-    }, [firestore]);
 
     useEffect(() => {
         if (!isUserLoading && !isProfileLoading) {

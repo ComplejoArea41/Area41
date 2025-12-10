@@ -6,7 +6,7 @@ import type { BackgroundImage } from "@/lib/types";
 import { collection, query, where } from "firebase/firestore";
 import React, { useMemo } from "react";
 
-const DEFAULT_BACKGROUND_URL = "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop";
+const DEFAULT_BACKGROUND_URL = "";
 
 export default function LayoutWrapperContent({
   children,
