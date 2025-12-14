@@ -9,13 +9,12 @@
  * @philosophy
  * This ruleset implements a mixed security model tailored for a sports complex application.
  * - User-Private Data: Data like user profiles are strictly private, accessible only by the document owner.
- * - Publicly Readable Data: Shared information like court availability, buffet menus, and tournaments are publicly readable by any user.
+ * - Publicly Readable Data: Shared information like court availability and buffet menus are publicly readable by any user.
  * - Admin-Write Data: Public data can only be written to by users flagged as administrators (`isAdmin: true`).
  * - Reservation Logic:
  *   - Users can only create reservations for themselves.
  *   - Any authenticated user can LIST reservations to check for availability.
  *   - Users can only GET, UPDATE, or DELETE their own reservations.
- * - Tournament Data: Tournament data (teams, matches, players) is publicly readable but only managed by admins.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -128,44 +127,6 @@ service cloud.firestore {
         allow write: if isAdmin();
     }
 
-
-    // -------------------------------------------------------------------------
-    // Tournament Data (Nested Structure)
-    // -------------------------------------------------------------------------
-    
-    /**
-     * @description Rules for Tournaments and their nested data. Publicly readable, admin-managed.
-     */
-    match /tournaments/{tournamentId} {
-        allow get, list: if true;
-        allow create, update, delete: if isAdmin();
-
-        /**
-         * @description Rules for Teams within a tournament.
-         */
-        match /teams/{teamId} {
-            allow get, list: if true;
-            allow write: if isAdmin();
-        }
-
-        /**
-         * @description Rules for Players within a tournament.
-         */
-        match /players/{playerId} {
-            allow get, list: if true;
-            allow write: if isAdmin();
-        }
-        
-        /**
-         * @description Rules for Matches within a tournament.
-         */
-        match /matches/{matchId} {
-            allow get, list: if true;
-            allow write: if isAdmin();
-        }
-    }
-
-
     // -------------------------------------------------------------------------
     // Reservations (/reservations)
     // -------------------------------------------------------------------------
@@ -182,7 +143,7 @@ service cloud.firestore {
       // A user can only create a reservation for themselves.
       allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
       // A user can only update their own reservation, and cannot change the owner. Admins can update any.
-      // Admins can add/update the videoUrl or matchId.
+      // Admins can add/update the videoUrl.
       allow update: if (isSignedIn() && ((isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId))) || isAdmin();
        // A user can delete their own reservation. Admins can delete any.
       allow delete: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());

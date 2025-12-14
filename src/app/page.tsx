@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Goal, Utensils, Trophy } from 'lucide-react';
+import { Goal, Utensils } from 'lucide-react';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -27,12 +27,12 @@ export default function WelcomePage() {
       icon: <Utensils className="h-10 w-10 text-primary-foreground" />,
       path: '/buffet',
     },
-    // {
-    //   title: 'Ver Torneos',
-    //   description: 'Compite por la gloria y siéntete un campeón.',
-    //   icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
-    //   path: '/tournaments',
-    // },
+    {
+      title: 'Mis Partidos Grabados',
+      description: 'Mira las repeticiones de tus mejores jugadas.',
+      icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
+      path: '/my-matches',
+    },
   ];
 
   return (

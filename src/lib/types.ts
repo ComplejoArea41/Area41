@@ -1,6 +1,7 @@
 
 
 
+
 export interface User {
   id: string;
   firstName: string;
@@ -16,7 +17,6 @@ export interface Court {
   courtNumber: number;
   isAvailable: boolean;
   price: number;
-  liveStreamUrl?: string;
 }
 
 export interface Reservation {
@@ -29,7 +29,6 @@ export interface Reservation {
   // For display purposes, will be constructed
   date?: string;
   time?: string;
-  matchId?: string; // Link to the match if it's a tournament match
 }
 
 export interface MenuItem {
@@ -40,50 +39,6 @@ export interface MenuItem {
   type: 'Bebida' | 'Comida';
   imageUrl: string;
 }
-
-export interface Tournament {
-  id: string;
-  name: string;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  tournamentId: string;
-  coach?: string; // Director Técnico
-  points: number;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  flagUrl?: string;
-}
-
-export interface Player {
-    id: string;
-    name: string;
-    teamId: string;
-    tournamentId: string;
-    goals: number;
-    yellowCards: number;
-    redCards: number;
-}
-
-export interface Match {
-    id: string;
-    tournamentId: string;
-    teamAId: string;
-    teamBId: string;
-    teamAScore: number | null;
-    teamBScore: number | null;
-    date: string; // ISO 8601 format
-    status: 'pending' | 'finished';
-    phase?: string; // e.g., "Final Copa de Oro", "Semi Final"
-    videoUrl?: string;
-}
-
 
 export interface RecentMember {
     id: string;

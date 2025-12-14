@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert, ArrowRight, Image as ImageIcon, Utensils, Goal, Trophy, Award } from "lucide-react";
+import { ShieldAlert, ArrowRight, Image as ImageIcon, Utensils, Goal, Award } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -54,7 +54,7 @@ export default function AdminPage() {
                         Panel de Administración
                     </CardTitle>
                     <CardDescription>
-                        Aquí podrás gestionar los precios, torneos y otras configuraciones del complejo.
+                        Aquí podrás gestionar los precios y otras configuraciones del complejo.
                     </CardDescription>
                 </CardHeader>
             </Card>
@@ -112,20 +112,6 @@ export default function AdminPage() {
                      <CardContent>
                         <Button onClick={() => router.push('/admin/logo')}>
                             Administrar Logo <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                 <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Trophy />Gestión de Torneos</CardTitle>
-                        <CardDescription>
-                           Crea y administra los torneos, equipos y partidos.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/tournaments')}>
-                            Administrar Torneos <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardContent>
                 </Card>

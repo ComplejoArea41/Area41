@@ -29,16 +29,16 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Court } from "@/lib/types";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { Trash2, Video } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 
 const initialCourtsData: Omit<Court, 'id'>[] = [
-    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000, liveStreamUrl: "" },
-    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000, liveStreamUrl: "" },
-    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000, liveStreamUrl: "" },
-    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000, liveStreamUrl: "" },
-    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000, liveStreamUrl: "" },
-    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000, liveStreamUrl: "" },
+    { courtType: "Futbol 5", courtNumber: 1, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 2, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 3, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 5", courtNumber: 4, isAvailable: true, price: 30000 },
+    { courtType: "Futbol 7", courtNumber: 1, isAvailable: true, price: 60000 },
+    { courtType: "Futbol 7", courtNumber: 2, isAvailable: true, price: 60000 },
 ];
 
 async function seedInitialCourts(firestore: Firestore) {
@@ -72,7 +72,7 @@ export default function AdminCourtsPage() {
     const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
-    const [courtDetails, setCourtDetails] = useState<Record<string, { price: number; liveStreamUrl: string }>>({});
+    const [courtDetails, setCourtDetails] = useState<Record<string, { price: number }>>({});
     const [isSaving, setIsSaving] = useState(false);
 
      useEffect(() => {
@@ -93,16 +93,15 @@ export default function AdminCourtsPage() {
             const initialDetails = courts.reduce((acc, court) => {
                 acc[court.id] = {
                     price: court.price || 0,
-                    liveStreamUrl: court.liveStreamUrl || ''
                 };
                 return acc;
-            }, {} as Record<string, { price: number; liveStreamUrl: string }>);
+            }, {} as Record<string, { price: number }>);
             setCourtDetails(initialDetails);
         }
     }, [courts]);
 
 
-    const handleDetailChange = (courtId: string, field: 'price' | 'liveStreamUrl', value: string) => {
+    const handleDetailChange = (courtId: string, field: 'price', value: string) => {
         const newValue = field === 'price' ? Number(value) : value;
         if (field === 'price' && isNaN(newValue as number)) return;
 
@@ -146,9 +145,6 @@ export default function AdminCourtsPage() {
                 const updatedData: Partial<Court> = {};
                 if (details.price !== court.price) {
                     updatedData.price = details.price;
-                }
-                if (details.liveStreamUrl !== court.liveStreamUrl) {
-                    updatedData.liveStreamUrl = details.liveStreamUrl;
                 }
                 if (Object.keys(updatedData).length > 0) {
                     batch.update(courtRef, updatedData);
@@ -223,17 +219,6 @@ export default function AdminCourtsPage() {
                     placeholder="0"
                 />
             </div>
-            <div className="space-y-2">
-                <Label htmlFor={`stream-url-${court.id}`} className="flex items-center gap-2"><Video className="h-4 w-4"/> URL de Cámara en Vivo</Label>
-                <Input
-                    id={`stream-url-${court.id}`}
-                    type="text"
-                    value={courtDetails[court.id]?.liveStreamUrl ?? ''}
-                    onChange={(e) => handleDetailChange(court.id, 'liveStreamUrl', e.target.value)}
-                    className="w-full"
-                    placeholder="rtsp://... o http://..."
-                />
-            </div>
         </div>
     );
 
@@ -246,7 +231,7 @@ export default function AdminCourtsPage() {
                 <CardHeader>
                     <CardTitle>Gestionar Canchas</CardTitle>
                     <CardDescription>
-                        Actualiza precios y asigna URLs de cámaras para cada cancha.
+                        Actualiza los precios para cada cancha.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
