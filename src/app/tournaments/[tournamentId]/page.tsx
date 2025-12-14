@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -24,7 +23,7 @@ import {
   useMemoFirebase,
 } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { Tournament, Team, Player, Match } from '@/lib/types';
 import { Trophy, Users, Shield, ListOrdered, Flame, ArrowLeft } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -83,9 +82,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, teamA, teamB }) => {
 };
 
 
-export default function TournamentPublicPage() {
+export default function TournamentPublicPage({ params }: { params: { tournamentId: string } }) {
   const firestore = useFirestore();
-  const { tournamentId } = useParams<{ tournamentId: string }>();
+  const { tournamentId } = params;
   const router = useRouter();
 
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
@@ -278,5 +277,3 @@ export default function TournamentPublicPage() {
     </div>
   );
 }
-
-    

@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -120,7 +119,7 @@ export default function AdminLogoPage() {
         if (!firestore || !storage) return;
         
         const imageRef = doc(firestore, 'logo_images', image.id);
-        await deleteDocumentNonBlocking(imageRef);
+        deleteDocumentNonBlocking(imageRef);
 
         if (image.storagePath) {
             const storageRef = ref(storage, image.storagePath);
@@ -162,7 +161,7 @@ export default function AdminLogoPage() {
         }
     };
     
-    const handleSaveChanges = async () => {
+    const handleSaveChanges = () => {
         if (!firestore || !storage) return;
 
         if (formData.name.trim() === '') {
@@ -189,14 +188,14 @@ export default function AdminLogoPage() {
                     setIsSaving(false);
                 },
                 async () => {
-                    const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                    const imageData = {
-                        name: formData.name,
-                        imageUrl: finalImageUrl,
-                        storagePath: storagePath,
-                    };
-
                     try {
+                        const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                        const imageData = {
+                            name: formData.name,
+                            imageUrl: finalImageUrl,
+                            storagePath: storagePath,
+                        };
+
                         if (editingImage) {
                             const imageRef = doc(firestore, 'logo_images', editingImage.id);
                             await setDocumentNonBlocking(imageRef, imageData, { merge: true });
@@ -216,21 +215,15 @@ export default function AdminLogoPage() {
                 }
             );
         } else if (editingImage) {
-            const imageData = {
+             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
             };
              const imageRef = doc(firestore, 'logo_images', editingImage.id);
-             try {
-                await setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
-                setIsDialogOpen(false);
-             } catch (error) {
-                console.error("Error updating document:", error);
-                toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
-             } finally {
-                setIsSaving(false);
-             }
+            setDocumentNonBlocking(imageRef, imageData, { merge: true });
+            toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
+            setIsDialogOpen(false);
+            setIsSaving(false);
         } else {
             toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para un nuevo logo." });
             setIsSaving(false);

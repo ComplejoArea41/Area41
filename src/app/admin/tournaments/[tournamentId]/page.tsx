@@ -28,7 +28,7 @@ import {
   } from "@/components/ui/table";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, writeBatch, runTransaction, orderBy, Timestamp, getDocs, where } from "firebase/firestore";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tournament, Team, Player, Match } from "@/lib/types";
@@ -46,11 +46,11 @@ type MatchFormData = { teamAId: string; teamBId: string; date: Date | undefined;
 
 type GoalAssignment = { [playerId: string]: number };
 
-export default function TournamentDetailPage() {
+export default function TournamentDetailPage({ params }: { params: { tournamentId: string } }) {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
-    const { tournamentId } = useParams<{ tournamentId: string }>();
+    const { tournamentId } = params;
     const { toast } = useToast();
 
     // --- State Management ---
@@ -657,5 +657,3 @@ export default function TournamentDetailPage() {
         </div>
     );
 }
-
-    

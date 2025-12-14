@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -22,13 +21,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
-import { collection, doc, writeBatch, getDocs, Firestore, addDoc } from "firebase/firestore";
+import { collection, doc, writeBatch } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { BackgroundImage } from "@/lib/types";
-import { Trash2, Edit, PlusCircle, Image as ImageIcon, Upload } from "lucide-react";
+import { Trash2, Edit, PlusCircle, Image as ImageIcon } from "lucide-react";
 import NextImage from "next/image";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -91,11 +90,9 @@ export default function AdminBackgroundsPage() {
     const handleDeleteImage = async (image: BackgroundImage) => {
         if (!firestore || !storage) return;
         
-        // Delete from Firestore
         const imageRef = doc(firestore, 'background_images', image.id);
-        await deleteDocumentNonBlocking(imageRef);
+        deleteDocumentNonBlocking(imageRef);
 
-        // Delete from Storage if a path exists
         if (image.storagePath) {
             const storageRef = ref(storage, image.storagePath);
             try {
@@ -136,22 +133,22 @@ export default function AdminBackgroundsPage() {
         }
     };
     
-    const handleSaveChanges = async () => {
+    const handleSaveChanges = () => {
         if (!firestore || !storage) return;
-
+    
         if (formData.name.trim() === '') {
             toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
             return;
         }
-
+    
         setIsSaving(true);
         setUploadProgress(0);
-
+    
         if (selectedFile) {
             const storagePath = `backgrounds/${uuidv4()}-${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
+    
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -163,14 +160,14 @@ export default function AdminBackgroundsPage() {
                     setIsSaving(false);
                 },
                 async () => {
-                    const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                    const imageData = {
-                        name: formData.name,
-                        imageUrl: finalImageUrl,
-                        storagePath: storagePath,
-                    };
-
                     try {
+                        const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                        const imageData = {
+                            name: formData.name,
+                            imageUrl: finalImageUrl,
+                            storagePath: storagePath,
+                        };
+    
                         if (editingImage) {
                             const imageRef = doc(firestore, 'background_images', editingImage.id);
                             await setDocumentNonBlocking(imageRef, imageData, { merge: true });
@@ -195,16 +192,10 @@ export default function AdminBackgroundsPage() {
                 imageUrl: formData.imageUrl,
             };
             const imageRef = doc(firestore, 'background_images', editingImage.id);
-            try {
-                await setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
-                setIsDialogOpen(false);
-            } catch (error) {
-                 console.error("Error updating document:", error);
-                 toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
-            } finally {
-                setIsSaving(false);
-            }
+            setDocumentNonBlocking(imageRef, imageData, { merge: true });
+            toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+            setIsDialogOpen(false);
+            setIsSaving(false);
         } else {
             toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para una nueva imagen." });
             setIsSaving(false);
@@ -318,5 +309,3 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
-
-    

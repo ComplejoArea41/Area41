@@ -3,15 +3,15 @@
 import { useDoc, useFirestore, useUser } from "@/firebase";
 import { useMemoFirebase } from "@/firebase/provider";
 import { doc } from "firebase/firestore";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Reservation } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-export default function ReservationVideoPage() {
+export default function ReservationVideoPage({ params }: { params: { reservationId: string } }) {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
-    const { reservationId } = useParams<{ reservationId: string }>();
+    const { reservationId } = params;
     const router = useRouter();
 
     const reservationRef = useMemoFirebase(
@@ -75,5 +75,3 @@ export default function ReservationVideoPage() {
     )
 
 }
-
-    
