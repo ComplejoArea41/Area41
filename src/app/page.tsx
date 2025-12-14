@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Goal, Utensils, Trophy } from 'lucide-react';
+import { Goal, Utensils, Video } from 'lucide-react';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function WelcomePage() {
     {
       title: 'Mis Partidos Grabados',
       description: 'Mira las repeticiones de tus mejores jugadas.',
-      icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
+      icon: <Video className="h-10 w-10 text-primary-foreground" />,
       path: '/my-matches',
     },
   ];
