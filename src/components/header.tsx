@@ -17,6 +17,7 @@ import {
   Shield,
   LogOut,
   Home,
+  Video,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
