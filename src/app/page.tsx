@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Goal, Utensils, Trophy } from 'lucide-react';
+import { Goal, Utensils } from 'lucide-react';
 
 export default function WelcomePage() {
   const router = useRouter();

@@ -1,9 +1,9 @@
 
 import Image from "next/image";
-import { placeholderImages } from "@/lib/placeholder-images.json";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export function Logo() {
-  const logoImage = placeholderImages.find(p => p.id === 'area-41-logo');
+  const logoImage = PlaceHolderImages.find(p => p.id === 'area-41-logo');
 
   if (!logoImage) {
     return (
