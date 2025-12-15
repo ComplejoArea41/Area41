@@ -105,10 +105,6 @@
         "durationMinutes": {
           "type": "number",
           "description": "Duration of the reservation in minutes."
-        },
-        "videoUrl": {
-            "type": "string",
-            "description": "URL to the recorded match video."
         }
       },
       "required": [
