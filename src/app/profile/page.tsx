@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { placeholderImages } from '@/lib/placeholder-images.json';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useDoc, useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -85,7 +85,7 @@ export default function ProfilePage() {
   };
 
 
-  const userAvatar = placeholderImages.find((p) => p.id === 'user-avatar');
+  const userAvatar = PlaceHolderImages.find((p) => p.id === 'user-avatar');
   const userFullName = `${firstName} ${lastName}`;
 
 
