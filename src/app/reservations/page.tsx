@@ -206,13 +206,13 @@ export default function ReservationPage() {
     return false;
 }, [reservations, areReservationsLoading, selectedDate, allCourts]);
 
-  const handleTimeClick = (time: string) => {
+  const handleTimeClick = useCallback((time: string) => {
     const currentTimes = form.getValues("times");
     const newTimes = currentTimes.includes(time)
       ? currentTimes.filter((t) => t !== time)
       : [...currentTimes, time];
     form.setValue("times", newTimes.sort(), { shouldValidate: true });
-  };
+  }, [form]);
 
   async function onSubmit(data: ReservationFormValues) {
     if (!user || !allCourts) {
@@ -541,5 +541,7 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
 
     
