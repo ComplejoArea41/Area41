@@ -56,7 +56,6 @@ export default function ProfilePage() {
   const handleSaveChanges = () => {
     if (!userRef || !user) return;
     
-    // Prevent multiple clicks
     if (isSaving) return;
 
     setIsSaving(true);
@@ -78,7 +77,6 @@ export default function ProfilePage() {
         setIsSaving(false);
 
     } catch (error) {
-        // Error is emitted globally, but we can stop the saving state here
         setIsSaving(false);
     }
   };
@@ -97,7 +95,6 @@ export default function ProfilePage() {
   }
 
   if(!user) {
-    // This part is handled by the useEffect, but we keep a return for clarity
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
             <p className="text-primary-foreground">Por favor, inicia sesión para ver tu perfil.</p>

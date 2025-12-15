@@ -1,11 +1,11 @@
 
 import Image from "next/image";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export function Logo() {
-  const logoImage = PlaceHolderImages.find(p => p.id === 'area-41-logo');
+  const logoUrl = "https://storage.googleapis.com/aif-public-images/area-41-logo.png";
+  const logoDescription = "Area 41 Logo";
 
-  if (!logoImage) {
+  if (!logoUrl) {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -34,8 +34,8 @@ export function Logo() {
 
   return (
     <Image 
-        src={logoImage.imageUrl}
-        alt={logoImage.description}
+        src={logoUrl}
+        alt={logoDescription}
         width={128}
         height={128}
         className="h-32 w-32"
