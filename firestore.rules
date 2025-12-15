@@ -1,28 +1,7 @@
 
-
-/**
- * @file firestore.rules
- * @description Security rules for the "Complejo deportivo Area41" Firestore database.
- *
- * @version 2.4.0
- *
- * @philosophy
- * This ruleset implements a mixed security model tailored for a sports complex application.
- * - User-Private Data: Data like user profiles are strictly private, accessible only by the document owner.
- * - Publicly Readable Data: Shared information like court availability and buffet menus are publicly readable by any user.
- * - Admin-Write Data: Public data can only be written to by users flagged as administrators (`isAdmin: true`).
- * - Reservation Logic:
- *   - Users can only create reservations for themselves.
- *   - Any authenticated user can LIST reservations to check for availability.
- *   - Users can only GET, UPDATE, or DELETE their own reservations.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // -------------------------------------------------------------------------
-    // Helper Functions
-    // -------------------------------------------------------------------------
 
     /**
      * Checks if a user is authenticated.
@@ -32,120 +11,11 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the currently authenticated user's UID matches the given userId.
+     * Default rule: Allows read and write access to any authenticated user.
+     * This is a simple rule for trusted users (e.g., an app for friends).
      */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * Checks if the currently authenticated user's UID matches the 'userId' field
-     * on a document.
-     */
-    function isDocumentOwner(doc) {
-      return isSignedIn() && request.auth.uid == doc.userId;
-    }
-
-    /**
-     * Checks if the requesting user is an administrator.
-     * Reads the user's profile to check the `isAdmin` flag.
-     */
-    function isAdmin() {
-      // Safely check for the existence of the user document and the isAdmin flag.
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
-    }
-    
-    /**
-    * Checks if the isAdmin flag is being changed.
-    */
-    function isAdminFlagUnchanged() {
-        // If the resource doesn't exist (on create), it's okay.
-        // If it does exist, compare the incoming value to the existing one.
-        return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-               request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false);
-    }
-
-
-    // -------------------------------------------------------------------------
-    // User Profiles (/users)
-    // -------------------------------------------------------------------------
-
-    /**
-     * @description Rules for a user's own profile document.
-     * @path /users/{userId}
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      
-      // A user can create their own profile. An admin can create any.
-      allow create: if isOwner(userId) || isAdmin();
-
-      // An owner can update their own profile but not become admin.
-      // An admin can update any profile.
-      // A specific email can become an admin.
-      allow update: if (isOwner(userId) && isAdminFlagUnchanged()) || 
-                     (request.auth.token.email == 'matias@vascohogar.com') || 
-                     isAdmin();
-      
-      allow delete: if isAdmin();
-    }
-
-    // -------------------------------------------------------------------------
-    // Public Read / Admin Write Collections
-    // -------------------------------------------------------------------------
-
-    /**
-     * @description Rules for Courts. Publicly readable, admin-managed.
-     */
-    match /courts/{courtId} {
-        allow get, list: if true;
-        allow write: if isAdmin();
-    }
-
-    /**
-     * @description Rules for Menu Items. Publicly readable, admin-managed.
-     */
-    match /menu_items/{menuItemId} {
-        allow get, list: if true;
-        allow write: if isAdmin();
-    }
-    
-    /**
-     * @description Rules for Background Images. Publicly readable, admin-managed.
-     */
-    match /background_images/{imageId} {
-        allow get, list: if true;
-        allow write: if isAdmin();
-    }
-    
-    /**
-     * @description Rules for Logo Images. Publicly readable, admin-managed.
-     */
-    match /logo_images/{logoId} {
-        allow get, list: if true;
-        allow write: if isAdmin();
-    }
-
-    // -------------------------------------------------------------------------
-    // Reservations (/reservations)
-    // -------------------------------------------------------------------------
-
-    /**
-     * @description Rules for court reservations made by users.
-     * @path /reservations/{reservationId}
-     */
-    match /reservations/{reservationId} {
-      // A user can read their own reservation. Admins can read any.
-      allow get: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
-      // Any signed-in user can list reservations to check for availability by date.
-      allow list: if isSignedIn();
-      // A user can only create a reservation for themselves.
-      allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
-      // A user can only update their own reservation, and cannot change the owner. Admins can update any.
-      allow update: if (isSignedIn() && ((isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId))) || isAdmin();
-       // A user can delete their own reservation. Admins can delete any.
-      allow delete: if isSignedIn() && (isDocumentOwner(resource.data) || isAdmin());
+    match /{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }

@@ -16,26 +16,15 @@ import { ShieldAlert, ArrowRight, Utensils, Goal } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
-    const firestore = useFirestore();
     const router = useRouter();
 
-    const userRef = useMemoFirebase(
-        () => (user ? doc(firestore, 'users', user.uid) : null),
-        [user, firestore]
-    );
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
-
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) {
-                router.push('/login');
-            } else if (userProfile && !userProfile.isAdmin) {
-                router.push('/');
-            }
+        if (!isUserLoading && !user) {
+            router.push('/login');
         }
-    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
+    }, [user, isUserLoading, router]);
 
-    if (isUserLoading || isProfileLoading || !userProfile || !userProfile.isAdmin) {
+    if (isUserLoading || !user) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
               <p className="text-primary-foreground">Verificando acceso...</p>

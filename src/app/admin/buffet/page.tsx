@@ -19,7 +19,7 @@ import {
     DialogHeader,
     DialogTitle,
   } from "@/components/ui/dialog"
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
@@ -38,9 +38,6 @@ export default function AdminBuffetPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
-
     const menuItemsCollectionRef = useMemoFirebase(() => collection(firestore, 'menu_items'), [firestore]);
     const { data: menuItems, isLoading: areMenuItemsLoading } = useCollection<MenuItem>(menuItemsCollectionRef);
 
@@ -50,11 +47,10 @@ export default function AdminBuffetPage() {
     const [formData, setFormData] = useState<FormData>({ name: '', description: '', price: 0, type: 'Comida', imageUrl: '' });
 
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) router.push('/login');
-            else if (userProfile && !userProfile.isAdmin) router.push('/');
+        if (!isUserLoading && !user) {
+            router.push('/login');
         }
-    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
+    }, [user, isUserLoading, router]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -111,9 +107,9 @@ export default function AdminBuffetPage() {
         }
     };
 
-    const isLoading = isUserLoading || isProfileLoading || areMenuItemsLoading;
+    const isLoading = isUserLoading || areMenuItemsLoading;
     
-    if (isLoading || !userProfile || !userProfile.isAdmin) {
+    if (isLoading || !user) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
                 <p className="text-primary-foreground">Cargando gestión del buffet...</p>

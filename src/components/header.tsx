@@ -28,14 +28,6 @@ export default function Header() {
   const router = useRouter();
   const auth = getAuth();
 
-  const userRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'users', user.uid) : null),
-    [user, firestore]
-  );
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
-
-  const isAdmin = userProfile?.isAdmin === true;
-
   const handleSignOut = () => {
     signOut(auth).then(() => {
       router.push('/login');
@@ -48,8 +40,6 @@ export default function Header() {
     { href: '/buffet', label: 'Buffet', icon: <Utensils className="h-4 w-4" /> },
     { href: '/profile', label: 'Perfil', icon: <UserIcon className="h-4 w-4" /> },
   ];
-
-  const isLoading = isUserLoading || isProfileLoading;
 
   // Don't render header on login page
   if (pathname === '/login') {
@@ -101,10 +91,10 @@ export default function Header() {
       </nav>
       
       <div className="flex items-center gap-2">
-        {isLoading ? (
+        {isUserLoading ? (
           <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
         ) : (
-          isAdmin && (
+          user && (
             <Button
               variant={pathname.startsWith('/admin') ? 'secondary' : 'outline'}
               asChild

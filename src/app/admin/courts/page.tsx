@@ -22,7 +22,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
   } from "@/components/ui/alert-dialog";
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
+import { useUser, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, doc, writeBatch, getDocs, Firestore, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -63,12 +63,6 @@ export default function AdminCourtsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const userRef = useMemoFirebase(
-        () => (user ? doc(firestore, 'users', user.uid) : null),
-        [user, firestore]
-    );
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
-
     const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
@@ -82,11 +76,10 @@ export default function AdminCourtsPage() {
       }, [firestore]);
 
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) router.push('/login');
-            else if (userProfile && !userProfile.isAdmin) router.push('/');
+        if (!isUserLoading && !user) {
+            router.push('/login');
         }
-    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
+    }, [user, isUserLoading, router]);
 
     useEffect(() => {
         if (courts) {
@@ -170,9 +163,9 @@ export default function AdminCourtsPage() {
         }
     };
 
-    const isLoading = isUserLoading || isProfileLoading || areCourtsLoading;
+    const isLoading = isUserLoading || areCourtsLoading;
 
-    if (isLoading || !userProfile || !userProfile.isAdmin) {
+    if (isLoading || !user) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
               <p className="text-primary-foreground">Cargando gestión de canchas...</p>
@@ -257,5 +250,3 @@ export default function AdminCourtsPage() {
         </div>
     );
 }
-
-    
