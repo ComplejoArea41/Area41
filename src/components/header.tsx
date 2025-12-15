@@ -17,7 +17,6 @@ import {
   Shield,
   LogOut,
   Home,
-  Video,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
@@ -52,7 +51,7 @@ export default function Header() {
 
   const isLoading = isUserLoading || isProfileLoading;
 
-  // Don't render header on login page or video playback page
+  // Don't render header on login page
   if (pathname === '/login') {
     return null;
   }

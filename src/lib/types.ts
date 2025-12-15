@@ -42,19 +42,3 @@ export interface RecentMember {
     email: string;
     avatarId: string;
 }
-
-export interface BackgroundImage {
-    id: string;
-    name: string;
-    imageUrl: string;
-    isActive: boolean;
-    storagePath?: string;
-}
-
-export interface LogoImage {
-  id: string;
-  name: string;
-  imageUrl: string;
-  isActive: boolean;
-  storagePath?: string;
-}

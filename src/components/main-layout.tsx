@@ -1,16 +1,14 @@
-
 'use client';
 
 import Header from "./header";
 import LayoutWrapper from "./layout-wrapper";
 import { usePathname } from 'next/navigation';
-import { DynamicLogo } from "./dynamic-logo";
+import { Logo } from "./logo";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const isSpecialPage = /^\/tournaments\/[^/]+$/.test(pathname) || /^\/reservations\/[^/]+$/.test(pathname) || pathname === '/login';
-
+  const isSpecialPage = pathname === '/login';
 
   if (isSpecialPage) {
     return (
@@ -32,7 +30,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
       </LayoutWrapper>
       <div className="fixed bottom-4 right-4 z-20 opacity-50 pointer-events-none">
-        <DynamicLogo />
+        <Logo />
       </div>
     </div>
   );
