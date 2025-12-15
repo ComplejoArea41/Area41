@@ -27,12 +27,6 @@ export default function WelcomePage() {
       icon: <Utensils className="h-10 w-10 text-primary-foreground" />,
       path: '/buffet',
     },
-    {
-      title: 'Torneos',
-      description: 'Consulta los resultados y la tabla de posiciones.',
-      icon: <Trophy className="h-10 w-10 text-primary-foreground" />,
-      path: '/tournaments',
-    },
   ];
 
   return (
