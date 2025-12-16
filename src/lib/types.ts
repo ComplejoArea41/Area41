@@ -43,4 +43,11 @@ export interface RecentMember {
     avatarId: string;
 }
 
-    
+
+export interface BackgroundImage {
+  id: string;
+  name: string;
+  imageUrl: string;
+  isActive: boolean;
+  storagePath?: string;
+}
