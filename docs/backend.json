@@ -202,3 +202,5 @@
     "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The tournament-related collections have been removed as per the user's request."
   }
 }
+
+    

@@ -1,4 +1,4 @@
-import type { User, Court, Reservation, MenuItem, Tournament, Team, RecentMember } from './types';
+import type { User, Court, Reservation, MenuItem, RecentMember } from './types';
 
 // Los datos de las canchas ahora se gestionan directamente en Firestore
 // y se pueblan inicialmente desde la página de administración si la colección está vacía.
@@ -24,3 +24,5 @@ export const recentMembers: RecentMember[] = [
     { id: "user-6", name: "Roberto Diaz", email: "roberto.d@example.com", avatarId: "staff-2" },
     { id: "user-7", name: "Ana Martinez", email: "ana.m@example.com", avatarId: "staff-3" },
 ]
+
+    
