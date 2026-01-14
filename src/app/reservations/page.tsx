@@ -345,6 +345,11 @@ export default function ReservationPage() {
         </div>
       );
   }
+  
+  if (!user) {
+    return null; // The useEffect should have already triggered a redirect.
+  }
+
 
   if (error) {
     return (

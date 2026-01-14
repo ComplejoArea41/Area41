@@ -26,12 +26,16 @@ export default function AdminPage() {
         }
     }, [user, isUserLoading, router]);
 
-    if (isUserLoading || !user) {
+    if (isUserLoading) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
               <p className="text-primary-foreground">Verificando acceso...</p>
             </div>
           );
+    }
+
+    if (!user) {
+        return null; // The redirect is being handled by the useEffect
     }
   
   return (
