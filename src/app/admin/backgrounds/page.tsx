@@ -21,7 +21,7 @@ import {
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
-import { collection, doc, writeBatch } from "firebase/firestore";
+import { collection, doc, writeBatch, deleteDoc } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -77,21 +77,27 @@ export default function AdminBackgroundsPage() {
     };
 
     const handleDeleteImage = async (image: BackgroundImage) => {
-        if (!firestore || !storage) return;
-        
+        if (!firestore) return;
         const imageRef = doc(firestore, 'background_images', image.id);
-        deleteDocumentNonBlocking(imageRef);
+        
+        try {
+            await deleteDoc(imageRef);
 
-        if (image.storagePath) {
-            const storageRef = ref(storage, image.storagePath);
-            try {
-                await deleteObject(storageRef);
-            } catch (error) {
-                console.error("Error deleting from storage (it might not exist or permissions failed):", error);
+            // If the image had a file in storage, delete it too
+            if (image.storagePath && storage) {
+                const storageRef = ref(storage, image.storagePath);
+                try {
+                    await deleteObject(storageRef);
+                } catch (error) {
+                    console.error("Error deleting from storage (it might not exist or permissions failed):", error);
+                }
             }
-        }
+            toast({ title: "¡Imagen eliminada!", description: "La imagen de fondo ha sido eliminada." });
 
-        toast({ title: "¡Imagen eliminada!", description: "La imagen de fondo ha sido eliminada." });
+        } catch (error) {
+             console.error("Error deleting image: ", error);
+             toast({ variant: "destructive", title: "Error al eliminar", description: "No se pudo eliminar la imagen." });
+        }
     };
 
     const handleSetActive = async (activeImage: BackgroundImage) => {
@@ -124,7 +130,7 @@ export default function AdminBackgroundsPage() {
     
     const handleSaveChanges = async () => {
         if (!firestore) return;
-
+    
         if (formData.name.trim() === '' || formData.imageUrl.trim() === '') {
             toast({ variant: "destructive", title: "Error", description: "Debes proporcionar un nombre y una URL de imagen." });
             return;
@@ -133,24 +139,23 @@ export default function AdminBackgroundsPage() {
         setIsSaving(true);
         
         try {
-            const imageData = {
-                name: formData.name,
-                imageUrl: formData.imageUrl,
-            };
-
             if (editingImage) {
-                 if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath && storage) {
-                     const oldStorageRef = ref(storage, editingImage.storagePath);
-                     try { 
-                        await deleteObject(oldStorageRef);
-                    } catch (e) { console.warn("Could not delete old storage object", e); }
+                // If the image URL changed and there was an old storage path, delete the old file
+                if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath && storage) {
+                    const oldStorageRef = ref(storage, editingImage.storagePath);
+                    try { 
+                       await deleteObject(oldStorageRef);
+                   } catch (e) { console.warn("Could not delete old storage object", e); }
                 }
+
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
-                setDocumentNonBlocking(imageRef, { ...imageData, storagePath: editingImage.storagePath || null }, { merge: true });
+                // We ensure storagePath is not set if we are just using a URL.
+                setDocumentNonBlocking(imageRef, { ...formData, storagePath: null }, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
                  const collectionRef = collection(firestore, 'background_images');
-                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false, storagePath: null });
+                 // For new images via URL, isActive is false and storagePath is null.
+                 await addDocumentNonBlocking(collectionRef, { ...formData, isActive: false, storagePath: null });
                  toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
             }
             setIsDialogOpen(false);
@@ -260,5 +265,3 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
-
-    

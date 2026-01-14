@@ -20,17 +20,15 @@ import {
     DialogTitle,
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
-import { collection, doc, writeBatch, getDocs, Firestore, addDoc } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, doc, writeBatch, getDocs, Firestore, addDoc, deleteDoc } from "firebase/firestore";
+import { ref, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { LogoImage } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Award } from "lucide-react";
 import NextImage from "next/image";
-import { v4 as uuidv4 } from 'uuid';
 
 type FormData = Omit<LogoImage, 'id' | 'isActive' | 'storagePath'>;
 
@@ -73,8 +71,6 @@ export default function AdminLogoPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingImage, setEditingImage] = useState<LogoImage | null>(null);
     const [formData, setFormData] = useState<FormData>({ name: '', imageUrl: '' });
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [uploadProgress, setUploadProgress] = useState(0);
 
     useEffect(() => {
         if (firestore) {
@@ -95,45 +91,38 @@ export default function AdminLogoPage() {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-        }
-    };
     
     const openDialogForNew = () => {
         setEditingImage(null);
         setFormData({ name: '', imageUrl: '' });
-        setSelectedFile(null);
-        setUploadProgress(0);
         setIsDialogOpen(true);
     };
 
     const openDialogForEdit = (image: LogoImage) => {
         setEditingImage(image);
         setFormData({ name: image.name, imageUrl: image.imageUrl });
-        setSelectedFile(null);
-        setUploadProgress(0);
         setIsDialogOpen(true);
     };
 
     const handleDeleteImage = async (image: LogoImage) => {
-        if (!firestore || !storage) return;
-        
+        if (!firestore) return;
         const imageRef = doc(firestore, 'logo_images', image.id);
-        deleteDocumentNonBlocking(imageRef);
 
-        if (image.storagePath) {
-            const storageRef = ref(storage, image.storagePath);
-            try {
-                await deleteObject(storageRef);
-            } catch (error) {
-                console.error("Error deleting from storage:", error);
+        try {
+            await deleteDoc(imageRef);
+            if (image.storagePath && storage) {
+                const storageRef = ref(storage, image.storagePath);
+                try {
+                    await deleteObject(storageRef);
+                } catch (error) {
+                    console.error("Error deleting from storage:", error);
+                }
             }
+            toast({ title: "¡Logo eliminado!", description: "El logo ha sido eliminado." });
+        } catch (error) {
+            console.error("Error deleting logo: ", error);
+            toast({ variant: 'destructive', title: 'Error al eliminar', description: 'No se pudo eliminar el logo.' });
         }
-
-        toast({ title: "¡Logo eliminado!", description: "El logo ha sido eliminado." });
     };
 
     const handleSetActive = async (activeImage: LogoImage) => {
@@ -165,84 +154,34 @@ export default function AdminLogoPage() {
     };
     
     const handleSaveChanges = async () => {
-        if (!firestore || !storage) return;
+        if (!firestore) return;
     
-        if (formData.name.trim() === '') {
-            toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
-            return;
-        }
-    
-        if (!selectedFile && !formData.imageUrl) {
-            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo o proporcionar una URL." });
+        if (formData.name.trim() === '' || formData.imageUrl.trim() === '') {
+            toast({ variant: "destructive", title: "Error", description: "Debes proporcionar un nombre y una URL de imagen." });
             return;
         }
         
         setIsSaving(true);
-        setUploadProgress(0);
-    
-        if (selectedFile) {
-            const storagePath = `logos/${uuidv4()}-${selectedFile.name}`;
-            const storageRef = ref(storage, storagePath);
-            const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-    
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(progress);
-                },
-                (error) => {
-                    console.error("Upload failed:", error);
-                    toast({ variant: "destructive", title: "Error al subir", description: "No se pudo subir el archivo." });
-                    setIsSaving(false);
-                },
-                async () => {
-                    try {
-                        if (editingImage && editingImage.storagePath) {
-                            const oldStorageRef = ref(storage, editingImage.storagePath);
-                            try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
-                        }
-
-                        const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                        const imageData = {
-                            name: formData.name,
-                            imageUrl: finalImageUrl,
-                            storagePath: storagePath,
-                        };
-    
-                        if (editingImage) {
-                            const imageRef = doc(firestore, 'logo_images', editingImage.id);
-                            setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                            toast({ title: "¡Logo actualizado!", description: "El nuevo logo se ha subido y guardado." });
-                        } else {
-                            const collectionRef = collection(firestore, 'logo_images');
-                            addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
-                            toast({ title: "¡Logo agregado!", description: "El nuevo logo ya está disponible." });
-                        }
-                        setIsDialogOpen(false);
-                    } catch (error) {
-                        console.error("Error finalizing upload:", error);
-                        toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos del logo." });
-                    } finally {
-                        setIsSaving(false);
-                    }
-                }
-            );
-        } else {
-            const imageData = {
-                name: formData.name,
-                imageUrl: formData.imageUrl,
-            };
-    
+        
+        try {
             if (editingImage) {
+                if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath && storage) {
+                    const oldStorageRef = ref(storage, editingImage.storagePath);
+                    try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
+                }
                 const imageRef = doc(firestore, 'logo_images', editingImage.id);
-                setDocumentNonBlocking(imageRef, { ...imageData, storagePath: editingImage.storagePath || null }, { merge: true });
-                toast({ title: "¡Logo actualizado!", description: "Los cambios de nombre/URL se han guardado." });
+                setDocumentNonBlocking(imageRef, { ...formData, storagePath: null }, { merge: true });
+                toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
             } else {
                 const collectionRef = collection(firestore, 'logo_images');
-                addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false, storagePath: null });
+                await addDocumentNonBlocking(collectionRef, { ...formData, isActive: false, storagePath: null });
                 toast({ title: "¡Logo agregado!", description: "El nuevo logo ya está disponible." });
             }
             setIsDialogOpen(false);
+        } catch (error) {
+            console.error("Error saving logo data:", error);
+            toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos." });
+        } finally {
             setIsSaving(false);
         }
     };
@@ -321,7 +260,7 @@ export default function AdminLogoPage() {
                     <DialogHeader>
                         <DialogTitle>{editingImage ? 'Editar Logo' : 'Nuevo Logo'}</DialogTitle>
                         <DialogDescription>
-                            {editingImage ? 'Modifica los detalles del logo.' : 'Sube un nuevo logo.'}
+                            {editingImage ? 'Modifica los detalles del logo.' : 'Añade un nuevo logo usando una URL.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -331,26 +270,13 @@ export default function AdminLogoPage() {
                         </div>
                          <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
-                            <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="Dejar en blanco si subes archivo"/>
+                            <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/logo.png"/>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                             <Label htmlFor="picture" className="text-right">O subir archivo</Label>
-                            <div className="col-span-3">
-                                <Input id="picture" type="file" onChange={handleFileChange} accept="image/png, image/jpeg, image/svg+xml" />
-                            </div>
-                        </div>
-                        {isSaving && uploadProgress > 0 && (
-                            <div className="col-span-4 space-y-2">
-                                <Label>Subiendo...</Label>
-                                <Progress value={uploadProgress} />
-                            </div>
-                        )}
-                        {selectedFile && <p className="text-sm text-muted-foreground col-span-4 text-center">Archivo seleccionado: {selectedFile.name}</p>}
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                         <Button type="submit" onClick={handleSaveChanges} disabled={isSaving}>
-                            {isSaving && uploadProgress > 0 ? `Subiendo... ${Math.round(uploadProgress)}%` : 'Guardar Cambios'}
+                            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -358,5 +284,3 @@ export default function AdminLogoPage() {
         </div>
     );
 }
-
-    
