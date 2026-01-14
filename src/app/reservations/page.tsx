@@ -74,10 +74,11 @@ const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areRe
         <Button
             key={time}
             type="button"
+            size="sm"
             variant={selectedTimes.includes(time) ? "default" : "outline"}
             onClick={() => onTimeClick(time)}
             disabled={isDisabled}
-            className={cn("w-full justify-center", { "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
+            className={cn("w-full justify-center text-xs md:text-sm", { "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
         >
             {areReservationsLoading && selectedCourtId ? "..." : time}
         </Button>
@@ -335,7 +336,7 @@ export default function ReservationPage() {
 
   return (
       <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-6xl">
+        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
           <CardHeader>
             <CardTitle>Reserva Tu Cancha</CardTitle>
             <CardDescription>
@@ -404,15 +405,15 @@ export default function ReservationPage() {
                   )}
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <div className="flex flex-col gap-8">
                     <div className="space-y-4">
                         <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
-                        <FormField
+                         <FormField
                           control={form.control}
                           name="date"
                           render={({ field }) => (
-                            <FormItem>
-                                <Card className="w-full overflow-hidden">
+                            <FormItem className="flex flex-col items-center">
+                                <Card className="w-full max-w-md overflow-hidden">
                                     <CardContent className="p-0">
                                         <Calendar
                                         mode="single"
@@ -435,7 +436,8 @@ export default function ReservationPage() {
                         />
                     </div>
                     <div className="space-y-4">
-                        <h3 className="font-semibold text-base capitalize">
+                         <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
+                        <h3 className="font-semibold text-base capitalize text-center">
                             {format(selectedDate, "eeee, d 'de' MMMM", { locale: es })}
                         </h3>
                          <FormField
@@ -443,7 +445,7 @@ export default function ReservationPage() {
                           name="times"
                           render={() => (
                             <FormItem>
-                               <div className="grid grid-cols-2 gap-2">
+                               <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                                     {availableTimes.map(time => {
                                        const [hour, minute] = time.split(':').map(Number);
                                        const timeDate = set(selectedDate, { hours: hour, minutes: minute });
@@ -512,7 +514,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
-
-    
