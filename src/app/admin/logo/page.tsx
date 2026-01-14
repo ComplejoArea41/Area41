@@ -166,27 +166,27 @@ export default function AdminLogoPage() {
     
     const handleSaveChanges = async () => {
         if (!firestore || !storage) return;
-
+    
         if (formData.name.trim() === '') {
             toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
             return;
         }
-
-        // If no file is selected and we are creating a new item, it's an error.
-        if (!selectedFile && !editingImage) {
-            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para un nuevo logo." });
+    
+        // If no file is selected and no URL is provided (for a new item), it's an error.
+        if (!selectedFile && !formData.imageUrl && !editingImage) {
+            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo o proporcionar una URL para un nuevo logo." });
             return;
         }
         
         setIsSaving(true);
         setUploadProgress(0);
-
+    
         // --- Priority 1: A file was selected for upload ---
         if (selectedFile) {
             const storagePath = `logos/${uuidv4()}-${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
+    
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -205,9 +205,8 @@ export default function AdminLogoPage() {
                             imageUrl: finalImageUrl,
                             storagePath: storagePath,
                         };
-
+    
                         if (editingImage) {
-                            // If we were editing, and uploaded a new file, delete the old one from storage if it exists
                             if (editingImage.storagePath) {
                                 const oldStorageRef = ref(storage, editingImage.storagePath);
                                 try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
@@ -230,20 +229,23 @@ export default function AdminLogoPage() {
                 }
             );
         } 
-        // --- Priority 2: No file, but we are editing (and the name/url might have changed)
-        else if (editingImage) {
-             const imageData = {
+        // --- Priority 2: No file, but we are editing or have a URL for a new item ---
+        else if (editingImage || formData.imageUrl) {
+            const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
             };
-             const imageRef = doc(firestore, 'logo_images', editingImage.id);
-            setDocumentNonBlocking(imageRef, imageData, { merge: true });
-            toast({ title: "¡Logo actualizado!", description: "Los cambios de nombre se han guardado." });
+    
+            if (editingImage) {
+                const imageRef = doc(firestore, 'logo_images', editingImage.id);
+                setDocumentNonBlocking(imageRef, { ...imageData, storagePath: editingImage.storagePath }, { merge: true }); // Preserve storagePath if it exists
+                toast({ title: "¡Logo actualizado!", description: "Los cambios de nombre/URL se han guardado." });
+            } else {
+                const collectionRef = collection(firestore, 'logo_images');
+                addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false, storagePath: null });
+                toast({ title: "¡Logo agregado!", description: "El nuevo logo ya está disponible." });
+            }
             setIsDialogOpen(false);
-            setIsSaving(false);
-        } else {
-            // This case should not be reached due to the initial check, but it's here for safety.
-            toast({ variant: "destructive", title: "Error", description: "Acción no válida."});
             setIsSaving(false);
         }
     };
@@ -361,4 +363,3 @@ export default function AdminLogoPage() {
     );
 }
 
-    

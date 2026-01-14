@@ -144,10 +144,8 @@ export default function AdminBackgroundsPage() {
             return;
         }
 
-        const isNewUrlProvided = formData.imageUrl.trim() !== '';
-
         // If no file and no new URL, and not editing, it's an error.
-        if (!selectedFile && !isNewUrlProvided && !editingImage) {
+        if (!selectedFile && !formData.imageUrl.trim() && !editingImage) {
             toast({ variant: "destructive", title: "Error", description: "Debes proporcionar una URL o seleccionar un archivo." });
             return;
         }
@@ -187,11 +185,11 @@ export default function AdminBackgroundsPage() {
                                 try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
                             }
                             const imageRef = doc(firestore, 'background_images', editingImage.id);
-                            await setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                            setDocumentNonBlocking(imageRef, imageData, { merge: true });
                             toast({ title: "¡Imagen actualizada!", description: "La nueva imagen se ha subido y guardado." });
                         } else {
                             const collectionRef = collection(firestore, 'background_images');
-                            await addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                            addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
                             toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
                         }
                         setIsDialogOpen(false);
@@ -205,25 +203,28 @@ export default function AdminBackgroundsPage() {
             );
         } 
         // --- Priority 2: No file, but a URL is provided or an existing image is being edited ---
-        else if (isNewUrlProvided || editingImage) {
+        else if (formData.imageUrl.trim() || editingImage) {
             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl, // Use the URL from the form
-                storagePath: null, // This is not from storage
+                storagePath: editingImage?.storagePath || null, // Preserve old storage path if only URL is changed
             };
             
             if (editingImage) {
                  // Check if the URL has changed. If so, and if the old image was from storage, delete it.
                 if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath) {
                      const oldStorageRef = ref(storage, editingImage.storagePath);
-                     try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
+                     try { 
+                        await deleteObject(oldStorageRef); 
+                        imageData.storagePath = null; // Clear storage path as it's now a URL based image
+                    } catch (e) { console.warn("Could not delete old storage object", e); }
                 }
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
                 setDocumentNonBlocking(imageRef, imageData, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
                  const collectionRef = collection(firestore, 'background_images');
-                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false, storagePath: null });
                  toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
             }
             setIsDialogOpen(false);
@@ -347,4 +348,3 @@ export default function AdminBackgroundsPage() {
     );
 }
 
-    
