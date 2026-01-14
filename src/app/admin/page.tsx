@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -12,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon } from "lucide-react";
+import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -47,7 +48,7 @@ export default function AdminPage() {
                 </CardHeader>
             </Card>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
                 <Card className="bg-card/80 backdrop-blur-sm">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Goal />Gestión de Canchas</CardTitle>
@@ -90,8 +91,24 @@ export default function AdminPage() {
                     </CardContent>
                 </Card>
 
+                 <Card className="bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Award />Gestión de Logo</CardTitle>
+                        <CardDescription>
+                           Añade o modifica el logo de la aplicación.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <Button onClick={() => router.push('/admin/logo')}>
+                            Administrar Logo <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
+
             </div>
         </div>
       </div>
   );
 }
+
+    

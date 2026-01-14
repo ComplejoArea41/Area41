@@ -104,7 +104,7 @@ export default function AdminCourtsPage() {
                 ...prev[courtId],
                 [field]: numericValue
             }
-        } as Record<string, { price: number }>));
+        }));
     };
 
     const handleDeleteCourt = async (courtId: string) => {

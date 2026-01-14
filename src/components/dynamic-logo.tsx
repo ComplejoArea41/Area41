@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
@@ -47,3 +48,5 @@ export function DynamicLogo() {
     />
   );
 }
+
+    

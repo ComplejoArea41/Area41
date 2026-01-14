@@ -329,7 +329,7 @@ export default function ReservationPage() {
     return allCourts?.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
   }, [allCourts, selectedCourtType]);
 
-  const isLoadingPage = isUserLoading || !user || areCourtsLoading;
+  const isLoadingPage = isUserLoading || areCourtsLoading;
 
   if (isLoadingPage) {
     return (
@@ -533,6 +533,8 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
 
     
 
