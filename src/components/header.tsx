@@ -17,6 +17,7 @@ import {
   Shield,
   LogOut,
   Home,
+  LogIn,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
@@ -37,6 +38,10 @@ export default function Header() {
     });
   };
 
+  const handleSignIn = () => {
+    router.push('/login');
+  };
+
   const navLinks = [
     { href: '/', label: 'Inicio', icon: <Home className="h-4 w-4" /> },
     { href: '/reservations', label: 'Reservar', icon: <Calendar className="h-4 w-4" /> },
@@ -53,12 +58,17 @@ export default function Header() {
   if (pathname === '/') {
       return (
         <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-end gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
-             {user && (
+             {isUserLoading ? <div className="h-8 w-8 animate-pulse rounded-full bg-muted" /> : (user ? (
                 <Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
                     <LogOut className="h-5 w-5" />
                     <span className="sr-only">Cerrar sesión</span>
                 </Button>
-             )}
+             ): (
+                <Button variant="ghost" size="icon" onClick={handleSignIn} title="Iniciar Sesión">
+                    <LogIn className="h-5 w-5" />
+                    <span className="sr-only">Iniciar Sesión</span>
+                </Button>
+             ))}
         </header>
       )
   }
@@ -97,22 +107,31 @@ export default function Header() {
         {isUserLoading || isProfileLoading ? (
           <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
         ) : (
-          user && userProfile?.isAdmin && (
-            <Button
-              variant={pathname.startsWith('/admin') ? 'secondary' : 'outline'}
-              asChild
-            >
-              <Link href="/admin">
-                <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Admin</span>
-              </Link>
-            </Button>
-          )
+          <>
+            {user && userProfile?.isAdmin && (
+              <Button
+                variant={pathname.startsWith('/admin') ? 'secondary' : 'outline'}
+                asChild
+              >
+                <Link href="/admin">
+                  <Shield className="h-4 w-4" />
+                  <span className="hidden sm:inline">Admin</span>
+                </Link>
+              </Button>
+            )}
+            {user ? (
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
+                  <LogOut className="h-5 w-5" />
+                  <span className="sr-only">Cerrar sesión</span>
+              </Button>
+            ) : (
+               <Button onClick={handleSignIn}>
+                  <LogIn className="mr-2 h-4 w-4"/>
+                  Iniciar Sesión
+               </Button>
+            )}
+          </>
         )}
-         {user && (<Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
-            <LogOut className="h-5 w-5" />
-            <span className="sr-only">Cerrar sesión</span>
-          </Button>)}
       </div>
     </header>
   );
