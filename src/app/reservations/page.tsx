@@ -314,6 +314,7 @@ export default function ReservationPage() {
 
   const formatWeekdayName = (day: Date) => {
     const dayIndex = day.getDay();
+    // Ensure Sunday (0) comes first to match react-day-picker's default week start
     const weekdays = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
     return weekdays[dayIndex];
   };
@@ -522,4 +523,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
