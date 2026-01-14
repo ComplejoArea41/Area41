@@ -28,6 +28,9 @@ export default function Header() {
   const router = useRouter();
   const auth = getAuth();
 
+  const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+
   const handleSignOut = () => {
     signOut(auth).then(() => {
       router.push('/login');
@@ -91,10 +94,10 @@ export default function Header() {
       </nav>
       
       <div className="flex items-center gap-2">
-        {isUserLoading ? (
+        {isUserLoading || isProfileLoading ? (
           <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
         ) : (
-          user && (
+          user && userProfile?.isAdmin && (
             <Button
               variant={pathname.startsWith('/admin') ? 'secondary' : 'outline'}
               asChild
@@ -106,10 +109,10 @@ export default function Header() {
             </Button>
           )
         )}
-         <Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
+         {user && (<Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Cerrar sesión</span>
-          </Button>
+          </Button>)}
       </div>
     </header>
   );

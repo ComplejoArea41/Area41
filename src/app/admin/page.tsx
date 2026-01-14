@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -18,15 +17,23 @@ import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award } from "lucid
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
+    const firestore = useFirestore();
     const router = useRouter();
 
-    useEffect(() => {
-        if (!isUserLoading && !user) {
-            router.push('/login');
-        }
-    }, [user, isUserLoading, router]);
+    const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-    if (isUserLoading) {
+    useEffect(() => {
+        if (!isUserLoading && !isProfileLoading) {
+            if (!user) {
+                router.push('/login');
+            } else if (userProfile && !userProfile.isAdmin) {
+                router.push('/');
+            }
+        }
+    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
+
+    if (isUserLoading || isProfileLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
               <p className="text-primary-foreground">Verificando acceso...</p>
@@ -34,7 +41,7 @@ export default function AdminPage() {
           );
     }
 
-    if (!user) {
+    if (!user || !userProfile?.isAdmin) {
         return null; // The redirect is being handled by the useEffect
     }
   
@@ -115,7 +122,3 @@ export default function AdminPage() {
       </div>
   );
 }
-
-    
-
-    
