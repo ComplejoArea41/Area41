@@ -152,7 +152,7 @@ export default function AdminBackgroundsPage() {
                 const updatedData: Partial<BackgroundImage> = {
                     name: formData.name,
                     imageUrl: formData.imageUrl,
-                    storagePath: null,
+                    storagePath: undefined,
                 };
                 setDocumentNonBlocking(imageRef, updatedData, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
