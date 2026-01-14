@@ -1,12 +1,6 @@
 
 'use client';
 
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Goal, Utensils } from 'lucide-react';
@@ -30,7 +24,7 @@ export default function WelcomePage() {
     },
   ];
 
-  const logoUrl = "https://storage.googleapis.com/aif-public-images/area-41-banner.png";
+  const logoUrl = "/logo.png";
 
   return (
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
