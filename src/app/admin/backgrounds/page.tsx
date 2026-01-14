@@ -138,38 +138,29 @@ export default function AdminBackgroundsPage() {
     
     const handleSaveChanges = () => {
         if (!firestore || !storage) return;
-    
+
         if (formData.name.trim() === '') {
             toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
             return;
         }
 
         const isNewUrlProvided = formData.imageUrl.trim() !== '';
-    
+
+        // If no file and no new URL, and not editing, it's an error.
         if (!selectedFile && !isNewUrlProvided && !editingImage) {
             toast({ variant: "destructive", title: "Error", description: "Debes proporcionar una URL o seleccionar un archivo." });
             return;
         }
-
-        if (!selectedFile && isNewUrlProvided && editingImage && formData.imageUrl.trim() === editingImage.imageUrl) {
-             // No file and URL is the same as before, just update name if changed
-             if(formData.name.trim() !== editingImage.name) {
-                const imageRef = doc(firestore, 'background_images', editingImage.id);
-                setDocumentNonBlocking(imageRef, { name: formData.name }, { merge: true });
-                toast({ title: "¡Imagen actualizada!", description: "El nombre de la imagen se ha guardado." });
-             }
-             setIsDialogOpen(false);
-             return;
-        }
-    
+        
         setIsSaving(true);
         setUploadProgress(0);
-    
+
+        // --- Priority 1: A file was selected for upload ---
         if (selectedFile) {
             const storagePath = `backgrounds/${uuidv4()}-${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-    
+
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -180,39 +171,53 @@ export default function AdminBackgroundsPage() {
                     toast({ variant: "destructive", title: "Error al subir", description: "No se pudo subir el archivo." });
                     setIsSaving(false);
                 },
-                () => {
-                    getDownloadURL(uploadTask.snapshot.ref).then(finalImageUrl => {
+                async () => {
+                    try {
+                        const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
                         const imageData = {
                             name: formData.name,
                             imageUrl: finalImageUrl,
                             storagePath: storagePath,
                         };
-    
+
                         if (editingImage) {
+                            // If we were editing, and uploaded a new file, delete the old one from storage if it exists
+                            if (editingImage.storagePath) {
+                                const oldStorageRef = ref(storage, editingImage.storagePath);
+                                try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
+                            }
                             const imageRef = doc(firestore, 'background_images', editingImage.id);
-                            setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                            toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+                            await setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                            toast({ title: "¡Imagen actualizada!", description: "La nueva imagen se ha subido y guardado." });
                         } else {
                             const collectionRef = collection(firestore, 'background_images');
-                            addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                            await addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
                             toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
                         }
                         setIsDialogOpen(false);
-                    }).catch(error => {
+                    } catch (error) {
                         console.error("Error getting download URL or saving document to Firestore:", error);
                         toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos de la imagen." });
-                    }).finally(() => {
+                    } finally {
                         setIsSaving(false);
-                    });
+                    }
                 }
             );
-        } else if (isNewUrlProvided) {
+        } 
+        // --- Priority 2: No file, but a URL is provided or an existing image is being edited ---
+        else if (isNewUrlProvided || editingImage) {
             const imageData = {
                 name: formData.name,
-                imageUrl: formData.imageUrl,
+                imageUrl: formData.imageUrl, // Use the URL from the form
                 storagePath: null, // This is not from storage
             };
+            
             if (editingImage) {
+                 // Check if the URL has changed. If so, and if the old image was from storage, delete it.
+                if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath) {
+                     const oldStorageRef = ref(storage, editingImage.storagePath);
+                     try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
+                }
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
                 setDocumentNonBlocking(imageRef, imageData, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
@@ -224,13 +229,8 @@ export default function AdminBackgroundsPage() {
             setIsDialogOpen(false);
             setIsSaving(false);
         } else {
-            // This case handles editing the name without changing the picture.
-            if(editingImage && formData.name.trim() !== editingImage.name) {
-                 const imageRef = doc(firestore, 'background_images', editingImage.id);
-                 setDocumentNonBlocking(imageRef, { name: formData.name }, { merge: true });
-                 toast({ title: "Nombre actualizado", description: "El nombre de la imagen se ha actualizado." });
-            }
-            setIsDialogOpen(false);
+            // Should not happen due to initial checks, but as a fallback.
+            toast({ variant: "destructive", title: "Error", description: "Acción no válida."});
             setIsSaving(false);
         }
     };
@@ -346,6 +346,3 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
-
-
-    
