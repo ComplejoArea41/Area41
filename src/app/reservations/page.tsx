@@ -366,29 +366,22 @@ export default function ReservationPage() {
   }
 
   return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
         <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
           <CardHeader>
             <CardTitle>Reserva Tu Cancha</CardTitle>
             <CardDescription>
-              ¿Listos para el partido? Asegura tu lugar en Area41. Selecciona la cancha, la fecha y la hora. ¡El fútbol te espera!
+              ¿Listos para el partido? Asegura tu lugar en Area41. Sigue los pasos para elegir tu cancha. ¡El fútbol te espera!
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={(e) => { e.preventDefault(); }} className="space-y-8">
-                  <FormField
-                  control={form.control}
-                  name="courtId"
-                  render={() => (
-                    <FormItem>
-                      <div className="mb-4">
-                        <FormLabel className="text-base">1. Selecciona el tipo y número de cancha</FormLabel>
-                        <FormDescription>
-                          Elige el tipo de cancha y luego selecciona una de las disponibles.
-                        </FormDescription>
-                      </div>
-                       <div className="flex gap-4">
+                  
+                {/* Court Type Selection */}
+                 <FormItem>
+                      <FormLabel className="text-base font-semibold">1. Selecciona el tipo de cancha</FormLabel>
+                      <div className="flex gap-4 pt-2">
                             <Button
                                 type="button"
                                 variant={selectedCourtType === 'Futbol 5' ? 'default' : 'outline'}
@@ -397,6 +390,7 @@ export default function ReservationPage() {
                                     form.setValue('courtId', '');
                                     form.setValue('times', []);
                                 }}
+                                className="flex-1 py-6 text-lg"
                             >
                                 Fútbol 5
                             </Button>
@@ -408,11 +402,26 @@ export default function ReservationPage() {
                                     form.setValue('courtId', '');
                                     form.setValue('times', []);
                                 }}
+                                className="flex-1 py-6 text-lg"
                             >
                                 Fútbol 7
                             </Button>
                         </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                 </FormItem>
+
+                {/* Court Number Selection */}
+                 <FormField
+                  control={form.control}
+                  name="courtId"
+                  render={() => (
+                    <FormItem>
+                      <div className="mb-4">
+                        <FormLabel className="text-base font-semibold">2. Elige el número de cancha</FormLabel>
+                        <FormDescription>
+                          Las canchas de Fútbol 7 se arman uniendo dos de Fútbol 5.
+                        </FormDescription>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           {areCourtsLoading ? (
                              Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 w-full bg-muted animate-pulse rounded-md" />)
                           ) : (
@@ -436,29 +445,32 @@ export default function ReservationPage() {
                   )}
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                {/* Date and Time Selection */}
+                <div className="space-y-8">
                     <FormField
                       control={form.control}
                       name="date"
                       render={({ field }) => (
-                        <FormItem className="flex flex-col items-center">
-                          <FormLabel className="text-base mb-4">2. Elige la Fecha</FormLabel>
-                          <FormControl>
-                            <Calendar
-                              mode="single"
-                              locale={es}
-                              selected={field.value}
-                              onSelect={(date) => {
-                                if (date) {
-                                  field.onChange(date);
-                                }
-                                form.setValue("times", []);
-                              }}
-                              disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                              className="rounded-md border"
-                            />
-                          </FormControl>
-                          <FormMessage />
+                        <FormItem>
+                          <FormLabel className="text-base font-semibold">3. Elige la fecha y el horario</FormLabel>
+                            <Card className="w-full overflow-hidden">
+                                <CardContent className="p-0 flex flex-col items-center">
+                                    <Calendar
+                                    mode="single"
+                                    locale={es}
+                                    selected={field.value}
+                                    onSelect={(date) => {
+                                        if (date) {
+                                        field.onChange(date);
+                                        }
+                                        form.setValue("times", []);
+                                    }}
+                                    disabled={(date) => date < startOfDay(new Date())}
+                                    className="p-0 [&_td]:w-14 [&_th]:w-14"
+                                    />
+                                </CardContent>
+                            </Card>
+                            <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -469,19 +481,14 @@ export default function ReservationPage() {
                       render={() => (
                         <FormItem>
                            <div className="flex justify-between items-center">
-                            <div>
-                                <FormLabel className="text-base">3. Selecciona el Horario</FormLabel>
-                                <FormDescription>
-                                    Cada turno dura 60 minutos.
-                                </FormDescription>
-                            </div>
-                            {courtPrice > 0 && (
-                                <div className="text-sm font-medium text-muted-foreground">
-                                    Precio por turno: ${courtPrice.toLocaleString('es-AR')}
+                                <div>
+                                    <FormLabel className="text-base">Horarios disponibles para el {format(selectedDate, "PPP", { locale: es })}</FormLabel>
+                                    <FormDescription>
+                                        Cada turno dura 60 minutos. El precio por turno es de ${courtPrice.toLocaleString('es-AR')}.
+                                    </FormDescription>
                                 </div>
-                            )}
-                          </div>
-                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                            </div>
+                           <div className="grid grid-cols-3 md:grid-cols-5 gap-4 pt-4">
                                 {availableTimes.map(time => (
                                     <TimeSlotButton
                                         key={time}
@@ -500,23 +507,23 @@ export default function ReservationPage() {
                     />
                 </div>
 
-                <div className="mt-8 pt-4 border-t">
-                    <h3 className="text-lg font-bold text-center">Resumen de tu Reserva</h3>
+                <div className="mt-8 pt-6 border-t">
+                    <h3 className="text-xl font-bold text-center">Resumen de tu Reserva</h3>
                     {selectedTimes.length > 0 && selectedCourtId ? (
                         <div className="text-center mt-2 text-muted-foreground">
-                            <p>Has seleccionado {selectedTimes.length} turno(s).</p>
-                            <p className="text-2xl font-bold text-foreground">Total: ${totalCost.toLocaleString('es-AR')}</p>
+                            <p>Has seleccionado {selectedTimes.length} turno(s) para el {format(selectedDate, "PPPP", { locale: es })}.</p>
+                            <p className="text-3xl font-bold text-foreground mt-2">Total: ${totalCost.toLocaleString('es-AR')}</p>
                         </div>
                     ) : (
-                        <p className="text-center mt-2 text-muted-foreground">
-                            Selecciona una cancha y al menos un horario para ver el total.
+                        <p className="text-center mt-4 text-muted-foreground">
+                            Completa los pasos anteriores para ver el resumen de tu reserva.
                         </p>
                     )}
                 </div>
 
                 <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <AlertDialogTrigger asChild>
-                        <Button type="button" className="w-full mt-8" onClick={handleConfirmClick} disabled={!form.formState.isValid}>
+                        <Button type="button" className="w-full mt-8 text-lg py-6" onClick={handleConfirmClick} disabled={!form.formState.isValid}>
                             Confirmar Reserva
                         </Button>
                     </AlertDialogTrigger>
@@ -543,4 +550,3 @@ export default function ReservationPage() {
   );
 }
 
-    
