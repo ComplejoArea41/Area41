@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Goal, Utensils } from 'lucide-react';
+import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -29,17 +31,23 @@ export default function WelcomePage() {
     },
   ];
 
+  const logo = PlaceHolderImages.find(p => p.id === 'area-41-logo');
+
   return (
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
         {/* Contenido principal, que se mostrará sobre la imagen */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full">
             <div className="text-center mb-12">
-              <h1 className="text-5xl font-bold tracking-tight text-foreground sm:text-7xl">
-                ÁREA 41
-              </h1>
-              <p className="mt-2 text-lg text-primary">
-                TU COMPLEJO DEPORTIVO
-              </p>
+              {logo && (
+                <Image
+                  src={logo.imageUrl}
+                  alt={logo.description}
+                  width={600}
+                  height={240}
+                  className="object-contain"
+                  priority
+                />
+              )}
             </div>
 
             <div className="flex w-full max-w-md flex-col gap-6">
@@ -61,6 +69,9 @@ export default function WelcomePage() {
                   </div>
                 </Button>
               ))}
+                <p className="mt-2 text-lg text-primary text-center">
+                    TU COMPLEJO DEPORTIVO
+                </p>
             </div>
         </div>
       </div>
