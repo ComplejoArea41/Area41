@@ -44,10 +44,11 @@ service cloud.firestore {
         allow write: if isSignedIn();
     }
 
-    // Reservations can be read and created by authenticated users
+    // Reservations can be read by anyone, but only created by authenticated users.
     match /reservations/{reservationId} {
-      allow read, create: if isSignedIn();
-      // Allow update/delete only by the user who created it (add more secure logic if needed)
+      allow read: if true;
+      allow create: if isSignedIn();
+      // Allow update/delete only by the user who created it.
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
