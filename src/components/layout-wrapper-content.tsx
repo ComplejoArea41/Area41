@@ -36,8 +36,13 @@ export default function LayoutWrapperContent({
       {activeImageUrl && (
         <>
           <div
-            className="absolute inset-0 bg-cover bg-center transition-opacity duration-500"
-            style={{ backgroundImage: `url(${activeImageUrl})` }}
+            className="absolute inset-0 transition-opacity duration-500"
+            style={{ 
+              backgroundImage: `url(${activeImageUrl})`,
+              backgroundSize: '100% 100%',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
           />
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
         </>
