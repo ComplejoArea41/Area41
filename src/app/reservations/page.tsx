@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { addDays, format, set, startOfDay } from "date-fns";
+import { es } from "date-fns/locale";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
@@ -445,6 +446,7 @@ export default function ReservationPage() {
                           <FormControl>
                             <Calendar
                               mode="single"
+                              locale={es}
                               selected={field.value}
                               onSelect={(date) => {
                                 if (date) {
@@ -540,3 +542,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
