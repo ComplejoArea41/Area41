@@ -24,7 +24,7 @@ export default function WelcomePage() {
     },
   ];
 
-  const logoUrl = "/logo.png";
+  const logoUrl = "https://storage.googleapis.com/aif-public-images/area-41-banner.png";
 
   return (
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
