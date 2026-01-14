@@ -20,17 +20,15 @@ import {
     DialogTitle,
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { BackgroundImage } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Image as ImageIcon } from "lucide-react";
 import NextImage from "next/image";
-import { v4 as uuidv4 } from 'uuid';
 
 type FormData = Omit<BackgroundImage, 'id' | 'isActive' | 'storagePath'>;
 
@@ -51,8 +49,6 @@ export default function AdminBackgroundsPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingImage, setEditingImage] = useState<BackgroundImage | null>(null);
     const [formData, setFormData] = useState<FormData>({ name: '', imageUrl: '' });
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [uploadProgress, setUploadProgress] = useState(0);
 
     useEffect(() => {
         if (isUserLoading || isProfileLoading) return;
@@ -67,26 +63,16 @@ export default function AdminBackgroundsPage() {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-        }
-    };
     
     const openDialogForNew = () => {
         setEditingImage(null);
         setFormData({ name: '', imageUrl: '' });
-        setSelectedFile(null);
-        setUploadProgress(0);
         setIsDialogOpen(true);
     };
 
     const openDialogForEdit = (image: BackgroundImage) => {
         setEditingImage(image);
         setFormData({ name: image.name, imageUrl: image.imageUrl });
-        setSelectedFile(null);
-        setUploadProgress(0);
         setIsDialogOpen(true);
     };
 
@@ -137,86 +123,28 @@ export default function AdminBackgroundsPage() {
     };
     
     const handleSaveChanges = async () => {
-        if (!firestore || !storage) return;
+        if (!firestore) return;
 
-        if (formData.name.trim() === '') {
-            toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
-            return;
-        }
-
-        // If no file and no new URL, and not editing, it's an error.
-        if (!selectedFile && !formData.imageUrl.trim() && !editingImage) {
-            toast({ variant: "destructive", title: "Error", description: "Debes proporcionar una URL o seleccionar un archivo." });
+        if (formData.name.trim() === '' || formData.imageUrl.trim() === '') {
+            toast({ variant: "destructive", title: "Error", description: "Debes proporcionar un nombre y una URL de imagen." });
             return;
         }
         
         setIsSaving(true);
-        setUploadProgress(0);
-
-        // --- Priority 1: A file was selected for upload ---
-        if (selectedFile) {
-            const storagePath = `backgrounds/${uuidv4()}-${selectedFile.name}`;
-            const storageRef = ref(storage, storagePath);
-            const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(progress);
-                },
-                (error) => {
-                    console.error("Upload failed:", error);
-                    toast({ variant: "destructive", title: "Error al subir", description: "No se pudo subir el archivo." });
-                    setIsSaving(false);
-                },
-                async () => {
-                    try {
-                        const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                        const imageData = {
-                            name: formData.name,
-                            imageUrl: finalImageUrl,
-                            storagePath: storagePath,
-                        };
-
-                        if (editingImage) {
-                            // If we were editing, and uploaded a new file, delete the old one from storage if it exists
-                            if (editingImage.storagePath) {
-                                const oldStorageRef = ref(storage, editingImage.storagePath);
-                                try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
-                            }
-                            const imageRef = doc(firestore, 'background_images', editingImage.id);
-                            setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                            toast({ title: "¡Imagen actualizada!", description: "La nueva imagen se ha subido y guardado." });
-                        } else {
-                            const collectionRef = collection(firestore, 'background_images');
-                            addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
-                            toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
-                        }
-                        setIsDialogOpen(false);
-                    } catch (error) {
-                        console.error("Error getting download URL or saving document to Firestore:", error);
-                        toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos de la imagen." });
-                    } finally {
-                        setIsSaving(false);
-                    }
-                }
-            );
-        } 
-        // --- Priority 2: No file, but a URL is provided or an existing image is being edited ---
-        else if (formData.imageUrl.trim() || editingImage) {
+        
+        try {
             const imageData = {
                 name: formData.name,
-                imageUrl: formData.imageUrl, // Use the URL from the form
-                storagePath: editingImage?.storagePath || null, // Preserve old storage path if only URL is changed
+                imageUrl: formData.imageUrl,
+                storagePath: null, // We are only using URLs now
             };
-            
+
             if (editingImage) {
-                 // Check if the URL has changed. If so, and if the old image was from storage, delete it.
-                if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath) {
+                // If the image being edited had a file in storage, delete it.
+                if (editingImage.storagePath && storage) {
                      const oldStorageRef = ref(storage, editingImage.storagePath);
                      try { 
-                        await deleteObject(oldStorageRef); 
-                        imageData.storagePath = null; // Clear storage path as it's now a URL based image
+                        await deleteObject(oldStorageRef);
                     } catch (e) { console.warn("Could not delete old storage object", e); }
                 }
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
@@ -224,14 +152,14 @@ export default function AdminBackgroundsPage() {
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
                  const collectionRef = collection(firestore, 'background_images');
-                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false, storagePath: null });
+                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
                  toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
             }
             setIsDialogOpen(false);
-            setIsSaving(false);
-        } else {
-            // Should not happen due to initial checks, but as a fallback.
-            toast({ variant: "destructive", title: "Error", description: "Acción no válida."});
+        } catch (error) {
+            console.error("Error saving image data:", error);
+            toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos." });
+        } finally {
             setIsSaving(false);
         }
     };
@@ -253,7 +181,7 @@ export default function AdminBackgroundsPage() {
                     <div>
                         <CardTitle>Gestionar Imágenes de Fondo</CardTitle>
                         <CardDescription>
-                            Añade, edita o elimina imágenes de fondo para la aplicación. Activa una para mostrarla.
+                            Añade, edita o elimina imágenes de fondo para la aplicación usando una URL. Activa una para mostrarla.
                         </CardDescription>
                     </div>
                     <Button onClick={openDialogForNew}>
@@ -310,7 +238,7 @@ export default function AdminBackgroundsPage() {
                     <DialogHeader>
                         <DialogTitle>{editingImage ? 'Editar Imagen' : 'Nueva Imagen'}</DialogTitle>
                         <DialogDescription>
-                            {editingImage ? 'Modifica los detalles de la imagen.' : 'Añade una nueva imagen de fondo.'}
+                            {editingImage ? 'Modifica los detalles de la imagen.' : 'Añade una nueva imagen de fondo usando una URL.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -322,24 +250,11 @@ export default function AdminBackgroundsPage() {
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
                             <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/imagen.jpg"/>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                             <Label htmlFor="picture" className="text-right">O subir archivo</Label>
-                            <div className="col-span-3">
-                                <Input id="picture" type="file" onChange={handleFileChange} accept="image/*" />
-                            </div>
-                        </div>
-                        {isSaving && (
-                            <div className="col-span-4 space-y-2">
-                                <Label>Subiendo...</Label>
-                                <Progress value={uploadProgress} />
-                            </div>
-                        )}
-                        {selectedFile && <p className="text-sm text-muted-foreground col-span-4 text-center">Archivo seleccionado: {selectedFile.name}</p>}
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                         <Button type="submit" onClick={handleSaveChanges} disabled={isSaving}>
-                            {isSaving ? `Subiendo... ${Math.round(uploadProgress)}%` : 'Guardar Cambios'}
+                            {isSaving ? `Guardando...` : 'Guardar Cambios'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -347,4 +262,3 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
-
