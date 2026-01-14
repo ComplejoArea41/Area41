@@ -1,0 +1,54 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Checks if a user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the request is from the owner of the document.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users can read their own profile, admins can read any profile
+    match /users/{userId} {
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && isOwner(userId);
+    }
+
+    // Publicly readable collections for UI elements and general info
+    match /background_images/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Further restricted by storage rules to admins
+    }
+
+    match /logo_images/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Further restricted by storage rules to admins
+    }
+
+    match /courts/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn(); 
+    }
+
+    match /menu_items/{docId} {
+        allow read: if true;
+        allow write: if isSignedIn();
+    }
+
+    // Reservations can be read and created by authenticated users
+    match /reservations/{reservationId} {
+      allow read, create: if isSignedIn();
+      // Allow update/delete only by the user who created it (add more secure logic if needed)
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

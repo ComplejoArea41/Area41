@@ -24,21 +24,12 @@ export default function WelcomePage() {
     },
   ];
 
-  const logoUrl = "https://storage.googleapis.com/aif-public-images/area-41-banner.png";
-
   return (
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
         {/* Contenido principal, que se mostrará sobre la imagen */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full">
             <div className="text-center mb-12">
-                <Image
-                  src={logoUrl}
-                  alt="Area 41 Logo"
-                  width={600}
-                  height={240}
-                  className="object-contain"
-                  priority
-                />
+                {/* Image removed as requested */}
             </div>
 
             <div className="flex w-full max-w-md flex-col gap-6">

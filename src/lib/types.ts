@@ -60,5 +60,3 @@ export interface LogoImage {
   isActive: boolean;
   storagePath?: string;
 }
-
-    
