@@ -37,7 +37,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
@@ -76,9 +75,9 @@ const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areRe
             variant={selectedTimes.includes(time) ? "default" : "outline"}
             onClick={() => onTimeClick(time)}
             disabled={isDisabled}
-            className={cn({ "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
+            className={cn("w-full justify-center", { "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
         >
-            {areReservationsLoading && selectedCourtId ? "Cargando..." : time}
+            {areReservationsLoading && selectedCourtId ? "..." : time}
         </Button>
     );
 });
@@ -169,12 +168,8 @@ export default function ReservationPage() {
             const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
             if (!reservedCourt) continue;
 
-            // Case 1: Checking a Futbol 5 court
             if (courtToCheck.courtType === 'Futbol 5') {
-                // If it's directly reserved
                 if (reservedCourtId === courtId) return true;
-                
-                // If a related Futbol 7 court is reserved
                 if (reservedCourt.courtType === 'Futbol 7') {
                     const f7Number = reservedCourt.courtNumber;
                     const f5Number1 = (f7Number * 2) - 1;
@@ -185,12 +180,8 @@ export default function ReservationPage() {
                 }
             }
             
-            // Case 2: Checking a Futbol 7 court
             if (courtToCheck.courtType === 'Futbol 7') {
-                 // If it's directly reserved
                  if (reservedCourtId === courtId) return true;
-
-                 // If a related Futbol 5 court is reserved
                  if (reservedCourt.courtType === 'Futbol 5') {
                     const f7Number = courtToCheck.courtNumber;
                     const f5Number1 = (f7Number * 2) - 1;
@@ -216,29 +207,12 @@ export default function ReservationPage() {
 
   async function onSubmit(data: ReservationFormValues) {
     if (!user || !allCourts) {
-      toast({
-        title: 'Error',
-        description: 'Debes iniciar sesión para hacer una reserva.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Debes iniciar sesión para hacer una reserva.', variant: 'destructive'});
       router.push('/login');
       return;
     }
-    if (
-      !userProfile ||
-      !userProfile.firstName ||
-      !userProfile.lastName ||
-      !userProfile.phoneNumber
-    ) {
-      toast({
-        title: 'Perfil Incompleto',
-        description:
-          'Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.',
-        variant: 'destructive',
-        action: (
-            <Button onClick={() => router.push('/profile')}>Ir al Perfil</Button>
-        )
-      });
+    if (!userProfile || !userProfile.firstName || !userProfile.lastName || !userProfile.phoneNumber) {
+      toast({ title: 'Perfil Incompleto', description: 'Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.', variant: 'destructive', action: (<Button onClick={() => router.push('/profile')}>Ir al Perfil</Button>) });
       setIsDialogOpen(false);
       return;
     }
@@ -258,51 +232,38 @@ export default function ReservationPage() {
     const reservationsCollection = collection(firestore, 'reservations');
     const reservationPromises = data.times.map((time) => {
       const [hour, minute] = time.split(':').map(Number);
-      const reservationDateTime = set(data.date, {
-        hours: hour,
-        minutes: minute,
-        seconds: 0,
-        milliseconds: 0,
-      });
+      const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
       return addDocumentNonBlocking(reservationsCollection, {
         userId: user.uid,
         courtIds: courtIdsToReserve, 
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
-        durationMinutes: 60,
+        durationMinutes: 30, // Changed to 30 mins
       });
     });
   
     const results = await Promise.allSettled(reservationPromises);
-    
     const failedReservations = results.filter(result => result.status === 'rejected');
 
     if (failedReservations.length > 0) {
-      toast({
-        title: 'Error en la Reserva',
-        description: 'Algunos o todos los horarios no pudieron ser reservados. Por favor, revisa los errores o inténtalo de nuevo.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error en la Reserva', description: 'Algunos o todos los horarios no pudieron ser reservados. Por favor, inténtalo de nuevo.', variant: 'destructive'});
       setIsDialogOpen(false); 
       return; 
     }
 
     const court = allCourts?.find((c) => c.id === data.courtId);
     const courtDescription = court ? `${court.courtType} - Cancha ${court.courtNumber}` : "Cancha no especificada";
-  
     const timesString = data.times.join(', ');
-    const fullName = `${userProfile.firstName || ''} ${
-      userProfile.lastName || ''
-    }`;
+    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
     const phone = userProfile.phoneNumber || 'No especificado';
   
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
-        `*Cancha:* ${courtDescription}\n` +
-        `*Fecha:* ${format(data.date, 'dd/MM/yyyy')}\n` +
-        `*Horarios:* ${timesString}\n` +
-        `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
-        `*Nombre:* ${fullName}\n` +
-        `*Teléfono:* ${phone}`
+      `*Cancha:* ${courtDescription}\n` +
+      `*Fecha:* ${format(data.date, 'dd/MM/yyyy')}\n` +
+      `*Horarios:* ${timesString}\n` +
+      `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
+      `*Nombre:* ${fullName}\n` +
+      `*Teléfono:* ${phone}`
     );
   
     const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
@@ -313,24 +274,24 @@ export default function ReservationPage() {
   }
 
   const handleConfirmClick = async (event: React.MouseEvent) => {
-    event.preventDefault(); // Always prevent default to control dialog manually
+    event.preventDefault();
     const isValid = await form.trigger();
     if (isValid) {
       setIsDialogOpen(true);
     } else {
-      toast({
-        title: 'Formulario incompleto',
-        description: 'Por favor, selecciona una cancha y al menos un horario.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Formulario incompleto', description: 'Por favor, selecciona una cancha y al menos un horario.', variant: 'destructive' });
     }
   };
 
   const availableTimes: string[] = [];
-    for (let i = 8; i < 24; i++) {
-        availableTimes.push(`${String(i).padStart(2, '0')}:00`);
-    }
-    availableTimes.push("00:00", "01:00", "02:00");
+  for (let i = 8; i < 24; i++) {
+      availableTimes.push(`${String(i).padStart(2, '0')}:00`);
+      availableTimes.push(`${String(i).padStart(2, '0')}:30`);
+  }
+  ["00", "01", "02"].forEach(hour => {
+    availableTimes.push(`${hour}:00`);
+    availableTimes.push(`${hour}:30`);
+  });
 
 
   const courtsForType = useMemo(() => {
@@ -367,60 +328,51 @@ export default function ReservationPage() {
 
   return (
       <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
+        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-6xl">
           <CardHeader>
             <CardTitle>Reserva Tu Cancha</CardTitle>
             <CardDescription>
-              ¿Listos para el partido? Asegura tu lugar en Area41. Sigue los pasos para elegir tu cancha. ¡El fútbol te espera!
+              ¿Listos para el partido? Asegura tu lugar en Area41.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={(e) => { e.preventDefault(); }} className="space-y-8">
-                  
-                {/* Court Type Selection */}
-                 <FormItem>
-                      <FormLabel className="text-base font-semibold">1. Selecciona el tipo de cancha</FormLabel>
-                      <div className="flex gap-4 pt-2">
-                            <Button
-                                type="button"
-                                variant={selectedCourtType === 'Futbol 5' ? 'default' : 'outline'}
-                                onClick={() => {
-                                    setSelectedCourtType('Futbol 5');
-                                    form.setValue('courtId', '');
-                                    form.setValue('times', []);
-                                }}
-                                className="flex-1 py-6 text-lg"
-                            >
-                                Fútbol 5
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={selectedCourtType === 'Futbol 7' ? 'default' : 'outline'}
-                                onClick={() => {
-                                    setSelectedCourtType('Futbol 7');
-                                    form.setValue('courtId', '');
-                                    form.setValue('times', []);
-                                }}
-                                className="flex-1 py-6 text-lg"
-                            >
-                                Fútbol 7
-                            </Button>
-                        </div>
-                 </FormItem>
+                <div className="space-y-4">
+                  <FormLabel className="text-base font-semibold">1. Selecciona el tipo y número de cancha</FormLabel>
+                   <div className="flex gap-4 pt-2">
+                        <Button
+                            type="button"
+                            variant={selectedCourtType === 'Futbol 5' ? 'default' : 'outline'}
+                            onClick={() => {
+                                setSelectedCourtType('Futbol 5');
+                                form.setValue('courtId', '');
+                                form.setValue('times', []);
+                            }}
+                            className="flex-1 py-6 text-lg"
+                        >
+                            Fútbol 5
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={selectedCourtType === 'Futbol 7' ? 'default' : 'outline'}
+                            onClick={() => {
+                                setSelectedCourtType('Futbol 7');
+                                form.setValue('courtId', '');
+                                form.setValue('times', []);
+                            }}
+                            className="flex-1 py-6 text-lg"
+                        >
+                            Fútbol 7
+                        </Button>
+                    </div>
+                </div>
 
-                {/* Court Number Selection */}
-                 <FormField
+                <FormField
                   control={form.control}
                   name="courtId"
                   render={() => (
                     <FormItem>
-                      <div className="mb-4">
-                        <FormLabel className="text-base font-semibold">2. Elige el número de cancha</FormLabel>
-                        <FormDescription>
-                          Las canchas de Fútbol 7 se arman uniendo dos de Fútbol 5.
-                        </FormDescription>
-                      </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           {areCourtsLoading ? (
                              Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 w-full bg-muted animate-pulse rounded-md" />)
@@ -445,73 +397,71 @@ export default function ReservationPage() {
                   )}
                 />
                 
-                {/* Date and Time Selection */}
-                <div className="space-y-8">
-                    <FormField
-                      control={form.control}
-                      name="date"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-base font-semibold">3. Elige la fecha y el horario</FormLabel>
-                            <Card className="w-full overflow-hidden">
-                                <CardContent className="p-0 flex flex-col items-center">
-                                    <Calendar
-                                    mode="single"
-                                    locale={es}
-                                    selected={field.value}
-                                    onSelect={(date) => {
-                                        if (date) {
-                                        field.onChange(date);
-                                        }
-                                        form.setValue("times", []);
-                                    }}
-                                    disabled={(date) => date < startOfDay(new Date())}
-                                    className="p-0 [&_td]:w-14 [&_th]:w-14"
-                                    />
-                                </CardContent>
-                            </Card>
-                            <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="times"
-                      render={() => (
-                        <FormItem>
-                           <div className="flex justify-between items-center">
-                                <div>
-                                    <FormLabel className="text-base">Horarios disponibles para el {format(selectedDate, "PPP", { locale: es })}</FormLabel>
-                                    <FormDescription>
-                                        Cada turno dura 60 minutos. El precio por turno es de ${courtPrice.toLocaleString('es-AR')}.
-                                    </FormDescription>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    <div className="space-y-4">
+                        <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
+                        <FormField
+                          control={form.control}
+                          name="date"
+                          render={({ field }) => (
+                            <FormItem>
+                                <Card className="w-full overflow-hidden">
+                                    <CardContent className="p-0 flex flex-col items-center">
+                                        <Calendar
+                                        mode="single"
+                                        locale={es}
+                                        selected={field.value}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                            field.onChange(date);
+                                            }
+                                            form.setValue("times", []);
+                                        }}
+                                        disabled={(date) => date < startOfDay(new Date())}
+                                        className="p-0 [&_td]:w-14 [&_th]:w-14"
+                                        />
+                                    </CardContent>
+                                </Card>
+                                <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                    </div>
+                    <div className="space-y-4">
+                        <h3 className="font-semibold text-base capitalize">
+                            {format(selectedDate, "eeee, d 'de' MMMM", { locale: es })}
+                        </h3>
+                         <FormField
+                          control={form.control}
+                          name="times"
+                          render={() => (
+                            <FormItem>
+                               <div className="grid grid-cols-2 gap-2">
+                                    {availableTimes.map(time => (
+                                        <TimeSlotButton
+                                            key={time}
+                                            time={time}
+                                            selectedCourtId={selectedCourtId}
+                                            selectedTimes={selectedTimes}
+                                            areReservationsLoading={areReservationsLoading}
+                                            isTimeSlotReserved={isTimeSlotReserved}
+                                            onTimeClick={handleTimeClick}
+                                        />
+                                    ))}
                                 </div>
-                            </div>
-                           <div className="grid grid-cols-3 md:grid-cols-5 gap-4 pt-4">
-                                {availableTimes.map(time => (
-                                    <TimeSlotButton
-                                        key={time}
-                                        time={time}
-                                        selectedCourtId={selectedCourtId}
-                                        selectedTimes={selectedTimes}
-                                        areReservationsLoading={areReservationsLoading}
-                                        isTimeSlotReserved={isTimeSlotReserved}
-                                        onTimeClick={handleTimeClick}
-                                    />
-                                ))}
-                            </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                    </div>
                 </div>
 
                 <div className="mt-8 pt-6 border-t">
                     <h3 className="text-xl font-bold text-center">Resumen de tu Reserva</h3>
                     {selectedTimes.length > 0 && selectedCourtId ? (
                         <div className="text-center mt-2 text-muted-foreground">
-                            <p>Has seleccionado {selectedTimes.length} turno(s) para el {format(selectedDate, "PPPP", { locale: es })}.</p>
+                            <p>Has seleccionado {selectedTimes.length} turno(s) de 30 min. ({selectedTimes.length * 0.5} hs) para el {format(selectedDate, "PPPP", { locale: es })}.</p>
+                            <p className="text-lg">Precio por turno (30 min): ${ (courtPrice / 2).toLocaleString('es-AR')}</p>
                             <p className="text-3xl font-bold text-foreground mt-2">Total: ${totalCost.toLocaleString('es-AR')}</p>
                         </div>
                     ) : (
@@ -550,3 +500,5 @@ export default function ReservationPage() {
   );
 }
 
+
+    

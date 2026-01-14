@@ -14,7 +14,7 @@ export interface Court {
   courtType: 'Futbol 5' | 'Futbol 7';
   courtNumber: number;
   isAvailable: boolean;
-  price: number;
+  price: number; // Price per hour
 }
 
 export interface Reservation {
@@ -60,3 +60,5 @@ export interface LogoImage {
   isActive: boolean;
   storagePath?: string;
 }
+
+    
