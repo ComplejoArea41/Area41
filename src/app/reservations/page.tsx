@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addDays, format, set, startOfDay } from "date-fns";
+import { addDays, format, set, startOfDay, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
@@ -58,16 +58,17 @@ const reservationFormSchema = z.object({
 type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 
 
-const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areReservationsLoading, isTimeSlotReserved, onTimeClick }: {
+const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areReservationsLoading, isTimeSlotReserved, onTimeClick, isDisabledByTime }: {
     time: string;
     selectedCourtId: string;
     selectedTimes: string[];
     areReservationsLoading: boolean;
     isTimeSlotReserved: (time: string, courtId: string) => boolean;
     onTimeClick: (time: string) => void;
+    isDisabledByTime: boolean;
 }) => {
     const isReserved = isTimeSlotReserved(time, selectedCourtId);
-    const isDisabled = !selectedCourtId || isReserved || areReservationsLoading;
+    const isDisabled = !selectedCourtId || isReserved || areReservationsLoading || isDisabledByTime;
 
     return (
         <Button
@@ -134,8 +135,9 @@ export default function ReservationPage() {
     if (!selectedCourtId || !allCourts) return { totalCost: 0, courtPrice: 0 };
     const court = allCourts.find((c) => c.id === selectedCourtId);
     if (!court) return { totalCost: 0, courtPrice: 0 };
+    // Price per turn is half the hourly price
     return {
-      totalCost: court.price * selectedTimes.length,
+      totalCost: (court.price / 2) * selectedTimes.length,
       courtPrice: court.price,
     };
   }, [selectedCourtId, selectedTimes.length, allCourts]);
@@ -284,15 +286,19 @@ export default function ReservationPage() {
     }
   };
 
-  const availableTimes: string[] = [];
-  for (let i = 8; i < 24; i++) {
-      availableTimes.push(`${String(i).padStart(2, '0')}:00`);
-      availableTimes.push(`${String(i).padStart(2, '0')}:30`);
-  }
-  ["00", "01", "02"].forEach(hour => {
-    availableTimes.push(`${hour}:00`);
-    availableTimes.push(`${hour}:30`);
-  });
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let i = 8; i < 24; i++) {
+        slots.push(`${String(i).padStart(2, '0')}:00`);
+        slots.push(`${String(i).padStart(2, '0')}:30`);
+    }
+    for (let i = 0; i < 3; i++) {
+        slots.push(`${String(i).padStart(2, '0')}:00`);
+        slots.push(`${String(i).padStart(2, '0')}:30`);
+    }
+    return slots;
+  };
+  const availableTimes = generateTimeSlots();
 
 
   const courtsForType = useMemo(() => {
@@ -438,7 +444,11 @@ export default function ReservationPage() {
                           render={() => (
                             <FormItem>
                                <div className="grid grid-cols-2 gap-2">
-                                    {availableTimes.map(time => (
+                                    {availableTimes.map(time => {
+                                       const [hour, minute] = time.split(':').map(Number);
+                                       const timeDate = set(selectedDate, { hours: hour, minutes: minute });
+                                       const isPastTime = isBefore(timeDate, new Date());
+                                       return (
                                         <TimeSlotButton
                                             key={time}
                                             time={time}
@@ -447,8 +457,10 @@ export default function ReservationPage() {
                                             areReservationsLoading={areReservationsLoading}
                                             isTimeSlotReserved={isTimeSlotReserved}
                                             onTimeClick={handleTimeClick}
+                                            isDisabledByTime={isPastTime}
                                         />
-                                    ))}
+                                       )
+                                    })}
                                 </div>
                               <FormMessage />
                             </FormItem>
