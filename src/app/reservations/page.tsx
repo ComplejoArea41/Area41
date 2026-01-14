@@ -312,6 +312,12 @@ export default function ReservationPage() {
     return allCourts?.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
   }, [allCourts, selectedCourtType]);
 
+  const formatWeekdayName = (day: Date) => {
+    const dayIndex = day.getDay();
+    const weekdays = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+    return weekdays[dayIndex];
+  };
+
   const isLoadingPage = isUserLoading || isProfileLoading || areCourtsLoading;
 
   if (isLoadingPage || (user && !userProfile)) {
@@ -411,67 +417,66 @@ export default function ReservationPage() {
                   )}
                 />
                 
-                <div className="flex flex-col gap-8">
-                    
-                    <div className="space-y-4">
-                         <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
-                         <FormField
-                            control={form.control}
-                            name="date"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col items-center">
-                                    <FormControl>
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={(date) => {
-                                                if (date) {
-                                                    field.onChange(startOfDay(date));
-                                                    form.setValue("times", []); // Reset times when date changes
-                                                }
-                                            }}
-                                            disabled={(date) =>
-                                                isBefore(date, startOfDay(new Date())) 
+                <div className="space-y-4">
+                    <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
+                    <FormField
+                        control={form.control}
+                        name="date"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col items-center">
+                                <FormControl>
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                field.onChange(startOfDay(date));
+                                                form.setValue("times", []); // Reset times when date changes
                                             }
-                                            className="rounded-md border bg-transparent"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <div className="space-y-4">
-                         <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
-                         <FormField
-                          control={form.control}
-                          name="times"
-                          render={() => (
-                            <FormItem>
-                               <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                                    {availableTimes.map(time => {
-                                       const [hour, minute] = time.split(':').map(Number);
-                                       const timeDate = set(selectedDate, { hours: hour, minutes: minute });
-                                       const isPastTime = isBefore(timeDate, new Date());
-                                       return (
-                                        <TimeSlotButton
-                                            key={time}
-                                            time={time}
-                                            selectedCourtId={selectedCourtId}
-                                            selectedTimes={selectedTimes}
-                                            areReservationsLoading={areReservationsLoading}
-                                            isTimeSlotReserved={isTimeSlotReserved}
-                                            onTimeClick={handleTimeClick}
-                                            isDisabledByTime={isPastTime}
-                                        />
-                                       )
-                                    })}
-                                </div>
-                              <FormMessage />
+                                        }}
+                                        disabled={(date) =>
+                                            isBefore(date, startOfDay(new Date())) 
+                                        }
+                                        className="rounded-md border bg-transparent"
+                                        locale={es}
+                                        formatters={{ formatWeekdayName }}
+                                    />
+                                </FormControl>
+                                <FormMessage />
                             </FormItem>
-                          )}
-                        />
-                    </div>
+                        )}
+                    />
+                </div>
+                <div className="space-y-4">
+                    <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
+                    <FormField
+                    control={form.control}
+                    name="times"
+                    render={() => (
+                        <FormItem>
+                            <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+                                {availableTimes.map(time => {
+                                    const [hour, minute] = time.split(':').map(Number);
+                                    const timeDate = set(selectedDate, { hours: hour, minutes: minute });
+                                    const isPastTime = isBefore(timeDate, new Date());
+                                    return (
+                                    <TimeSlotButton
+                                        key={time}
+                                        time={time}
+                                        selectedCourtId={selectedCourtId}
+                                        selectedTimes={selectedTimes}
+                                        areReservationsLoading={areReservationsLoading}
+                                        isTimeSlotReserved={isTimeSlotReserved}
+                                        onTimeClick={handleTimeClick}
+                                        isDisabledByTime={isPastTime}
+                                    />
+                                    )
+                                })}
+                            </div>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
                 </div>
 
                 <div className="mt-8 pt-6 border-t">
