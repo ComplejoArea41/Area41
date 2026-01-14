@@ -136,23 +136,21 @@ export default function AdminBackgroundsPage() {
             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
-                storagePath: null, // We are only using URLs now
             };
 
             if (editingImage) {
-                // If the image being edited had a file in storage, delete it.
-                if (editingImage.storagePath && storage) {
+                 if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath && storage) {
                      const oldStorageRef = ref(storage, editingImage.storagePath);
                      try { 
                         await deleteObject(oldStorageRef);
                     } catch (e) { console.warn("Could not delete old storage object", e); }
                 }
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
-                setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                setDocumentNonBlocking(imageRef, { ...imageData, storagePath: editingImage.storagePath || null }, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
                  const collectionRef = collection(firestore, 'background_images');
-                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false, storagePath: null });
                  toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
             }
             setIsDialogOpen(false);
@@ -262,3 +260,5 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
+
+    

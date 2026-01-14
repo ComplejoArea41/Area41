@@ -172,16 +172,14 @@ export default function AdminLogoPage() {
             return;
         }
     
-        // If no file is selected and no URL is provided (for a new item), it's an error.
-        if (!selectedFile && !formData.imageUrl && !editingImage) {
-            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo o proporcionar una URL para un nuevo logo." });
+        if (!selectedFile && !formData.imageUrl) {
+            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo o proporcionar una URL." });
             return;
         }
         
         setIsSaving(true);
         setUploadProgress(0);
     
-        // --- Priority 1: A file was selected for upload ---
         if (selectedFile) {
             const storagePath = `logos/${uuidv4()}-${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
@@ -199,6 +197,11 @@ export default function AdminLogoPage() {
                 },
                 async () => {
                     try {
+                        if (editingImage && editingImage.storagePath) {
+                            const oldStorageRef = ref(storage, editingImage.storagePath);
+                            try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
+                        }
+
                         const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
                         const imageData = {
                             name: formData.name,
@@ -207,10 +210,6 @@ export default function AdminLogoPage() {
                         };
     
                         if (editingImage) {
-                            if (editingImage.storagePath) {
-                                const oldStorageRef = ref(storage, editingImage.storagePath);
-                                try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
-                            }
                             const imageRef = doc(firestore, 'logo_images', editingImage.id);
                             setDocumentNonBlocking(imageRef, imageData, { merge: true });
                             toast({ title: "¡Logo actualizado!", description: "El nuevo logo se ha subido y guardado." });
@@ -221,16 +220,14 @@ export default function AdminLogoPage() {
                         }
                         setIsDialogOpen(false);
                     } catch (error) {
-                        console.error("Error getting download URL or saving document to Firestore:", error);
+                        console.error("Error finalizing upload:", error);
                         toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos del logo." });
                     } finally {
                         setIsSaving(false);
                     }
                 }
             );
-        } 
-        // --- Priority 2: No file, but we are editing or have a URL for a new item ---
-        else if (editingImage || formData.imageUrl) {
+        } else {
             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
@@ -238,7 +235,7 @@ export default function AdminLogoPage() {
     
             if (editingImage) {
                 const imageRef = doc(firestore, 'logo_images', editingImage.id);
-                setDocumentNonBlocking(imageRef, { ...imageData, storagePath: editingImage.storagePath }, { merge: true }); // Preserve storagePath if it exists
+                setDocumentNonBlocking(imageRef, { ...imageData, storagePath: editingImage.storagePath || null }, { merge: true });
                 toast({ title: "¡Logo actualizado!", description: "Los cambios de nombre/URL se han guardado." });
             } else {
                 const collectionRef = collection(firestore, 'logo_images');
@@ -249,7 +246,6 @@ export default function AdminLogoPage() {
             setIsSaving(false);
         }
     };
-
 
     const isLoading = isUserLoading || isProfileLoading || areLogosLoading;
     
@@ -343,7 +339,7 @@ export default function AdminLogoPage() {
                                 <Input id="picture" type="file" onChange={handleFileChange} accept="image/png, image/jpeg, image/svg+xml" />
                             </div>
                         </div>
-                        {isSaving && (
+                        {isSaving && uploadProgress > 0 && (
                             <div className="col-span-4 space-y-2">
                                 <Label>Subiendo...</Label>
                                 <Progress value={uploadProgress} />
@@ -354,7 +350,7 @@ export default function AdminLogoPage() {
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                         <Button type="submit" onClick={handleSaveChanges} disabled={isSaving}>
-                            {isSaving ? `Subiendo... ${Math.round(uploadProgress)}%` : 'Guardar Cambios'}
+                            {isSaving && uploadProgress > 0 ? `Subiendo... ${Math.round(uploadProgress)}%` : 'Guardar Cambios'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -363,3 +359,4 @@ export default function AdminLogoPage() {
     );
 }
 
+    
