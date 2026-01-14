@@ -7,7 +7,7 @@ import { z } from "zod";
 import { addDays, format, set, startOfDay, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
+import { collection, query, where, Timestamp, doc, addDoc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -216,7 +216,7 @@ export default function ReservationPage() {
   }, [form]);
 
   async function onSubmit(data: ReservationFormValues) {
-    if (!user || !allCourts) {
+    if (!user || !allCourts || !firestore) {
       toast({ title: 'Error', description: 'Debes iniciar sesión para hacer una reserva.', variant: 'destructive'});
       router.push('/login');
       return;
@@ -243,18 +243,18 @@ export default function ReservationPage() {
     const reservationPromises = data.times.map((time) => {
       const [hour, minute] = time.split(':').map(Number);
       const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
-      return addDocumentNonBlocking(reservationsCollection, {
+      // Use addDoc for non-blocking writes
+      return addDoc(reservationsCollection, {
         userId: user.uid,
         courtIds: courtIdsToReserve, 
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
-        durationMinutes: 30, // Changed to 30 mins
+        durationMinutes: 30,
       });
     });
   
-    const results = await Promise.allSettled(reservationPromises);
-    const failedReservations = results.filter(result => result.status === 'rejected');
-
-    if (failedReservations.length > 0) {
+    try {
+        await Promise.all(reservationPromises);
+    } catch(e) {
       toast({ title: 'Error en la Reserva', description: 'Algunos o todos los horarios no pudieron ser reservados. Por favor, inténtalo de nuevo.', variant: 'destructive'});
       setIsDialogOpen(false); 
       return; 
@@ -314,7 +314,7 @@ export default function ReservationPage() {
 
   const formatWeekdayName = (day: Date) => {
     const dayIndex = day.getDay();
-    // Ensure Sunday (0) comes first to match react-day-picker's default week start
+    // Ensure Sunday (0) is mapped to 'D', Monday (1) to 'L', etc.
     const weekdays = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
     return weekdays[dayIndex];
   };
@@ -440,6 +440,7 @@ export default function ReservationPage() {
                                         }
                                         className="rounded-md border bg-transparent"
                                         locale={es}
+                                        weekStartsOn={1} // Start week on Monday
                                         formatters={{ formatWeekdayName }}
                                     />
                                 </FormControl>
