@@ -315,7 +315,7 @@ export default function ReservationPage() {
   const formatWeekdayName = (day: Date) => {
     const dayIndex = day.getDay();
     // Ensure Sunday (0) is mapped to 'D', Monday (1) to 'L', etc.
-    const weekdays = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+    const weekdays = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
     return weekdays[dayIndex];
   };
 
