@@ -42,6 +42,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
@@ -542,3 +543,5 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
