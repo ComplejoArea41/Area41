@@ -95,14 +95,14 @@ export default function AdminCourtsPage() {
 
 
     const handleDetailChange = (courtId: string, field: 'price', value: string) => {
-        const newValue = field === 'price' ? Number(value) : value;
-        if (field === 'price' && isNaN(newValue as number)) return;
+        const numericValue = Number(value);
+        if (isNaN(numericValue)) return;
 
         setCourtDetails(prev => ({
             ...prev,
             [courtId]: {
                 ...prev[courtId],
-                [field]: newValue
+                [field]: numericValue
             }
         }));
     };
@@ -250,3 +250,5 @@ export default function AdminCourtsPage() {
         </div>
     );
 }
+
+    
