@@ -11,6 +11,7 @@ import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -28,6 +29,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,12 +42,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
 import type { Court, Reservation } from "@/lib/types";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 
 const reservationFormSchema = z.object({
@@ -413,16 +419,61 @@ export default function ReservationPage() {
                 <div className="flex flex-col gap-8">
                     
                     <div className="space-y-4">
-                         <FormLabel className="text-base font-semibold">2. Elige el horario para hoy</FormLabel>
-                        <h3 className="font-semibold text-base capitalize text-center">
-                            {format(selectedDate, "eeee, d 'de' MMMM", { locale: es })}
-                        </h3>
+                         <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
+                         <FormField
+                            control={form.control}
+                            name="date"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col items-center">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                    <FormControl>
+                                        <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {field.value ? (
+                                            format(field.value, "PPP", { locale: es })
+                                        ) : (
+                                            <span>Elige una fecha</span>
+                                        )}
+                                        </Button>
+                                    </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="center">
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                field.onChange(startOfDay(date));
+                                                form.setValue("times", []); // Reset times when date changes
+                                            }
+                                        }}
+                                        disabled={(date) =>
+                                            isBefore(date, startOfDay(new Date())) 
+                                        }
+                                        initialFocus
+                                    />
+                                    </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <div className="space-y-4">
+                         <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
                          <FormField
                           control={form.control}
                           name="times"
                           render={() => (
                             <FormItem>
-                               <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                               <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
                                     {availableTimes.map(time => {
                                        const [hour, minute] = time.split(':').map(Number);
                                        const timeDate = set(selectedDate, { hours: hour, minutes: minute });
