@@ -136,7 +136,7 @@ export default function AdminBackgroundsPage() {
         }
     };
     
-    const handleSaveChanges = () => {
+    const handleSaveChanges = async () => {
         if (!firestore || !storage) return;
 
         if (formData.name.trim() === '') {
@@ -346,3 +346,5 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
+
+    
