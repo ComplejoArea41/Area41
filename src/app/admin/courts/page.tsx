@@ -97,14 +97,14 @@ export default function AdminCourtsPage() {
     const handleDetailChange = (courtId: string, field: 'price', value: string) => {
         const numericValue = Number(value);
         if (isNaN(numericValue)) return;
-
+    
         setCourtDetails(prev => ({
             ...prev,
             [courtId]: {
                 ...prev[courtId],
                 [field]: numericValue
             }
-        }));
+        } as Record<string, { price: number }>));
     };
 
     const handleDeleteCourt = async (courtId: string) => {
