@@ -29,11 +29,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -48,7 +43,6 @@ import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
 import type { Court, Reservation } from "@/lib/types";
-import { Calendar as CalendarIcon } from "lucide-react";
 
 
 const reservationFormSchema = z.object({
@@ -426,43 +420,23 @@ export default function ReservationPage() {
                             name="date"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col items-center">
-                                <Popover>
-                                    <PopoverTrigger asChild>
                                     <FormControl>
-                                        <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                        >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {field.value ? (
-                                            format(field.value, "PPP", { locale: es })
-                                        ) : (
-                                            <span>Elige una fecha</span>
-                                        )}
-                                        </Button>
-                                    </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="center">
-                                    <Calendar
-                                        mode="single"
-                                        selected={field.value}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                field.onChange(startOfDay(date));
-                                                form.setValue("times", []); // Reset times when date changes
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    field.onChange(startOfDay(date));
+                                                    form.setValue("times", []); // Reset times when date changes
+                                                }
+                                            }}
+                                            disabled={(date) =>
+                                                isBefore(date, startOfDay(new Date())) 
                                             }
-                                        }}
-                                        disabled={(date) =>
-                                            isBefore(date, startOfDay(new Date())) 
-                                        }
-                                        initialFocus
-                                    />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
+                                            className="rounded-md border bg-transparent"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
                                 </FormItem>
                             )}
                         />
@@ -544,4 +518,3 @@ export default function ReservationPage() {
   );
 }
 
-    
