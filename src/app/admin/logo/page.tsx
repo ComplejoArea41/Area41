@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -165,12 +164,12 @@ export default function AdminLogoPage() {
         
         try {
             if (editingImage) {
-                if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath && storage) {
-                    const oldStorageRef = ref(storage, editingImage.storagePath);
-                    try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
-                }
                 const imageRef = doc(firestore, 'logo_images', editingImage.id);
-                setDocumentNonBlocking(imageRef, { ...formData, storagePath: null }, { merge: true });
+                setDocumentNonBlocking(imageRef, { 
+                    name: formData.name, 
+                    imageUrl: formData.imageUrl,
+                    storagePath: editingImage.storagePath || null 
+                }, { merge: true });
                 toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
             } else {
                 const collectionRef = collection(firestore, 'logo_images');
@@ -271,6 +270,12 @@ export default function AdminLogoPage() {
                          <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
                             <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/logo.png"/>
+                        </div>
+                        <div className="col-span-4 px-1">
+                            <p className="text-xs text-muted-foreground text-center">
+                                Pega el enlace directo a la imagen (debe terminar en .jpg, .png, etc.).<br/>
+                                Sube tu imagen a <a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">ImgBB</a> para obtener un enlace válido.
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>

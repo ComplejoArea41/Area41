@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -150,7 +149,12 @@ export default function AdminBackgroundsPage() {
 
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
                 // We ensure storagePath is not set if we are just using a URL.
-                setDocumentNonBlocking(imageRef, { ...formData, storagePath: null }, { merge: true });
+                const updatedData: Partial<BackgroundImage> = {
+                    name: formData.name,
+                    imageUrl: formData.imageUrl,
+                    storagePath: null,
+                };
+                setDocumentNonBlocking(imageRef, updatedData, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
                  const collectionRef = collection(firestore, 'background_images');
@@ -252,6 +256,12 @@ export default function AdminBackgroundsPage() {
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
                             <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/imagen.jpg"/>
+                        </div>
+                         <div className="col-span-4 px-1">
+                            <p className="text-xs text-muted-foreground text-center">
+                                Pega el enlace directo a la imagen (debe terminar en .jpg, .png, etc.).<br/>
+                                Sube tu imagen a <a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">ImgBB</a> para obtener un enlace válido.
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>
