@@ -22,7 +22,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
   } from "@/components/ui/alert-dialog";
-import { useUser, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, doc, writeBatch, getDocs, Firestore, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -63,23 +63,29 @@ export default function AdminCourtsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
+    const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+
     const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
     const [courtDetails, setCourtDetails] = useState<Record<string, { price: number }>>({});
     const [isSaving, setIsSaving] = useState(false);
 
-     useEffect(() => {
-        if (firestore) {
-          seedInitialCourts(firestore).catch(console.error);
-        }
-      }, [firestore]);
-
     useEffect(() => {
-        if (!isUserLoading && !user) {
-            router.push('/login');
+        if (firestore) {
+            seedInitialCourts(firestore).catch(console.error);
         }
-    }, [user, isUserLoading, router]);
+    }, [firestore]);
+    
+    useEffect(() => {
+        if (isUserLoading || isProfileLoading) return;
+        if (!user) {
+            router.push('/login');
+        } else if (userProfile && !userProfile.isAdmin) {
+            router.push('/');
+        }
+    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
     useEffect(() => {
         if (courts) {
@@ -163,9 +169,9 @@ export default function AdminCourtsPage() {
         }
     };
 
-    const isLoading = isUserLoading || areCourtsLoading;
+    const isLoading = isUserLoading || isProfileLoading || areCourtsLoading;
 
-    if (isLoading || !user) {
+    if (isLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
               <p className="text-primary-foreground">Cargando gestión de canchas...</p>

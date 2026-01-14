@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -24,7 +25,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocum
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { BackgroundImage } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Image as ImageIcon } from "lucide-react";
@@ -54,9 +55,11 @@ export default function AdminBackgroundsPage() {
     const [uploadProgress, setUploadProgress] = useState(0);
 
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) router.push('/login');
-            else if (userProfile && !userProfile.isAdmin) router.push('/');
+        if (isUserLoading || isProfileLoading) return;
+        if (!user) {
+            router.push('/login');
+        } else if (userProfile && !userProfile.isAdmin) {
+            router.push('/');
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
@@ -204,7 +207,7 @@ export default function AdminBackgroundsPage() {
 
     const isLoading = isUserLoading || isProfileLoading || areBgsLoading;
     
-    if (isLoading || !userProfile || !userProfile.isAdmin) {
+    if (isLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
                 <p className="text-primary-foreground">Cargando gestión de imágenes...</p>

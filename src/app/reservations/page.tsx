@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -98,7 +97,7 @@ export default function ReservationPage() {
     () => (user ? doc(firestore, 'users', user.uid) : null),
     [user, firestore]
   );
-  const { data: userProfile } = useDoc(userRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
   const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
   const {data: allCourts, isLoading: areCourtsLoading} = useCollection<Court>(courtsCollectionRef);
@@ -140,11 +139,12 @@ export default function ReservationPage() {
     };
   }, [selectedCourtId, selectedTimes.length, allCourts]);
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
+    useEffect(() => {
+        if (isUserLoading) return;
+        if (!user) {
+            router.push('/login');
+        }
+    }, [user, isUserLoading, router]);
 
   const isTimeSlotReserved = useCallback((time: string, courtId: string) => {
     if (areReservationsLoading || !reservations || !selectedDate || !allCourts || !courtId) return false;
@@ -336,9 +336,9 @@ export default function ReservationPage() {
     return allCourts?.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
   }, [allCourts, selectedCourtType]);
 
-  const isLoadingPage = isUserLoading || areCourtsLoading;
+  const isLoadingPage = isUserLoading || isProfileLoading || areCourtsLoading;
 
-  if (isLoadingPage) {
+  if (isLoadingPage || (user && !userProfile)) {
     return (
         <div className="flex min-h-screen items-center justify-center dark bg-background">
           <p className="text-primary-foreground">Cargando disponibilidad...</p>
@@ -346,11 +346,6 @@ export default function ReservationPage() {
       );
   }
   
-  if (!user) {
-    return null; // The useEffect should have already triggered a redirect.
-  }
-
-
   if (error) {
     return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
@@ -545,13 +540,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
-
-    
-
-    
-
-    
-
-    

@@ -25,10 +25,10 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocum
 import { collection, doc, writeBatch, getDocs, Firestore, addDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { LogoImage } from "@/lib/types";
-import { Trash2, Edit, PlusCircle, Image as ImageIcon, Upload, Award } from "lucide-react";
+import { Trash2, Edit, PlusCircle, Award } from "lucide-react";
 import NextImage from "next/image";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -83,9 +83,11 @@ export default function AdminLogoPage() {
     }, [firestore]);
 
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) router.push('/login');
-            else if (userProfile && !userProfile.isAdmin) router.push('/');
+        if (isUserLoading || isProfileLoading) return;
+        if (!user) {
+            router.push('/login');
+        } else if (userProfile && !userProfile.isAdmin) {
+            router.push('/');
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
@@ -234,7 +236,7 @@ export default function AdminLogoPage() {
 
     const isLoading = isUserLoading || isProfileLoading || areLogosLoading;
     
-    if (isLoading || !userProfile || !userProfile.isAdmin) {
+    if (isLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
                 <p className="text-primary-foreground">Cargando gestión de logos...</p>
@@ -339,5 +341,3 @@ export default function AdminLogoPage() {
         </div>
     );
 }
-
-    

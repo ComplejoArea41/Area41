@@ -24,12 +24,13 @@ export default function AdminPage() {
     const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) {
-                router.push('/login');
-            } else if (userProfile && !userProfile.isAdmin) {
-                router.push('/');
-            }
+        if (isUserLoading || isProfileLoading) {
+            return; // Wait for both user and profile to load
+        }
+        if (!user) {
+            router.push('/login');
+        } else if (userProfile && !userProfile.isAdmin) {
+            router.push('/');
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
@@ -39,10 +40,6 @@ export default function AdminPage() {
               <p className="text-primary-foreground">Verificando acceso...</p>
             </div>
           );
-    }
-
-    if (!user || !userProfile?.isAdmin) {
-        return null; // The redirect is being handled by the useEffect
     }
   
   return (
