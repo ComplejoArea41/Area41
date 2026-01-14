@@ -14,7 +14,7 @@ export function DynamicLogo() {
   const firestore = useFirestore();
 
   const activeLogoQuery = useMemoFirebase(
-    () => query(collection(firestore, 'logo_images'), where('isActive', '==', true)),
+    () => (firestore ? query(collection(firestore, 'logo_images'), where('isActive', '==', true)) : null),
     [firestore]
   );
   const { data: activeLogoImages, isLoading } = useCollection<LogoImage>(activeLogoQuery);
@@ -28,12 +28,12 @@ export function DynamicLogo() {
     if (!isLoading && (!activeLogoImages || activeLogoImages.length === 0)) {
         return { logoUrl: DEFAULT_LOGO_URL, logoDescription: DEFAULT_LOGO_DESCRIPTION };
     }
-    // If still loading, return nulls to wait.
+    // If still loading (or firestore is not ready), return nulls to wait.
     return { logoUrl: null, logoDescription: null };
   }, [activeLogoImages, isLoading]);
 
+  // While firestore is initializing or the query is running, show a placeholder.
   if (isLoading || !logoUrl) {
-    // You can return a placeholder skeleton loader here if you want
     return <div className="h-32 w-32 animate-pulse bg-muted/30 rounded-full" />;
   }
 
@@ -43,7 +43,7 @@ export function DynamicLogo() {
         alt={logoDescription!}
         width={128}
         height={128}
-        className="h-32 w-32"
+        className="h-32 w-32 object-contain"
     />
   );
 }
