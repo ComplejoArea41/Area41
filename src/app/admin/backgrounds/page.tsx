@@ -180,9 +180,8 @@ export default function AdminBackgroundsPage() {
                     toast({ variant: "destructive", title: "Error al subir", description: "No se pudo subir el archivo." });
                     setIsSaving(false);
                 },
-                async () => {
-                    try {
-                        const finalImageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                () => {
+                    getDownloadURL(uploadTask.snapshot.ref).then(finalImageUrl => {
                         const imageData = {
                             name: formData.name,
                             imageUrl: finalImageUrl,
@@ -191,20 +190,20 @@ export default function AdminBackgroundsPage() {
     
                         if (editingImage) {
                             const imageRef = doc(firestore, 'background_images', editingImage.id);
-                            await setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                            setDocumentNonBlocking(imageRef, imageData, { merge: true });
                             toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
                         } else {
                             const collectionRef = collection(firestore, 'background_images');
-                            await addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                            addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
                             toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
                         }
                         setIsDialogOpen(false);
-                    } catch (error) {
-                        console.error("Error saving document to Firestore:", error);
+                    }).catch(error => {
+                        console.error("Error getting download URL or saving document to Firestore:", error);
                         toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos de la imagen." });
-                    } finally {
+                    }).finally(() => {
                         setIsSaving(false);
-                    }
+                    });
                 }
             );
         } else if (isNewUrlProvided) {
@@ -347,5 +346,6 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
+
 
     
