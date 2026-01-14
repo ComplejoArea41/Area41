@@ -164,7 +164,7 @@ export default function AdminLogoPage() {
         }
     };
     
-    const handleSaveChanges = () => {
+    const handleSaveChanges = async () => {
         if (!firestore || !storage) return;
 
         if (formData.name.trim() === '') {
@@ -172,9 +172,16 @@ export default function AdminLogoPage() {
             return;
         }
 
+        // If no file is selected and we are creating a new item, it's an error.
+        if (!selectedFile && !editingImage) {
+            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para un nuevo logo." });
+            return;
+        }
+        
         setIsSaving(true);
         setUploadProgress(0);
 
+        // --- Priority 1: A file was selected for upload ---
         if (selectedFile) {
             const storagePath = `logos/${uuidv4()}-${selectedFile.name}`;
             const storageRef = ref(storage, storagePath);
@@ -200,35 +207,43 @@ export default function AdminLogoPage() {
                         };
 
                         if (editingImage) {
+                            // If we were editing, and uploaded a new file, delete the old one from storage if it exists
+                            if (editingImage.storagePath) {
+                                const oldStorageRef = ref(storage, editingImage.storagePath);
+                                try { await deleteObject(oldStorageRef); } catch (e) { console.warn("Could not delete old storage object", e); }
+                            }
                             const imageRef = doc(firestore, 'logo_images', editingImage.id);
-                            await setDocumentNonBlocking(imageRef, imageData, { merge: true });
-                            toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
+                            setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                            toast({ title: "¡Logo actualizado!", description: "El nuevo logo se ha subido y guardado." });
                         } else {
                             const collectionRef = collection(firestore, 'logo_images');
-                            await addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                            addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
                             toast({ title: "¡Logo agregado!", description: "El nuevo logo ya está disponible." });
                         }
                         setIsDialogOpen(false);
                     } catch (error) {
-                        console.error("Error saving document to Firestore:", error);
+                        console.error("Error getting download URL or saving document to Firestore:", error);
                         toast({ variant: "destructive", title: "Error al guardar", description: "No se pudieron guardar los datos del logo." });
                     } finally {
                         setIsSaving(false);
                     }
                 }
             );
-        } else if (editingImage) {
+        } 
+        // --- Priority 2: No file, but we are editing (and the name/url might have changed)
+        else if (editingImage) {
              const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
             };
              const imageRef = doc(firestore, 'logo_images', editingImage.id);
             setDocumentNonBlocking(imageRef, imageData, { merge: true });
-            toast({ title: "¡Logo actualizado!", description: "Los cambios se han guardado." });
+            toast({ title: "¡Logo actualizado!", description: "Los cambios de nombre se han guardado." });
             setIsDialogOpen(false);
             setIsSaving(false);
         } else {
-            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para un nuevo logo." });
+            // This case should not be reached due to the initial check, but it's here for safety.
+            toast({ variant: "destructive", title: "Error", description: "Acción no válida."});
             setIsSaving(false);
         }
     };
@@ -316,8 +331,12 @@ export default function AdminLogoPage() {
                             <Label htmlFor="name" className="text-right">Nombre</Label>
                             <Input id="name" name="name" value={formData.name} onChange={handleInputChange} className="col-span-3" />
                         </div>
+                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
+                            <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="Dejar en blanco si subes archivo"/>
+                        </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                             <Label htmlFor="picture" className="text-right">Archivo</Label>
+                             <Label htmlFor="picture" className="text-right">O subir archivo</Label>
                             <div className="col-span-3">
                                 <Input id="picture" type="file" onChange={handleFileChange} accept="image/png, image/jpeg, image/svg+xml" />
                             </div>
@@ -341,3 +360,5 @@ export default function AdminLogoPage() {
         </div>
     );
 }
+
+    
