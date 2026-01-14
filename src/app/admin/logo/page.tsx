@@ -20,7 +20,7 @@ import {
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
-import { collection, doc, writeBatch, getDocs, Firestore, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, writeBatch, deleteDoc } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -30,27 +30,6 @@ import { Trash2, Edit, PlusCircle, Award } from "lucide-react";
 import NextImage from "next/image";
 
 type FormData = Omit<LogoImage, 'id' | 'isActive' | 'storagePath'>;
-
-const initialLogoData: Omit<LogoImage, 'id' | 'storagePath'> = {
-    name: "Area 41 Logo (Default)",
-    imageUrl: "https://storage.googleapis.com/aif-public-images/area-41-logo.png",
-    isActive: true,
-};
-
-
-async function seedInitialLogo(firestore: Firestore) {
-    const logoCollectionRef = collection(firestore, 'logo_images');
-    const snapshot = await getDocs(logoCollectionRef);
-    if (snapshot.empty) {
-        console.log("No logos found, seeding initial data...");
-        try {
-             await addDoc(logoCollectionRef, initialLogoData);
-             console.log("Initial logo seeded successfully.");
-        } catch (error) {
-            console.error("Error seeding initial logo:", error);
-        }
-    }
-}
 
 
 export default function AdminLogoPage() {
@@ -70,13 +49,7 @@ export default function AdminLogoPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingImage, setEditingImage] = useState<LogoImage | null>(null);
     const [formData, setFormData] = useState<FormData>({ name: '', imageUrl: '' });
-
-    useEffect(() => {
-        if (firestore) {
-            seedInitialLogo(firestore).catch(console.error);
-        }
-    }, [firestore]);
-
+    
     useEffect(() => {
         if (isUserLoading || isProfileLoading) return;
         if (!user) {

@@ -7,8 +7,6 @@ import { collection, query, where } from "firebase/firestore";
 import React, { useMemo } from "react";
 import NextImage from "next/image";
 
-const DEFAULT_LOGO_URL = "https://storage.googleapis.com/aif-public-images/area-41-logo.png";
-const DEFAULT_LOGO_DESCRIPTION = "Area 41 Logo";
 
 export function DynamicLogo() {
   const firestore = useFirestore();
@@ -20,21 +18,25 @@ export function DynamicLogo() {
   const { data: activeLogoImages, isLoading } = useCollection<LogoImage>(activeLogoQuery);
 
   const { logoUrl, logoDescription } = useMemo(() => {
+    // If firestore is not ready, or we are loading, we can't do anything yet.
+    if (!firestore || isLoading) {
+      return { logoUrl: null, logoDescription: null };
+    }
+
     // If we have an active logo from the database, use it.
     if (activeLogoImages && activeLogoImages.length > 0) {
       return { logoUrl: activeLogoImages[0].imageUrl, logoDescription: activeLogoImages[0].name };
     }
-    // If we are done loading and there's no active logo, use the default.
-    if (!isLoading && (!activeLogoImages || activeLogoImages.length === 0)) {
-        return { logoUrl: DEFAULT_LOGO_URL, logoDescription: DEFAULT_LOGO_DESCRIPTION };
-    }
-    // If still loading (or firestore is not ready), return nulls to wait.
+    
+    // If we are done loading and there's no active logo, show nothing.
     return { logoUrl: null, logoDescription: null };
-  }, [activeLogoImages, isLoading]);
 
-  // While firestore is initializing or the query is running, show a placeholder.
-  if (isLoading || !logoUrl) {
-    return <div className="h-32 w-32 animate-pulse bg-muted/30 rounded-full" />;
+  }, [activeLogoImages, isLoading, firestore]);
+
+  // If there's no logo to display, render nothing or a placeholder.
+  if (!logoUrl) {
+    // We render a transparent div to maintain layout space but show nothing.
+    return <div className="h-32 w-32" />;
   }
 
   return (
