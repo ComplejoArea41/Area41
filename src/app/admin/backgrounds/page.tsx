@@ -143,6 +143,24 @@ export default function AdminBackgroundsPage() {
             toast({ variant: "destructive", title: "Error", description: "El nombre no puede estar vacío." });
             return;
         }
+
+        const isNewUrlProvided = formData.imageUrl.trim() !== '';
+    
+        if (!selectedFile && !isNewUrlProvided && !editingImage) {
+            toast({ variant: "destructive", title: "Error", description: "Debes proporcionar una URL o seleccionar un archivo." });
+            return;
+        }
+
+        if (!selectedFile && isNewUrlProvided && editingImage && formData.imageUrl.trim() === editingImage.imageUrl) {
+             // No file and URL is the same as before, just update name if changed
+             if(formData.name.trim() !== editingImage.name) {
+                const imageRef = doc(firestore, 'background_images', editingImage.id);
+                setDocumentNonBlocking(imageRef, { name: formData.name }, { merge: true });
+                toast({ title: "¡Imagen actualizada!", description: "El nombre de la imagen se ha guardado." });
+             }
+             setIsDialogOpen(false);
+             return;
+        }
     
         setIsSaving(true);
         setUploadProgress(0);
@@ -189,18 +207,31 @@ export default function AdminBackgroundsPage() {
                     }
                 }
             );
-        } else if (editingImage) {
+        } else if (isNewUrlProvided) {
             const imageData = {
                 name: formData.name,
                 imageUrl: formData.imageUrl,
+                storagePath: null, // This is not from storage
             };
-            const imageRef = doc(firestore, 'background_images', editingImage.id);
-            setDocumentNonBlocking(imageRef, imageData, { merge: true });
-            toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+            if (editingImage) {
+                const imageRef = doc(firestore, 'background_images', editingImage.id);
+                setDocumentNonBlocking(imageRef, imageData, { merge: true });
+                toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
+            } else {
+                 const collectionRef = collection(firestore, 'background_images');
+                 addDocumentNonBlocking(collectionRef, { ...imageData, isActive: false });
+                 toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
+            }
             setIsDialogOpen(false);
             setIsSaving(false);
         } else {
-            toast({ variant: "destructive", title: "Error", description: "Debes seleccionar un archivo para una nueva imagen." });
+            // This case handles editing the name without changing the picture.
+            if(editingImage && formData.name.trim() !== editingImage.name) {
+                 const imageRef = doc(firestore, 'background_images', editingImage.id);
+                 setDocumentNonBlocking(imageRef, { name: formData.name }, { merge: true });
+                 toast({ title: "Nombre actualizado", description: "El nombre de la imagen se ha actualizado." });
+            }
+            setIsDialogOpen(false);
             setIsSaving(false);
         }
     };
@@ -288,7 +319,11 @@ export default function AdminBackgroundsPage() {
                             <Input id="name" name="name" value={formData.name} onChange={handleInputChange} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                             <Label htmlFor="picture" className="text-right">Imagen</Label>
+                            <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
+                            <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/imagen.jpg"/>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                             <Label htmlFor="picture" className="text-right">O subir archivo</Label>
                             <div className="col-span-3">
                                 <Input id="picture" type="file" onChange={handleFileChange} accept="image/*" />
                             </div>
@@ -312,3 +347,5 @@ export default function AdminBackgroundsPage() {
         </div>
     );
 }
+
+    
