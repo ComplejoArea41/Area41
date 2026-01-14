@@ -413,7 +413,7 @@ export default function ReservationPage() {
                           render={({ field }) => (
                             <FormItem>
                                 <Card className="w-full overflow-hidden">
-                                    <CardContent className="p-0 flex flex-col items-center">
+                                    <CardContent className="p-0">
                                         <Calendar
                                         mode="single"
                                         locale={es}
@@ -425,7 +425,7 @@ export default function ReservationPage() {
                                             form.setValue("times", []);
                                         }}
                                         disabled={(date) => date < startOfDay(new Date())}
-                                        className="p-0 [&_td]:w-14 [&_th]:w-14"
+                                        className="p-4"
                                         />
                                     </CardContent>
                                 </Card>
@@ -512,5 +512,7 @@ export default function ReservationPage() {
       </div>
   );
 }
+
+    
 
     
