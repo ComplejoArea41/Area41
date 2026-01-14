@@ -54,26 +54,6 @@ export default function Header() {
     return null;
   }
 
-  // Simplified header for the main page
-  if (pathname === '/') {
-      return (
-        <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-end gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
-             {isUserLoading ? <div className="h-8 w-8 animate-pulse rounded-full bg-muted" /> : (user ? (
-                <Button variant="ghost" size="icon" onClick={handleSignOut} title="Cerrar sesión">
-                    <LogOut className="h-5 w-5" />
-                    <span className="sr-only">Cerrar sesión</span>
-                </Button>
-             ): (
-                <Button variant="ghost" size="icon" onClick={handleSignIn} title="Iniciar Sesión">
-                    <LogIn className="h-5 w-5" />
-                    <span className="sr-only">Iniciar Sesión</span>
-                </Button>
-             ))}
-        </header>
-      )
-  }
-
-
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
       <nav className="flex items-center gap-1 sm:gap-2 text-sm">
