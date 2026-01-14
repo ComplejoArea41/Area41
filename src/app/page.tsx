@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Goal, Utensils } from 'lucide-react';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -31,23 +30,19 @@ export default function WelcomePage() {
     },
   ];
 
-  const logo = PlaceHolderImages.find(p => p.id === 'area-41-logo');
-
   return (
       <div className="relative flex flex-1 flex-col items-center justify-center p-4">
         {/* Contenido principal, que se mostrará sobre la imagen */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full">
             <div className="text-center mb-12">
-              {logo && (
                 <Image
-                  src={logo.imageUrl}
-                  alt={logo.description}
+                  src="https://storage.googleapis.com/aif-public-images/area-41-banner.png"
+                  alt="Area 41 Logo"
                   width={600}
                   height={240}
                   className="object-contain"
                   priority
                 />
-              )}
             </div>
 
             <div className="flex w-full max-w-md flex-col gap-6">
