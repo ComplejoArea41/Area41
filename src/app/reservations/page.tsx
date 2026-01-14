@@ -11,7 +11,6 @@ import { collection, query, where, Timestamp, doc }from 'firebase/firestore';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -149,6 +148,12 @@ export default function ReservationPage() {
             router.push('/login');
         }
     }, [user, isUserLoading, router]);
+
+    useEffect(() => {
+      // Set date to today by default, and when court type changes
+      form.setValue('date', startOfDay(new Date()));
+  }, [selectedCourtType, form]);
+
 
   const isTimeSlotReserved = useCallback((time: string, courtId: string) => {
     if (areReservationsLoading || !reservations || !selectedDate || !allCourts || !courtId) return false;
@@ -406,37 +411,9 @@ export default function ReservationPage() {
                 />
                 
                 <div className="flex flex-col gap-8">
+                    
                     <div className="space-y-4">
-                        <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
-                         <FormField
-                          control={form.control}
-                          name="date"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col items-center">
-                                <Card className="w-full max-w-md overflow-hidden">
-                                    <CardContent className="p-0">
-                                        <Calendar
-                                        mode="single"
-                                        locale={es}
-                                        selected={field.value}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                            field.onChange(date);
-                                            }
-                                            form.setValue("times", []);
-                                        }}
-                                        disabled={(date) => date < startOfDay(new Date())}
-                                        className="p-4"
-                                        />
-                                    </CardContent>
-                                </Card>
-                                <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                    </div>
-                    <div className="space-y-4">
-                         <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
+                         <FormLabel className="text-base font-semibold">2. Elige el horario para hoy</FormLabel>
                         <h3 className="font-semibold text-base capitalize text-center">
                             {format(selectedDate, "eeee, d 'de' MMMM", { locale: es })}
                         </h3>
