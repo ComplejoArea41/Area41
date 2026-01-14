@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Goal, Utensils } from 'lucide-react';
-import Image from 'next/image';
+import { DynamicLogo } from '@/components/dynamic-logo';
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function WelcomePage() {
         {/* Contenido principal, que se mostrará sobre la imagen */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full">
             <div className="text-center mb-12">
-                {/* Image removed as requested */}
+                <DynamicLogo />
             </div>
 
             <div className="flex w-full max-w-md flex-col gap-6">
