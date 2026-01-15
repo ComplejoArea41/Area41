@@ -153,7 +153,7 @@ export default function AdminBackgroundsPage() {
                     name: formData.name,
                     imageUrl: formData.imageUrl,
                     storagePath: undefined,
-                };
+                  };
                 setDocumentNonBlocking(imageRef, updatedData, { merge: true });
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
