@@ -418,6 +418,7 @@ export default function ReservationPage() {
                   )}
                 />
                 
+                {/*
                 <div className="space-y-4">
                     <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
                     <FormField
@@ -449,6 +450,7 @@ export default function ReservationPage() {
                         )}
                     />
                 </div>
+                */}
                 <div className="space-y-4">
                     <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
                     <FormField
