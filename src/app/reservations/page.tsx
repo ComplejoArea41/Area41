@@ -37,7 +37,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
@@ -312,13 +311,6 @@ export default function ReservationPage() {
     return allCourts?.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber) || [];
   }, [allCourts, selectedCourtType]);
 
-  const formatWeekdayName = (day: Date) => {
-    const dayIndex = day.getDay();
-    // Ensure Sunday (0) is mapped to 'D', Monday (1) to 'L', etc.
-    const weekdays = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
-    return weekdays[dayIndex];
-  };
-
   const isLoadingPage = isUserLoading || isProfileLoading || areCourtsLoading;
 
   if (isLoadingPage || (user && !userProfile)) {
@@ -440,8 +432,7 @@ export default function ReservationPage() {
                                         }
                                         className="rounded-md border bg-transparent"
                                         locale={es}
-                                        weekStartsOn={1} // Start week on Monday
-                                        formatters={{ formatWeekdayName }}
+                                        weekStartsOn={1}
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -525,5 +516,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
-    
