@@ -1,34 +1,63 @@
 
 'use client';
 
-import Header from "./header";
-import LayoutWrapper from "./layout-wrapper";
+import React, { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
+import Header from "./header";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import type { BackgroundImage } from "@/lib/types";
+
+const DEFAULT_BACKGROUND_URL = "https://storage.googleapis.com/aif-public-images/soccer-field-dark.jpg";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const firestore = useFirestore();
 
   const isSpecialPage = pathname === '/login';
 
-  if (isSpecialPage) {
-    return (
-        <div className="flex min-h-screen w-full flex-col bg-transparent relative">
-            <LayoutWrapper>{children}</LayoutWrapper>
-        </div>
-    );
-  }
+  const activeBgQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'background_images'), where('isActive', '==', true)) : null),
+    [firestore]
+  );
+  const { data: activeImages, isLoading } = useCollection<BackgroundImage>(activeBgQuery);
+
+  const activeImageUrl = useMemo(() => {
+    if (activeImages && activeImages.length > 0) {
+      return activeImages[0].imageUrl;
+    }
+    // If not loading and no active image is found, use the default.
+    if (!isLoading && (!activeImages || activeImages.length === 0)) {
+        return DEFAULT_BACKGROUND_URL;
+    }
+    // Return null while loading to prevent flash of default image
+    return null; 
+  }, [activeImages, isLoading]);
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-transparent relative">
-      <LayoutWrapper>
-        <Header />
+    <div className="flex min-h-screen w-full flex-col bg-background relative">
+      {activeImageUrl && (
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-opacity duration-500"
+            style={{ 
+              backgroundImage: `url(${activeImageUrl})`,
+            }}
+          />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+        </>
+      )}
+      <div className="relative z-10 flex flex-col flex-1 h-full">
+        {!isSpecialPage && <Header />}
         <div className="flex flex-1 flex-col">
           {children}
-          <footer className="relative z-10 w-full p-4 text-center text-xs text-muted-foreground">
-              © 2024 Complejo Deportivo Area41. Todos los derechos reservados.
-          </footer>
+          {!isSpecialPage && (
+            <footer className="relative z-10 w-full p-4 text-center text-xs text-muted-foreground">
+                © 2024 Complejo Deportivo Area41. Todos los derechos reservados.
+            </footer>
+          )}
         </div>
-      </LayoutWrapper>
+      </div>
     </div>
   );
 }
