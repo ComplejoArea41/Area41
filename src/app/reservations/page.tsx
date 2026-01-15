@@ -174,30 +174,28 @@ export default function ReservationPage() {
 
     for (const reservation of reservationsForSlot) {
         for (const reservedCourtId of reservation.courtIds) {
+            if (reservedCourtId === courtId) return true; // Direct reservation
+
             const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
             if (!reservedCourt) continue;
 
-            if (courtToCheck.courtType === 'Futbol 5') {
-                if (reservedCourtId === courtId) return true;
-                if (reservedCourt.courtType === 'Futbol 7') {
-                    const f7Number = reservedCourt.courtNumber;
-                    const f5Number1 = (f7Number * 2) - 1;
-                    const f5Number2 = f7Number * 2;
-                    if (courtToCheck.courtNumber === f5Number1 || courtToCheck.courtNumber === f5Number2) {
-                        return true;
-                    }
+            // Check if a F7 reservation blocks a F5 court
+            if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                const f7Number = reservedCourt.courtNumber;
+                const f5Equivalent1 = (f7Number * 2) - 1;
+                const f5Equivalent2 = f7Number * 2;
+                if (courtToCheck.courtNumber === f5Equivalent1 || courtToCheck.courtNumber === f5Equivalent2) {
+                    return true;
                 }
             }
             
-            if (courtToCheck.courtType === 'Futbol 7') {
-                 if (reservedCourtId === courtId) return true;
-                 if (reservedCourt.courtType === 'Futbol 5') {
-                    const f7Number = courtToCheck.courtNumber;
-                    const f5Number1 = (f7Number * 2) - 1;
-                    const f5Number2 = f7Number * 2;
-                     if (reservedCourt.courtNumber === f5Number1 || reservedCourt.courtNumber === f5Number2) {
-                        return true;
-                     }
+            // Check if a F5 reservation blocks a F7 court
+            if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                 const f7TargetNumber = courtToCheck.courtNumber;
+                 const f5Equivalent1 = (f7TargetNumber * 2) - 1;
+                 const f5Equivalent2 = f7TargetNumber * 2;
+                 if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
+                    return true;
                  }
             }
         }
@@ -228,6 +226,8 @@ export default function ReservationPage() {
 
     let courtIdsToReserve = [data.courtId];
     const selectedCourt = allCourts.find(c => c.id === data.courtId);
+    
+    // If a Futbol 7 court is selected, also "reserve" its constituent Futbol 5 courts
     if(selectedCourt?.courtType === 'Futbol 7') {
         const f7Number = selectedCourt.courtNumber;
         const f5Number1 = (f7Number * 2) - 1;
@@ -242,7 +242,7 @@ export default function ReservationPage() {
     const reservationPromises = data.times.map((time) => {
       const [hour, minute] = time.split(':').map(Number);
       const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
-      // Use addDoc for non-blocking writes
+      
       return addDoc(reservationsCollection, {
         userId: user.uid,
         courtIds: courtIdsToReserve, 
