@@ -136,9 +136,8 @@ export default function ReservationPage() {
     if (!selectedCourtId || !allCourts) return { totalCost: 0, courtPrice: 0 };
     const court = allCourts.find((c) => c.id === selectedCourtId);
     if (!court) return { totalCost: 0, courtPrice: 0 };
-    // Price per turn is half the hourly price
     return {
-      totalCost: (court.price / 2) * selectedTimes.length,
+      totalCost: court.price * selectedTimes.length,
       courtPrice: court.price,
     };
   }, [selectedCourtId, selectedTimes.length, allCourts]);
@@ -248,7 +247,7 @@ export default function ReservationPage() {
         userId: user.uid,
         courtIds: courtIdsToReserve, 
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
-        durationMinutes: 30,
+        durationMinutes: 60,
       });
     });
   
@@ -297,11 +296,9 @@ export default function ReservationPage() {
     const slots = [];
     for (let i = 8; i < 24; i++) {
         slots.push(`${String(i).padStart(2, '0')}:00`);
-        slots.push(`${String(i).padStart(2, '0')}:30`);
     }
     for (let i = 0; i < 3; i++) {
         slots.push(`${String(i).padStart(2, '0')}:00`);
-        slots.push(`${String(i).padStart(2, '0')}:30`);
     }
     return slots;
   };
@@ -480,8 +477,8 @@ export default function ReservationPage() {
                     <h3 className="text-xl font-bold text-center">Resumen de tu Reserva</h3>
                     {selectedTimes.length > 0 && selectedCourtId ? (
                         <div className="text-center mt-2 text-muted-foreground">
-                            <p>Has seleccionado {selectedTimes.length} turno(s) de 30 min. ({selectedTimes.length * 0.5} hs) para el {format(selectedDate, "PPPP", { locale: es })}.</p>
-                            <p className="text-lg">Precio por turno (30 min): ${ (courtPrice / 2).toLocaleString('es-AR')}</p>
+                            <p>Has seleccionado {selectedTimes.length} turno(s) de 1 hora para el {format(selectedDate, "PPPP", { locale: es })}.</p>
+                            <p className="text-lg">Precio por turno (1 hr): ${ (courtPrice).toLocaleString('es-AR')}</p>
                             <p className="text-3xl font-bold text-foreground mt-2">Total: ${totalCost.toLocaleString('es-AR')}</p>
                         </div>
                     ) : (
