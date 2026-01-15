@@ -11,7 +11,6 @@ import { collection, query, where, Timestamp, doc, addDoc }from 'firebase/firest
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-// import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -42,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
 import type { Court, Reservation } from "@/lib/types";
+import { Calendar } from "@/components/ui/calendar";
 
 
 const reservationFormSchema = z.object({
@@ -410,7 +410,7 @@ export default function ReservationPage() {
                   )}
                 />
                 
-                {/* 
+                
                 <div className="space-y-4">
                     <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
                     <FormField
@@ -441,7 +441,7 @@ export default function ReservationPage() {
                         )}
                     />
                 </div>
-                 */}
+                
                 
                 <div className="space-y-4">
                     <FormLabel className="text-base font-semibold">3. Elige el horario</FormLabel>
