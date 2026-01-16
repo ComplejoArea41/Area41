@@ -24,23 +24,23 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-lg font-medium",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
-          "text-muted-foreground rounded-md w-full font-normal text-[0.8rem]",
+          "text-muted-foreground rounded-md w-full font-normal text-base",
         row: "flex w-full mt-2",
-        cell: "p-0 text-center text-sm relative focus-within:relative focus-within:z-20 flex-1",
+        cell: "p-0 text-center text-lg relative focus-within:relative focus-within:z-20 flex-1",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-12 w-full p-0 font-normal aria-selected:opacity-100 rounded-md"
+          "h-16 w-full p-0 font-normal aria-selected:opacity-100 rounded-md"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
