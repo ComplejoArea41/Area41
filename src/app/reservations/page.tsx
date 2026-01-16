@@ -286,22 +286,22 @@ export default function ReservationPage() {
     }
 
     const court = allCourts?.find((c) => c.id === data.courtId);
-    const courtDescription = court ? `${'${court.courtType}'} - Cancha ${'${court.courtNumber}'}` : "Cancha no especificada";
+    const courtDescription = court ? `${court.courtType} - Cancha ${court.courtNumber}` : "Cancha no especificada";
     const timesString = data.times.join(', ');
-    const fullName = `${'${userProfile.firstName || \'\''}'} ${'${userProfile.lastName || \'\''}'}`;
+    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
     const phone = userProfile.phoneNumber || 'No especificado';
   
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
-      `*Cancha:* ${'${courtDescription}'}\n` +
-      `*Fecha:* ${'${format(data.date, \'dd/MM/yyyy\')}'}\n` +
-      `*Horarios:* ${'${timesString}'}\n` +
-      `*Total a Pagar:* $${'${totalCost.toLocaleString(\'es-AR\')}'}\n\n` +
-      `*Nombre:* ${'${fullName}'}\n` +
-      `*Teléfono:* ${'${phone}'}`
+      `*Cancha:* ${courtDescription}\n` +
+      `*Fecha:* ${format(data.date, 'dd/MM/yyyy')}\n` +
+      `*Horarios:* ${timesString}\n` +
+      `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
+      `*Nombre:* ${fullName}\n` +
+      `*Teléfono:* ${phone}`
     );
   
-    const whatsappUrl = `https://wa.me/2324610433?text=${'${message}'}`;
+    const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
     window.open(whatsappUrl, '_blank');
   
     form.reset(); 
@@ -321,10 +321,10 @@ export default function ReservationPage() {
   const generateTimeSlots = () => {
     const slots = [];
     for (let i = 8; i < 24; i++) {
-        slots.push(`${'${String(i).padStart(2, \'0\')}'}:00`);
+        slots.push(`${String(i).padStart(2, '0')}:00`);
     }
     for (let i = 0; i < 3; i++) {
-        slots.push(`${'${String(i).padStart(2, \'0\')}'}:00`);
+        slots.push(`${String(i).padStart(2, '0')}:00`);
     }
     return slots;
   };
@@ -427,7 +427,7 @@ export default function ReservationPage() {
                                 }}
                                 type="button"
                                 >
-                                {`Cancha ${'${court.courtNumber}'}`}
+                                {`Cancha ${court.courtNumber}`}
                                 </Button>
                             ))
                           )}
@@ -444,7 +444,7 @@ export default function ReservationPage() {
                   render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
-                        <div className="grid grid-cols-4 md:grid-cols-7 gap-2 pt-2">
+                        <div className="flex space-x-2 pt-2 pb-2 overflow-x-auto">
                             {dates.map((date, index) => (
                                 <Button
                                     key={date.toString()}
@@ -454,7 +454,7 @@ export default function ReservationPage() {
                                         field.onChange(date);
                                         form.setValue("times", []); // Reset times
                                     }}
-                                    className="flex flex-col h-auto p-2"
+                                    className="flex flex-col h-auto p-3 w-20 flex-shrink-0"
                                 >
                                     <span className="text-xs font-normal capitalize">
                                         {index === 0 ? 'Hoy' : index === 1 ? 'Mañana' : format(date, 'EEE', { locale: es })}
@@ -547,3 +547,4 @@ export default function ReservationPage() {
       </div>
   );
 }
+

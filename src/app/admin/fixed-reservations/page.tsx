@@ -1,4 +1,5 @@
 'use client';
+
 import {
   Card,
   CardContent,
@@ -76,22 +77,24 @@ export default function AdminFixedReservationsPage() {
         if (isUserLoading || isProfileLoading) return;
         if (!user) {
             router.push('/login');
-        } else if (userProfile && !userProfile.isAdmin) {
+        } else if (userProfile && !(userProfile as any).isAdmin) {
             router.push('/');
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
     
-    const sortedCourts = useMemo(() => courts?.sort((a, b) => {
-        if (a.courtType < b.courtType) return -1;
-        if (a.courtType > b.courtType) return 1;
-        return a.courtNumber - b.courtNumber;
-    }) || [], [courts]);
+    const sortedCourts = useMemo(() => {
+        if (!courts) return [];
+        return [...courts].sort((a: any, b: any) => {
+            if (a.courtType < b.courtType) return -1;
+            if (a.courtType > b.courtType) return 1;
+            return (a.courtNumber || 0) - (b.courtNumber || 0);
+        });
+    }, [courts]);
     
     const reservationsByDay = useMemo(() => {
         if (!fixedReservations || !courts) return {};
         
         const grouped: Record<number, FixedReservation[]> = {};
-
         const courtsMap = new Map(courts.map(c => [c.id, c]));
         
         fixedReservations.forEach(res => {
@@ -103,23 +106,18 @@ export default function AdminFixedReservationsPage() {
             }
         });
 
-        // Sort reservations within each day
         for (const day in grouped) {
-            grouped[day].sort((a, b) => {
-                const courtA = courtsMap.get(a.courtId);
-                const courtB = courtsMap.get(b.courtId);
+            grouped[Number(day)].sort((a: any, b: any) => {
+                const courtA = courtsMap.get(a.courtId) as any;
+                const courtB = courtsMap.get(b.courtId) as any;
         
-                // 1. Sort by time first
                 if (a.time < b.time) return -1;
                 if (a.time > b.time) return 1;
         
-                // 2. Then by court type
                 if (courtA && courtB) {
                   if (courtA.courtType < courtB.courtType) return -1;
                   if (courtA.courtType > courtB.courtType) return 1;
-        
-                  // 3. Finally by court number
-                  return courtA.courtNumber - courtB.courtNumber;
+                  return (courtA.courtNumber || 0) - (courtB.courtNumber || 0);
                 }
                 return 0;
             });
@@ -199,7 +197,7 @@ export default function AdminFixedReservationsPage() {
     
     const getCourtName = (courtId: string) => {
         const court = courts?.find(c => c.id === courtId);
-        return court ? `${court.courtType} - Cancha ${court.courtNumber}` : 'Cancha no encontrada';
+        return court ? `${(court as any).courtType} - Cancha ${(court as any).courtNumber}` : 'Cancha no encontrada';
     }
 
     const renderReservationCard = (item: FixedReservation) => (
@@ -290,7 +288,7 @@ export default function AdminFixedReservationsPage() {
                                     <SelectValue placeholder="Selecciona una cancha" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {sortedCourts.map(court => (
+                                    {sortedCourts.map((court: any) => (
                                         <SelectItem key={court.id} value={court.id}>{`${court.courtType} - Cancha ${court.courtNumber}`}</SelectItem>
                                     ))}
                                 </SelectContent>
