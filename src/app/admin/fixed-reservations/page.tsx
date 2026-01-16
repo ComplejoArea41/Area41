@@ -95,28 +95,31 @@ export default function AdminFixedReservationsPage() {
         const courtsMap = new Map(courts.map(c => [c.id, c]));
         
         fixedReservations.forEach(res => {
-            if (grouped[res.dayOfWeek]) {
-                grouped[res.dayOfWeek].push(res);
+            const day = res.dayOfWeek;
+            if (grouped[day]) {
+                grouped[day].push(res);
             } else {
-                grouped[res.dayOfWeek] = [res];
+                grouped[day] = [res];
             }
         });
 
-        // Sort reservations within each day by time
+        // Sort reservations within each day
         for (const day in grouped) {
             grouped[day].sort((a, b) => {
                 const courtA = courtsMap.get(a.courtId);
                 const courtB = courtsMap.get(b.courtId);
-
-                // Sort by time first
-                if(a.time < b.time) return -1;
-                if(a.time > b.time) return 1;
-                
-                // Then by court type
-                if(courtA && courtB) {
-                    if (courtA.courtType < courtB.courtType) return -1;
-                    if (courtA.courtType > b.courtType) return 1;
-                    return courtA.courtNumber - courtB.courtNumber;
+        
+                // 1. Sort by time first
+                if (a.time < b.time) return -1;
+                if (a.time > b.time) return 1;
+        
+                // 2. Then by court type
+                if (courtA && courtB) {
+                  if (courtA.courtType < courtB.courtType) return -1;
+                  if (courtA.courtType > courtB.courtType) return 1;
+        
+                  // 3. Finally by court number
+                  return courtA.courtNumber - courtB.courtNumber;
                 }
                 return 0;
             });
@@ -135,16 +138,11 @@ export default function AdminFixedReservationsPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSwitchChange = async (item: FixedReservation) => {
+    const handleSwitchChange = (item: FixedReservation) => {
         if(!firestore) return;
         const itemRef = doc(firestore, 'fixed_reservations', item.id);
-        try {
-            await setDocumentNonBlocking(itemRef, { isActive: !item.isActive }, { merge: true });
-            toast({ title: `Turno ${item.isActive ? 'desactivado' : 'activado'}`});
-        } catch(error) {
-            console.error("Error toggling active state:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cambiar el estado del turno.' });
-        }
+        setDocumentNonBlocking(itemRef, { isActive: !item.isActive }, { merge: true });
+        toast({ title: `Turno ${item.isActive ? 'desactivado' : 'activado'}`});
     }
 
     const openDialogForNew = () => {
@@ -155,23 +153,18 @@ export default function AdminFixedReservationsPage() {
 
     const openDialogForEdit = (item: FixedReservation) => {
         setEditingItem(item);
-        setFormData({ clientName: item.clientName, phoneNumber: item.phoneNumber, courtId: item.courtId, dayOfWeek: item.dayOfWeek, time: item.time, isActive: item.isActive });
+        setFormData({ clientName: item.clientName, phoneNumber: item.phoneNumber || '', courtId: item.courtId, dayOfWeek: item.dayOfWeek, time: item.time, isActive: item.isActive });
         setIsDialogOpen(true);
     };
 
-    const handleDeleteItem = async (itemId: string) => {
+    const handleDeleteItem = (itemId: string) => {
         if (!firestore) return;
         const itemRef = doc(firestore, 'fixed_reservations', itemId);
-        try {
-            await deleteDocumentNonBlocking(itemRef);
-            toast({ title: "¡Turno fijo eliminado!", description: "El turno ha sido eliminado correctamente." });
-        } catch (error) {
-            console.error("Error deleting item: ", error);
-            toast({ variant: "destructive", title: "Error al eliminar", description: "No se pudo eliminar el turno fijo." });
-        }
+        deleteDocumentNonBlocking(itemRef);
+        toast({ title: "¡Turno fijo eliminado!", description: "El turno ha sido eliminado correctamente." });
     };
     
-    const handleSaveChanges = async () => {
+    const handleSaveChanges = () => {
         if (!firestore) return;
         if (!formData.clientName || !formData.courtId || !formData.time) {
             toast({ variant: 'destructive', title: 'Campos requeridos', description: 'Por favor, completa el nombre, la cancha y la hora.' });
@@ -179,23 +172,19 @@ export default function AdminFixedReservationsPage() {
         }
 
         setIsSaving(true);
-        try {
-            if (editingItem) { 
-                const itemRef = doc(firestore, 'fixed_reservations', editingItem.id);
-                setDocumentNonBlocking(itemRef, formData, { merge: true });
-                toast({ title: "¡Turno actualizado!", description: "Los cambios se han guardado." });
-            } else { 
-                const collectionRef = collection(firestore, 'fixed_reservations');
-                await addDocumentNonBlocking(collectionRef, formData);
-                toast({ title: "¡Turno fijo agregado!", description: "El nuevo turno ya está disponible." });
-            }
-            setIsDialogOpen(false);
-        } catch (error) {
-            console.error("Error saving item: ", error);
-            toast({ variant: "destructive", title: "Error al guardar", description: "No se pudo guardar el turno." });
-        } finally {
-            setIsSaving(false);
+        
+        if (editingItem) { 
+            const itemRef = doc(firestore, 'fixed_reservations', editingItem.id);
+            setDocumentNonBlocking(itemRef, formData, { merge: true });
+            toast({ title: "¡Turno actualizado!", description: "Los cambios se han guardado." });
+        } else { 
+            const collectionRef = collection(firestore, 'fixed_reservations');
+            addDocumentNonBlocking(collectionRef, formData);
+            toast({ title: "¡Turno fijo agregado!", description: "El nuevo turno ya está disponible." });
         }
+        
+        setIsDialogOpen(false);
+        setIsSaving(false);
     };
 
     const isLoading = isUserLoading || isProfileLoading || areFixedReservationsLoading || areCourtsLoading;
