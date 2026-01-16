@@ -235,14 +235,61 @@ export default function ReservationPage() {
         <CardContent className="space-y-6">
           
           <div>
-            <h3 className="mb-4 text-lg font-semibold">1. Selecciona el tipo y número de cancha</h3>
+            <h3 className="mb-4 text-lg font-semibold">1. Selecciona el tipo de cancha</h3>
             <Tabs value={selectedCourtType} onValueChange={(value) => setSelectedCourtType(value as any)}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="Futbol 5">Fútbol 5</TabsTrigger>
                 <TabsTrigger value="Futbol 7">Fútbol 7</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+          </div>
+
+          <div>
+            <h3 className="mb-4 text-lg font-semibold">2. Elige la fecha</h3>
+            <Carousel
+              opts={{
+                align: "start",
+                dragFree: true,
+              }}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2">
+                {nextFourteenDays.map((day, index) => {
+                  const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+                  let dayLabel = format(day, 'EEE', { locale: es });
+                  if (isSameDay(day, new Date())) {
+                    dayLabel = 'Hoy';
+                  } else if (isSameDay(day, addDays(new Date(), 1))) {
+                    dayLabel = 'Mañana';
+                  }
+                  const monthLabel = format(day, 'MMM', { locale: es }).replace('.', '').toUpperCase();
+                  
+                  return (
+                    <CarouselItem key={index} className="basis-1/4 sm:basis-1/5 md:basis-1/7 pl-2">
+                      <div className="p-1">
+                        <Button
+                          variant={isSelected ? 'default' : 'outline'}
+                          className="flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center"
+                          onClick={() => setSelectedDate(day)}
+                          disabled={isBefore(day, startOfDay(new Date()))}
+                        >
+                          <span className="text-xs font-medium uppercase text-muted-foreground">{dayLabel}</span>
+                          <span className="text-2xl font-bold">{format(day, 'd')}</span>
+                          <span className="text-xs font-medium uppercase text-muted-foreground">{monthLabel}</span>
+                        </Button>
+                      </div>
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+              <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
+              <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
+            </Carousel>
+          </div>
+
+          <div>
+            <h3 className="mb-4 text-lg font-semibold">3. Elige la cancha</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {courtsForType.map(court => (
                     <Button 
                         key={court.id} 
@@ -255,54 +302,9 @@ export default function ReservationPage() {
             </div>
           </div>
 
-          {selectedCourtId && (
-            <div>
-              <h3 className="mb-4 text-lg font-semibold">2. Elige la fecha</h3>
-              <Carousel
-                opts={{
-                  align: "start",
-                  dragFree: true,
-                }}
-                className="w-full"
-              >
-                <CarouselContent className="-ml-2">
-                  {nextFourteenDays.map((day, index) => {
-                    const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-                    let dayLabel = format(day, 'EEE', { locale: es });
-                    if (isSameDay(day, new Date())) {
-                      dayLabel = 'Hoy';
-                    } else if (isSameDay(day, addDays(new Date(), 1))) {
-                      dayLabel = 'Mañana';
-                    }
-                    const monthLabel = format(day, 'MMM', { locale: es }).replace('.', '').toUpperCase();
-                    
-                    return (
-                      <CarouselItem key={index} className="basis-1/3 sm:basis-1/5 md:basis-1/7 pl-2">
-                        <div className="p-1">
-                          <Button
-                            variant={isSelected ? 'default' : 'outline'}
-                            className="flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center"
-                            onClick={() => setSelectedDate(day)}
-                            disabled={isBefore(day, startOfDay(new Date()))}
-                          >
-                            <span className="text-xs font-medium uppercase text-muted-foreground">{dayLabel}</span>
-                            <span className="text-2xl font-bold">{format(day, 'd')}</span>
-                            <span className="text-xs font-medium uppercase text-muted-foreground">{monthLabel}</span>
-                          </Button>
-                        </div>
-                      </CarouselItem>
-                    );
-                  })}
-                </CarouselContent>
-                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
-                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
-              </Carousel>
-            </div>
-          )}
-
           {selectedCourtId && selectedDate && (
             <div>
-                <h3 className="mb-4 text-lg font-semibold">3. Elige el horario</h3>
+                <h3 className="mb-4 text-lg font-semibold">4. Elige el horario</h3>
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                 {areReservationsLoading ? (
                     <p>Cargando horarios...</p>
