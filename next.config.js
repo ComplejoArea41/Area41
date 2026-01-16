@@ -26,6 +26,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'www.lanacion.com.ar',
       },
+      {
+        protocol: 'https',
+        hostname: 'foodit.lanacion.com.ar',
+      },
     ],
   },
 };
