@@ -30,6 +30,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'foodit.lanacion.com.ar',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.infobae.com',
+      },
     ],
   },
 };
