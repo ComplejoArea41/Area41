@@ -116,7 +116,7 @@ export default function AdminFixedReservationsPage() {
                 // Then by court type
                 if(courtA && courtB) {
                     if (courtA.courtType < courtB.courtType) return -1;
-                    if (courtA.courtType > courtB.courtType) return 1;
+                    if (courtA.courtType > b.courtType) return 1;
                     return courtA.courtNumber - courtB.courtNumber;
                 }
                 return 0;
@@ -215,31 +215,32 @@ export default function AdminFixedReservationsPage() {
     }
 
     const renderReservationCard = (item: FixedReservation) => (
-        <Card key={item.id} className="bg-card/60">
-             <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card key={item.id} className="bg-secondary/90 text-secondary-foreground flex flex-col p-3 gap-2">
+            <div className="flex justify-between items-start">
                 <CardTitle className="text-lg">{item.clientName}</CardTitle>
                 <div className="flex items-center space-x-2">
                     <Switch
                         id={`active-switch-${item.id}`}
                         checked={item.isActive}
                         onCheckedChange={() => handleSwitchChange(item)}
+                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-background/20"
                     />
-                    <Label htmlFor={`active-switch-${item.id}`}>Activo</Label>
+                    <Label htmlFor={`active-switch-${item.id}`} className="text-xs">Activo</Label>
                 </div>
-            </CardHeader>
-            <CardContent>
-                <p className="text-muted-foreground">{getCourtName(item.courtId)}</p>
-                <p className="text-xl font-bold">{item.time} hs</p>
-                {item.phoneNumber && <p className="text-sm text-muted-foreground">Tel: {item.phoneNumber}</p>}
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)}>
+            </div>
+            <div className="flex-grow">
+                <p className="text-sm opacity-80">{getCourtName(item.courtId)}</p>
+                <p className="text-base font-bold">{item.time} hs</p>
+                {item.phoneNumber && <p className="text-xs opacity-80">Tel: {item.phoneNumber}</p>}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-8 w-8">
                     <Edit className="h-4 w-4" />
                 </Button>
-                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)}>
+                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-8 w-8">
                     <Trash2 className="h-4 w-4" />
                 </Button>
-            </CardFooter>
+            </div>
         </Card>
     );
 
