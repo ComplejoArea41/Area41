@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { addDays, format, set, startOfDay, isBefore } from "date-fns";
+import { addDays, format, set, startOfDay, isBefore, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, query, where, Timestamp, doc, addDoc }from 'firebase/firestore';
@@ -42,7 +42,6 @@ import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
 import type { Court, Reservation, FixedReservation } from "@/lib/types";
-import { Calendar } from "@/components/ui/calendar";
 
 
 const reservationFormSchema = z.object({
@@ -287,22 +286,22 @@ export default function ReservationPage() {
     }
 
     const court = allCourts?.find((c) => c.id === data.courtId);
-    const courtDescription = court ? `${court.courtType} - Cancha ${court.courtNumber}` : "Cancha no especificada";
+    const courtDescription = court ? `${'${court.courtType}'} - Cancha ${'${court.courtNumber}'}` : "Cancha no especificada";
     const timesString = data.times.join(', ');
-    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
+    const fullName = `${'${userProfile.firstName || \'\''}'} ${'${userProfile.lastName || \'\''}'}`;
     const phone = userProfile.phoneNumber || 'No especificado';
   
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
-      `*Cancha:* ${courtDescription}\n` +
-      `*Fecha:* ${format(data.date, 'dd/MM/yyyy')}\n` +
-      `*Horarios:* ${timesString}\n` +
-      `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
-      `*Nombre:* ${fullName}\n` +
-      `*Teléfono:* ${phone}`
+      `*Cancha:* ${'${courtDescription}'}\n` +
+      `*Fecha:* ${'${format(data.date, \'dd/MM/yyyy\')}'}\n` +
+      `*Horarios:* ${'${timesString}'}\n` +
+      `*Total a Pagar:* $${'${totalCost.toLocaleString(\'es-AR\')}'}\n\n` +
+      `*Nombre:* ${'${fullName}'}\n` +
+      `*Teléfono:* ${'${phone}'}`
     );
   
-    const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
+    const whatsappUrl = `https://wa.me/2324610433?text=${'${message}'}`;
     window.open(whatsappUrl, '_blank');
   
     form.reset(); 
@@ -322,10 +321,10 @@ export default function ReservationPage() {
   const generateTimeSlots = () => {
     const slots = [];
     for (let i = 8; i < 24; i++) {
-        slots.push(`${String(i).padStart(2, '0')}:00`);
+        slots.push(`${'${String(i).padStart(2, \'0\')}'}:00`);
     }
     for (let i = 0; i < 3; i++) {
-        slots.push(`${String(i).padStart(2, '0')}:00`);
+        slots.push(`${'${String(i).padStart(2, \'0\')}'}:00`);
     }
     return slots;
   };
@@ -337,6 +336,9 @@ export default function ReservationPage() {
   }, [allCourts, selectedCourtType]);
 
   const isLoadingPage = isUserLoading || isProfileLoading || areCourtsLoading;
+
+  const today = startOfDay(new Date());
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
 
   if (isLoadingPage || (user && !userProfile)) {
     return (
@@ -425,7 +427,7 @@ export default function ReservationPage() {
                                 }}
                                 type="button"
                                 >
-                                {`Cancha ${court.courtNumber}`}
+                                {`Cancha ${'${court.courtNumber}'}`}
                                 </Button>
                             ))
                           )}
@@ -436,39 +438,36 @@ export default function ReservationPage() {
                 />
                 
                 
-                <div className="space-y-4">
-                    <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
-                    <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormControl>
-                                    <Calendar
-                                        mode="single"
-                                        selected={field.value}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                field.onChange(startOfDay(date));
-                                                form.setValue("times", []); // Reset times when date changes
-                                            }
-                                        }}
-                                        disabled={(date) =>
-                                            isBefore(date, startOfDay(new Date())) 
-                                        }
-                                        className="rounded-md w-full"
-                                        locale={es}
-                                        weekStartsOn={1}
-                                        formatters={{
-                                            formatWeekdayName: (day) => format(day, 'EEEEEE', { locale: es }).toUpperCase(),
-                                        }}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
+                        <div className="grid grid-cols-4 md:grid-cols-7 gap-2 pt-2">
+                            {dates.map((date, index) => (
+                                <Button
+                                    key={date.toString()}
+                                    type="button"
+                                    variant={isSameDay(field.value, date) ? "default" : "outline"}
+                                    onClick={() => {
+                                        field.onChange(date);
+                                        form.setValue("times", []); // Reset times
+                                    }}
+                                    className="flex flex-col h-auto p-2"
+                                >
+                                    <span className="text-xs font-normal capitalize">
+                                        {index === 0 ? 'Hoy' : index === 1 ? 'Mañana' : format(date, 'EEE', { locale: es })}
+                                    </span>
+                                    <span className="text-xl font-bold">{format(date, 'd')}</span>
+                                    <span className="text-xs font-normal capitalize">{format(date, 'MMM', { locale: es })}</span>
+                                </Button>
+                            ))}
+                        </div>
+                        <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 
                 <div className="space-y-4">
