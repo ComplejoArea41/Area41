@@ -456,7 +456,7 @@ export default function ReservationPage() {
                                         disabled={(date) =>
                                             isBefore(date, startOfDay(new Date())) 
                                         }
-                                        className="rounded-md border bg-transparent"
+                                        className="rounded-md border bg-card/80"
                                         locale={es}
                                         weekStartsOn={1}
                                     />
