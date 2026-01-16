@@ -56,6 +56,12 @@ const nextConfig = {
                 port: '',
                 pathname: '**',
             },
+            {
+                protocol: 'https',
+                hostname: 'www.delabahia.com.ar',
+                port: '',
+                pathname: '**',
+            },
         ],
     },
 };
