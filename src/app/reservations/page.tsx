@@ -442,7 +442,7 @@ export default function ReservationPage() {
                         control={form.control}
                         name="date"
                         render={({ field }) => (
-                            <FormItem className="flex flex-col items-center">
+                            <FormItem className="flex flex-col">
                                 <FormControl>
                                     <Calendar
                                         mode="single"
