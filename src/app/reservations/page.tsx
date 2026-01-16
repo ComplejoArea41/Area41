@@ -267,17 +267,20 @@ export default function ReservationPage() {
                     } else if (isSameDay(day, addDays(new Date(), 1))) {
                         dayLabel = 'Mañana';
                     }
+                    
+                    const monthLabel = format(day, 'MMM', { locale: es }).replace('.', '').toUpperCase();
 
                     return (
                         <Button
                             key={day.toISOString()}
                             variant={isSelected ? 'default' : 'outline'}
-                            className="flex h-auto flex-col items-center justify-center gap-1 p-3 text-center"
+                            className="flex h-24 flex-col items-center justify-center gap-1 p-2 text-center"
                             onClick={() => setSelectedDate(day)}
                             disabled={isBefore(day, startOfDay(new Date()))}
                         >
-                            <span className="text-xs font-medium uppercase text-muted-foreground">{dayLabel}</span>
-                            <span className="text-3xl font-bold">{format(day, 'd')}</span>
+                            <span className="text-sm font-medium uppercase text-muted-foreground">{dayLabel}</span>
+                            <span className="text-4xl font-bold">{format(day, 'd')}</span>
+                            <span className="text-sm font-medium uppercase text-muted-foreground">{monthLabel}</span>
                         </Button>
                     );
                 })}
