@@ -246,34 +246,40 @@ export default function AdminFixedReservationsPage() {
 
     return (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-7xl">
+            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-full">
                 <CardHeader className="flex-row items-center justify-between">
                     <div>
                         <CardTitle>Gestionar Turnos Fijos</CardTitle>
                         <CardDescription>
-                            Crea y administra las reservas recurrentes semanales.
+                            Crea y administra las reservas recurrentes en una vista de calendario semanal.
                         </CardDescription>
                     </div>
                     <Button onClick={openDialogForNew}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Turno Fijo
                     </Button>
                 </CardHeader>
-                <CardContent className="space-y-8">
-                    {weekDays.map(day => (
-                        reservationsByDay[day.value] && reservationsByDay[day.value].length > 0 && (
-                            <div key={day.value}>
-                                <h3 className="text-2xl font-bold mb-4">{day.label}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {reservationsByDay[day.value].map(renderReservationCard)}
-                                </div>
-                            </div>
-                        )
-                    ))}
-
-                    {(!fixedReservations || fixedReservations.length === 0) && !areFixedReservationsLoading && (
+                <CardContent>
+                    {(!fixedReservations || fixedReservations.length === 0) && !areFixedReservationsLoading ? (
                         <div className="text-center py-16 text-muted-foreground col-span-full">
                             <CalendarClock className="mx-auto h-12 w-12" />
                             <p className="mt-4">No hay turnos fijos todavía. ¡Crea el primero!</p>
+                        </div>
+                    ) : (
+                         <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
+                            {weekDays.map(day => (
+                                <div key={day.value} className="flex flex-col gap-4 rounded-lg bg-background/30 p-2">
+                                    <h3 className="text-xl font-bold text-center sticky top-16 bg-card/80 p-2 rounded-md z-10 backdrop-blur-sm">{day.label}</h3>
+                                    <div className="flex flex-col gap-4">
+                                        {reservationsByDay[day.value] && reservationsByDay[day.value].length > 0 ? (
+                                            reservationsByDay[day.value].map(renderReservationCard)
+                                        ) : (
+                                            <div className="flex items-center justify-center h-24">
+                                                 <p className="text-xs text-muted-foreground text-center">Sin turnos.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </CardContent>
