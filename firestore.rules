@@ -16,40 +16,45 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
 
     // Users can read their own profile, admins can read any profile
     match /users/{userId} {
-      allow read: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && isAdmin();
       allow write: if isSignedIn() && isOwner(userId);
     }
 
     // Publicly readable collections for UI elements and general info
     match /background_images/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Further restricted by storage rules to admins
+      allow write: if isSignedIn() && isAdmin();
     }
 
     match /logo_images/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Further restricted by storage rules to admins
+      allow write: if isSignedIn() && isAdmin();
     }
 
     match /courts/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); 
+      allow write: if isSignedIn() && isAdmin();
     }
 
     match /menu_items/{docId} {
         allow read: if true;
-        allow write: if isSignedIn();
+        allow write: if isSignedIn() && isAdmin();
     }
 
     // Reservations can be read by anyone, but only created by authenticated users.
     match /reservations/{reservationId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       // Allow update/delete only by the user who created it.
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
   }
 }

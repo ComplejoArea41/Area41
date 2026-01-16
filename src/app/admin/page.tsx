@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award } from "lucide-react";
+import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, BookUser } from "lucide-react";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -110,6 +110,20 @@ export default function AdminPage() {
                      <CardContent>
                         <Button onClick={() => router.push('/admin/logo')}>
                             Administrar Logo <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </CardContent>
+                </Card>
+                
+                <Card className="bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><BookUser />Gestión de Reservas</CardTitle>
+                        <CardDescription>
+                           Visualiza el historial completo de reservas y busca por cliente.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <Button onClick={() => router.push('/admin/reservations')}>
+                            Ver Reservas <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardContent>
                 </Card>
