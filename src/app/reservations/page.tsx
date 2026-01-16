@@ -456,9 +456,12 @@ export default function ReservationPage() {
                                         disabled={(date) =>
                                             isBefore(date, startOfDay(new Date())) 
                                         }
-                                        className="rounded-md border bg-card/80"
+                                        className="rounded-md w-full"
                                         locale={es}
                                         weekStartsOn={1}
+                                        formatters={{
+                                            formatWeekdayName: (day) => format(day, 'EEEEEE', { locale: es }).toUpperCase(),
+                                        }}
                                     />
                                 </FormControl>
                                 <FormMessage />
