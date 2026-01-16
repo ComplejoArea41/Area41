@@ -8,6 +8,7 @@ import { addDays, format, set, startOfDay, isBefore, isSameDay } from "date-fns"
 import { es } from "date-fns/locale";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, query, where, Timestamp, doc, addDoc }from 'firebase/firestore';
+import { CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,8 +39,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { useRouter } from "next/navigation";
 import type { Court, Reservation, FixedReservation } from "@/lib/types";
 
@@ -269,12 +272,29 @@ export default function ReservationPage() {
       const [hour, minute] = time.split(':').map(Number);
       const reservationDateTime = set(data.date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
       
-      return addDoc(reservationsCollection, {
+      const promise = addDoc(reservationsCollection, {
         userId: user.uid,
         courtIds: courtIdsToReserve, 
         reservationDateTime: Timestamp.fromDate(reservationDateTime),
         durationMinutes: 60,
       });
+
+      promise.catch(error => {
+        const permissionError = new FirestorePermissionError({
+          path: reservationsCollection.path,
+          operation: 'create',
+          requestResourceData: {
+            userId: user.uid,
+            courtIds: courtIdsToReserve, 
+            reservationDateTime: Timestamp.fromDate(reservationDateTime),
+            durationMinutes: 60,
+          },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw error;
+      });
+
+      return promise;
     });
   
     try {
@@ -336,9 +356,6 @@ export default function ReservationPage() {
   }, [allCourts, selectedCourtType]);
 
   const isLoadingPage = isUserLoading || isProfileLoading || areCourtsLoading;
-
-  const today = startOfDay(new Date());
-  const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
 
   if (isLoadingPage || (user && !userProfile)) {
     return (
@@ -442,29 +459,45 @@ export default function ReservationPage() {
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
-                        <div className="flex space-x-2 pt-2 pb-2 overflow-x-auto">
-                            {dates.map((date, index) => (
-                                <Button
-                                    key={date.toString()}
-                                    type="button"
-                                    variant={isSameDay(field.value, date) ? "default" : "outline"}
-                                    onClick={() => {
-                                        field.onChange(date);
-                                        form.setValue("times", []); // Reset times
-                                    }}
-                                    className="flex flex-col h-auto p-3 w-20 flex-shrink-0"
-                                >
-                                    <span className="text-xs font-normal capitalize">
-                                        {index === 0 ? 'Hoy' : index === 1 ? 'Mañana' : format(date, 'EEE', { locale: es })}
-                                    </span>
-                                    <span className="text-xl font-bold">{format(date, 'd')}</span>
-                                    <span className="text-xs font-normal capitalize">{format(date, 'MMM', { locale: es })}</span>
-                                </Button>
-                            ))}
-                        </div>
-                        <FormMessage />
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-base font-semibold">2. Elige la fecha</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value ? (
+                                format(field.value, "EEEE, d 'de' MMMM", { locale: es })
+                              ) : (
+                                <span>Selecciona una fecha</span>
+                              )}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => {
+                                if (!date) return;
+                                field.onChange(date);
+                                form.setValue("times", []);
+                            }}
+                            disabled={(date) =>
+                              isBefore(date, startOfDay(new Date()))
+                            }
+                            initialFocus
+                            locale={es}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -547,4 +580,3 @@ export default function ReservationPage() {
       </div>
   );
 }
-
