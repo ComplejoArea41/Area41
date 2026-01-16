@@ -5,7 +5,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +25,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { FixedReservation, Court } from "@/lib/types";
-import { Trash2, Edit, PlusCircle, CalendarClock, GripVertical } from "lucide-react";
+import { Trash2, Edit, PlusCircle, CalendarClock } from "lucide-react";
 
 type FormData = Omit<FixedReservation, 'id'>;
 
@@ -215,30 +214,23 @@ export default function AdminFixedReservationsPage() {
     }
 
     const renderReservationCard = (item: FixedReservation) => (
-        <Card key={item.id} className="bg-secondary/90 text-secondary-foreground flex flex-col p-2 gap-1.5">
-            <div className="flex justify-between items-start">
-                <CardTitle className="text-base font-semibold">{item.clientName}</CardTitle>
-                <div className="flex items-center space-x-2">
-                    <Switch
-                        id={`active-switch-${item.id}`}
-                        checked={item.isActive}
-                        onCheckedChange={() => handleSwitchChange(item)}
-                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-background/20"
-                    />
-                    <Label htmlFor={`active-switch-${item.id}`} className="text-xs">Activo</Label>
-                </div>
+        <Card key={item.id} className="bg-secondary/90 text-secondary-foreground flex items-center p-1.5 justify-between gap-1">
+            <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-semibold truncate">{item.clientName}</p>
+                <p className="text-xs opacity-80 truncate">{getCourtName(item.courtId).replace('Cancha ','C.')} - {item.time}</p>
             </div>
-            <div className="flex-grow">
-                <p className="text-xs opacity-80">{getCourtName(item.courtId)}</p>
-                <p className="text-sm font-bold">{item.time} hs</p>
-                {item.phoneNumber && <p className="text-xs opacity-70">Tel: {item.phoneNumber}</p>}
-            </div>
-            <div className="flex justify-end gap-1 pt-1">
-                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-7 w-7">
-                    <Edit className="h-3 w-3" />
+            <div className="flex items-center gap-1">
+                 <Switch
+                    id={`active-switch-${item.id}`}
+                    checked={item.isActive}
+                    onCheckedChange={() => handleSwitchChange(item)}
+                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-background/20 transform scale-[0.6]"
+                />
+                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-5 w-5">
+                    <Edit className="h-2.5 w-2.5" />
                 </Button>
-                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-7 w-7">
-                    <Trash2 className="h-3 w-3" />
+                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-5 w-5">
+                    <Trash2 className="h-2.5 w-2.5" />
                 </Button>
             </div>
         </Card>
@@ -269,7 +261,7 @@ export default function AdminFixedReservationsPage() {
                             {weekDays.map(day => (
                                 <div key={day.value} className="flex flex-col gap-4 rounded-lg bg-background/30 p-2">
                                     <h3 className="text-xl font-bold text-center sticky top-16 bg-card/80 p-2 rounded-md z-10 backdrop-blur-sm">{day.label}</h3>
-                                    <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-2">
                                         {reservationsByDay[day.value] && reservationsByDay[day.value].length > 0 ? (
                                             reservationsByDay[day.value].map(renderReservationCard)
                                         ) : (
