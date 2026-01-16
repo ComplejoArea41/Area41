@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import type { Court, Reservation, FixedReservation } from '@/lib/types';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 
 export default function ReservationPage() {
@@ -85,8 +86,8 @@ export default function ReservationPage() {
     return slots;
   }, []);
 
-  const nextSevenDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+  const nextFourteenDays = useMemo(() => {
+    return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
   }, []);
 
   const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): boolean => {
@@ -257,34 +258,45 @@ export default function ReservationPage() {
           {selectedCourtId && (
             <div>
               <h3 className="mb-4 text-lg font-semibold">2. Elige la fecha</h3>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                {nextSevenDays.map((day) => {
+              <Carousel
+                opts={{
+                  align: "start",
+                  dragFree: true,
+                }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-2">
+                  {nextFourteenDays.map((day, index) => {
                     const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-                    
                     let dayLabel = format(day, 'EEE', { locale: es });
                     if (isSameDay(day, new Date())) {
-                        dayLabel = 'Hoy';
+                      dayLabel = 'Hoy';
                     } else if (isSameDay(day, addDays(new Date(), 1))) {
-                        dayLabel = 'Mañana';
+                      dayLabel = 'Mañana';
                     }
-                    
                     const monthLabel = format(day, 'MMM', { locale: es }).replace('.', '').toUpperCase();
-
+                    
                     return (
-                        <Button
-                            key={day.toISOString()}
+                      <CarouselItem key={index} className="basis-1/3 sm:basis-1/5 md:basis-1/7 pl-2">
+                        <div className="p-1">
+                          <Button
                             variant={isSelected ? 'default' : 'outline'}
-                            className="flex h-24 flex-col items-center justify-center gap-1 p-2 text-center"
+                            className="flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center"
                             onClick={() => setSelectedDate(day)}
                             disabled={isBefore(day, startOfDay(new Date()))}
-                        >
-                            <span className="text-sm font-medium uppercase text-muted-foreground">{dayLabel}</span>
-                            <span className="text-4xl font-bold">{format(day, 'd')}</span>
-                            <span className="text-sm font-medium uppercase text-muted-foreground">{monthLabel}</span>
-                        </Button>
+                          >
+                            <span className="text-xs font-medium uppercase text-muted-foreground">{dayLabel}</span>
+                            <span className="text-2xl font-bold">{format(day, 'd')}</span>
+                            <span className="text-xs font-medium uppercase text-muted-foreground">{monthLabel}</span>
+                          </Button>
+                        </div>
+                      </CarouselItem>
                     );
-                })}
-              </div>
+                  })}
+                </CarouselContent>
+                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
+                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
+              </Carousel>
             </div>
           )}
 
