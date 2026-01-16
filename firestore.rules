@@ -56,5 +56,9 @@ service cloud.firestore {
       // Allow update/delete only by the user who created it.
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
+
+    match /fixed_reservations/{docId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
   }
 }

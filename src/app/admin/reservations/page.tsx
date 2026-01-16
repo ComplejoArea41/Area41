@@ -15,13 +15,14 @@ import {
   } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, ChevronRight, ArrowLeft, Goal } from 'lucide-react';
-import type { Reservation, User, Court } from '@/lib/types';
+import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 type FullReservation = Reservation & {
     user: User | null;
     court: Court | null; // The court of the current calendar context
+    isFixed?: boolean;
 };
 
 const hours = Array.from({ length: 18 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
@@ -47,6 +48,9 @@ export default function AdminReservationsCalendarPage() {
     const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsRef);
 
+    const fixedReservationsRef = useMemoFirebase(() => collection(firestore, 'fixed_reservations'), [firestore]);
+    const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
+
     useEffect(() => {
         if (isUserLoading || isProfileLoading) return;
         if (!user) {
@@ -62,62 +66,108 @@ export default function AdminReservationsCalendarPage() {
     }, [weekStart]);
     
     const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
-        if (!reservations || !users || !courts) return undefined;
+        if (!courts) return undefined;
         
         const [hourNum] = hour.split(':').map(Number);
         const slotDateTime = new Date(day);
         slotDateTime.setHours(hourNum, 0, 0, 0);
-    
+
         const courtToDisplay = courts.find(c => c.id === courtId);
         if (!courtToDisplay) return undefined;
     
-        const reservationsInSlot = reservations.filter(res => {
-            const resDateTime = (res.reservationDateTime as any).toDate();
-            return resDateTime.getTime() === slotDateTime.getTime();
-        });
+        // 1. Check for regular reservations
+        if (reservations && users) {
+            const usersMap = new Map(users.map(u => [u.id, u]));
+            const reservationsInSlot = reservations.filter(res => {
+                const resDateTime = (res.reservationDateTime as any).toDate();
+                return resDateTime.getTime() === slotDateTime.getTime();
+            });
     
-        if (reservationsInSlot.length === 0) return undefined;
-    
-        const usersMap = new Map(users.map(u => [u.id, u]));
-    
-        for (const reservation of reservationsInSlot) {
-            let isBlocked = false;
-            for (const reservedCourtId of reservation.courtIds) {
-                 if (reservedCourtId === courtId) {
-                    isBlocked = true;
-                    break;
-                 }
-    
-                 const reservedCourt = courts.find(c => c.id === reservedCourtId);
-                 if (!reservedCourt) continue;
-    
-                if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                    const f7Number = reservedCourt.courtNumber;
-                    const f5Equivalent1 = (f7Number * 2) - 1;
-                    const f5Equivalent2 = f7Number * 2;
-                    if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) {
-                        isBlocked = true;
-                        break;
-                    }
-                }
-                
-                if (courtToDisplay.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
-                     const f7TargetNumber = courtToDisplay.courtNumber;
-                     const f5Equivalent1 = (f7TargetNumber * 2) - 1;
-                     const f5Equivalent2 = f7TargetNumber * 2;
-                     if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
+            for (const reservation of reservationsInSlot) {
+                let isBlocked = false;
+                for (const reservedCourtId of reservation.courtIds) {
+                     if (reservedCourtId === courtId) {
                         isBlocked = true;
                         break;
                      }
+        
+                     const reservedCourt = courts.find(c => c.id === reservedCourtId);
+                     if (!reservedCourt) continue;
+        
+                    if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                        const f7Number = reservedCourt.courtNumber;
+                        const f5Equivalent1 = (f7Number * 2) - 1;
+                        const f5Equivalent2 = f7Number * 2;
+                        if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) {
+                            isBlocked = true;
+                            break;
+                        }
+                    }
+                    
+                    if (courtToDisplay.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                         const f7TargetNumber = courtToDisplay.courtNumber;
+                         const f5Equivalent1 = (f7TargetNumber * 2) - 1;
+                         const f5Equivalent2 = f7TargetNumber * 2;
+                         if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
+                            isBlocked = true;
+                            break;
+                         }
+                    }
+                }
+        
+                if (isBlocked) {
+                    return {
+                        ...reservation,
+                        user: usersMap.get(reservation.userId) || null,
+                        court: courtToDisplay,
+                        isFixed: false,
+                    };
                 }
             }
-    
-            if (isBlocked) {
-                return {
-                    ...reservation,
-                    user: usersMap.get(reservation.userId) || null,
-                    court: courtToDisplay,
-                };
+        }
+
+        // 2. Check for fixed reservations
+        if (fixedReservations) {
+            const dayOfWeek = day.getDay();
+            const matchingFixedReservations = fixedReservations.filter(fr => fr.isActive && fr.dayOfWeek === dayOfWeek && fr.time === hour);
+            
+            for (const fixedRes of matchingFixedReservations) {
+                let isBlocked = false;
+                const fixedCourt = courts.find(c => c.id === fixedRes.courtId);
+                if (!fixedCourt) continue;
+
+                if (fixedCourt.id === courtId) {
+                    isBlocked = true;
+                } else if (courtToDisplay.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
+                    const f7Number = fixedCourt.courtNumber;
+                    const f5Equivalent1 = (f7Number * 2) - 1;
+                    const f5Equivalent2 = f7Number * 2;
+                    if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) isBlocked = true;
+                } else if (courtToDisplay.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
+                    const f7TargetNumber = courtToDisplay.courtNumber;
+                    const f5Equivalent1 = (f7TargetNumber * 2) - 1;
+                    const f5Equivalent2 = f7TargetNumber * 2;
+                    if (fixedCourt.courtNumber === f5Equivalent1 || fixedCourt.courtNumber === f5Equivalent2) isBlocked = true;
+                }
+
+                if (isBlocked) {
+                    return {
+                        id: fixedRes.id,
+                        userId: 'fixed-user',
+                        courtIds: [fixedRes.courtId],
+                        reservationDateTime: Timestamp.fromDate(slotDateTime) as any,
+                        durationMinutes: 60,
+                        user: {
+                            id: 'fixed-user',
+                            firstName: fixedRes.clientName,
+                            lastName: '(Turno Fijo)',
+                            email: 'N/A',
+                            phoneNumber: fixedRes.phoneNumber || 'N/A'
+                        },
+                        court: courtToDisplay,
+                        isFixed: true
+                    }
+                }
             }
         }
     
@@ -130,7 +180,7 @@ export default function AdminReservationsCalendarPage() {
         return a.courtNumber - b.courtNumber;
     }) || [], [courts]);
 
-    const isLoading = isUserLoading || isProfileLoading || areReservationsLoading || areUsersLoading || areCourtsLoading;
+    const isLoading = isUserLoading || isProfileLoading || areReservationsLoading || areUsersLoading || areCourtsLoading || areFixedReservationsLoading;
 
     if (isLoading || (user && !userProfile)) {
         return (
@@ -228,7 +278,7 @@ export default function AdminReservationsCalendarPage() {
                                                 {reservation ? (
                                                     <button
                                                         onClick={() => setSelectedReservation(reservation)}
-                                                        className="w-full h-full text-left p-2 rounded-md bg-primary/90 text-primary-foreground hover:bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                                                        className={`w-full h-full text-left p-2 rounded-md ${reservation.isFixed ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90' : 'bg-primary/90 text-primary-foreground hover:bg-primary'} transition-colors focus:outline-none focus:ring-2 focus:ring-ring`}
                                                     >
                                                         <div className="font-semibold truncate">{reservation.user?.firstName}</div>
                                                         <div className="text-xs opacity-80 truncate">{reservation.user?.lastName}</div>
@@ -277,6 +327,7 @@ export default function AdminReservationsCalendarPage() {
                                 <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
                                 <p>{format((selectedReservation.reservationDateTime as any).toDate(), "EEEE d 'de' LLLL 'a las' HH:mm 'hs'", { locale: es })}</p>
                             </div>
+                             {selectedReservation.isFixed && <p className="text-center font-bold text-secondary-foreground bg-secondary p-2 rounded-md">Este es un turno fijo semanal.</p>}
                         </div>
                     )}
                     <DialogFooter>

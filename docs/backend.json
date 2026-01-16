@@ -148,6 +148,50 @@
         "price",
         "type"
       ]
+    },
+    "FixedReservation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FixedReservation",
+      "type": "object",
+      "description": "Represents a recurring, fixed reservation for a court on a specific day and time.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the fixed reservation."
+        },
+        "courtId": {
+          "type": "string",
+          "description": "The ID of the court being reserved."
+        },
+        "dayOfWeek": {
+          "type": "number",
+          "description": "The day of the week for the reservation (0=Sunday, 1=Monday, ..., 6=Saturday)."
+        },
+        "time": {
+          "type": "string",
+          "description": "The time of the reservation in HH:mm format."
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Name of the client or team for the fixed reservation."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Contact phone number for the client."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the fixed reservation is currently active."
+        }
+      },
+      "required": [
+        "id",
+        "courtId",
+        "dayOfWeek",
+        "time",
+        "clientName",
+        "isActive"
+      ]
     }
   },
   "auth": {
@@ -197,10 +241,18 @@
           },
           "description": "Stores the menu items offered by the buffet."
         }
+      },
+      {
+        "path": "/fixed_reservations/{fixedReservationId}",
+        "definition": {
+          "entityName": "FixedReservation",
+          "schema": {
+            "$ref": "#/backend/entities/FixedReservation"
+          },
+          "description": "Stores recurring fixed reservations made by the admin."
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The tournament-related collections have been removed as per the user's request."
+    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The tournament-related collections have been removed as per the user's request. A new 'FixedReservation' entity and collection have been added for admins to manage recurring bookings."
   }
 }
-
-    

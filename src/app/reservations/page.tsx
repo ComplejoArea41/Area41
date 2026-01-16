@@ -41,7 +41,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
-import type { Court, Reservation } from "@/lib/types";
+import type { Court, Reservation, FixedReservation } from "@/lib/types";
 import { Calendar } from "@/components/ui/calendar";
 
 
@@ -58,17 +58,17 @@ const reservationFormSchema = z.object({
 type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 
 
-const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areReservationsLoading, isTimeSlotReserved, onTimeClick, isDisabledByTime }: {
+const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areReservationsLoading, isReserved, isFixed, onTimeClick, isDisabledByTime }: {
     time: string;
     selectedCourtId: string;
     selectedTimes: string[];
     areReservationsLoading: boolean;
-    isTimeSlotReserved: (time: string, courtId: string) => boolean;
+    isReserved: boolean;
+    isFixed: boolean;
     onTimeClick: (time: string) => void;
     isDisabledByTime: boolean;
 }) => {
-    const isReserved = isTimeSlotReserved(time, selectedCourtId);
-    const isDisabled = !selectedCourtId || isReserved || areReservationsLoading || isDisabledByTime;
+    const isDisabled = !selectedCourtId || isReserved || isFixed || areReservationsLoading || isDisabledByTime;
 
     return (
         <Button
@@ -78,9 +78,12 @@ const TimeSlotButton = React.memo(({ time, selectedCourtId, selectedTimes, areRe
             variant={selectedTimes.includes(time) ? "default" : "outline"}
             onClick={() => onTimeClick(time)}
             disabled={isDisabled}
-            className={cn("w-full justify-center text-xs md:text-sm", { "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved })}
+            className={cn("w-full justify-center text-xs md:text-sm", { 
+                "bg-secondary text-secondary-foreground hover:bg-secondary/90 cursor-not-allowed": isFixed,
+                "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-not-allowed": isReserved,
+            })}
         >
-            {areReservationsLoading && selectedCourtId ? "..." : time}
+            {areReservationsLoading && selectedCourtId ? "..." : (isFixed ? "Turno Fijo" : isReserved ? "Reservado" : time)}
         </Button>
     );
 });
@@ -104,6 +107,9 @@ export default function ReservationPage() {
 
   const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
   const {data: allCourts, isLoading: areCourtsLoading} = useCollection<Court>(courtsCollectionRef);
+
+  const fixedReservationsRef = useMemoFirebase(() => collection(firestore, 'fixed_reservations'), [firestore]);
+  const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
 
 
   const form = useForm<ReservationFormValues>({
@@ -154,55 +160,76 @@ export default function ReservationPage() {
       form.setValue('date', startOfDay(new Date()));
   }, [selectedCourtType, form]);
 
-
-  const isTimeSlotReserved = useCallback((time: string, courtId: string) => {
-    if (areReservationsLoading || !reservations || !selectedDate || !allCourts || !courtId) return false;
+  const isSlotBlocked = useCallback((time: string, courtId: string): { isReserved: boolean, isFixed: boolean } => {
+    if (!selectedDate || !allCourts || !courtId) return { isReserved: false, isFixed: false };
 
     const [hour, minute] = time.split(':').map(Number);
     const slotDateTime = set(selectedDate, { hours: hour, minutes: minute }).getTime();
 
-    const reservationsForSlot = reservations.filter(res => {
-        if (!res.reservationDateTime) return false;
-        const resDateTime = (res.reservationDateTime as any).toDate().getTime();
-        return resDateTime === slotDateTime;
-    });
-
-    if (reservationsForSlot.length === 0) return false;
-
     const courtToCheck = allCourts.find(c => c.id === courtId);
-    if (!courtToCheck) return false;
+    if (!courtToCheck) return { isReserved: false, isFixed: false };
 
-    for (const reservation of reservationsForSlot) {
-        for (const reservedCourtId of reservation.courtIds) {
-            if (reservedCourtId === courtId) return true; // Direct reservation
+    // Check fixed reservations
+    if (!areFixedReservationsLoading && fixedReservations) {
+        const dayOfWeek = selectedDate.getDay();
+        for (const fixedRes of fixedReservations) {
+            if (!fixedRes.isActive || fixedRes.dayOfWeek !== dayOfWeek || fixedRes.time !== time) continue;
 
-            const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
-            if (!reservedCourt) continue;
+            const fixedCourt = allCourts.find(c => c.id === fixedRes.courtId);
+            if (!fixedCourt) continue;
 
-            // Check if a F7 reservation blocks a F5 court
-            if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                const f7Number = reservedCourt.courtNumber;
+            let isBlocked = false;
+            if (fixedCourt.id === courtId) isBlocked = true;
+            else if (courtToCheck.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
+                const f7Number = fixedCourt.courtNumber;
                 const f5Equivalent1 = (f7Number * 2) - 1;
                 const f5Equivalent2 = f7Number * 2;
-                if (courtToCheck.courtNumber === f5Equivalent1 || courtToCheck.courtNumber === f5Equivalent2) {
-                    return true;
-                }
+                if (courtToCheck.courtNumber === f5Equivalent1 || courtToCheck.courtNumber === f5Equivalent2) isBlocked = true;
+            } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
+                const f7TargetNumber = courtToCheck.courtNumber;
+                const f5Equivalent1 = (f7TargetNumber * 2) - 1;
+                const f5Equivalent2 = f7TargetNumber * 2;
+                if (fixedCourt.courtNumber === f5Equivalent1 || fixedCourt.courtNumber === f5Equivalent2) isBlocked = true;
             }
-            
-            // Check if a F5 reservation blocks a F7 court
-            if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
-                 const f7TargetNumber = courtToCheck.courtNumber;
-                 const f5Equivalent1 = (f7TargetNumber * 2) - 1;
-                 const f5Equivalent2 = f7TargetNumber * 2;
-                 if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
-                    return true;
-                 }
+            if (isBlocked) return { isReserved: false, isFixed: true };
+        }
+    }
+
+    // Check regular reservations
+    if (!areReservationsLoading && reservations) {
+        const reservationsForSlot = reservations.filter(res => {
+            if (!res.reservationDateTime) return false;
+            return (res.reservationDateTime as any).toDate().getTime() === slotDateTime;
+        });
+
+        if (reservationsForSlot.length > 0) {
+            for (const reservation of reservationsForSlot) {
+                for (const reservedCourtId of reservation.courtIds) {
+                    if (reservedCourtId === courtId) return { isReserved: true, isFixed: false };
+
+                    const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
+                    if (!reservedCourt) continue;
+
+                    if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                        const f7Number = reservedCourt.courtNumber;
+                        const f5Equivalent1 = (f7Number * 2) - 1;
+                        const f5Equivalent2 = f7Number * 2;
+                        if (courtToCheck.courtNumber === f5Equivalent1 || courtToCheck.courtNumber === f5Equivalent2) return { isReserved: true, isFixed: false };
+                    }
+                    
+                    if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                        const f7TargetNumber = courtToCheck.courtNumber;
+                        const f5Equivalent1 = (f7TargetNumber * 2) - 1;
+                        const f5Equivalent2 = f7TargetNumber * 2;
+                        if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) return { isReserved: true, isFixed: false };
+                    }
+                }
             }
         }
     }
 
-    return false;
-}, [reservations, areReservationsLoading, selectedDate, allCourts]);
+    return { isReserved: false, isFixed: false };
+}, [reservations, areReservationsLoading, selectedDate, allCourts, fixedReservations, areFixedReservationsLoading]);
 
   const handleTimeClick = useCallback((time: string) => {
     const currentTimes = form.getValues("times");
@@ -450,6 +477,7 @@ export default function ReservationPage() {
                         <FormItem>
                             <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
                                 {availableTimes.map(time => {
+                                    const { isReserved, isFixed } = isSlotBlocked(time, selectedCourtId);
                                     const [hour, minute] = time.split(':').map(Number);
                                     const timeDate = set(selectedDate, { hours: hour, minutes: minute });
                                     const isPastTime = isBefore(timeDate, new Date());
@@ -459,8 +487,9 @@ export default function ReservationPage() {
                                         time={time}
                                         selectedCourtId={selectedCourtId}
                                         selectedTimes={selectedTimes}
-                                        areReservationsLoading={areReservationsLoading}
-                                        isTimeSlotReserved={isTimeSlotReserved}
+                                        areReservationsLoading={areReservationsLoading || areFixedReservationsLoading}
+                                        isReserved={isReserved}
+                                        isFixed={isFixed}
                                         onTimeClick={handleTimeClick}
                                         isDisabledByTime={isPastTime}
                                     />

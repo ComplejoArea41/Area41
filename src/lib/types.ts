@@ -60,3 +60,13 @@ export interface LogoImage {
   isActive: boolean;
   storagePath?: string;
 }
+
+export interface FixedReservation {
+  id: string;
+  clientName: string;
+  phoneNumber?: string;
+  courtId: string;
+  dayOfWeek: number; // 0 = Sunday, 6 = Saturday
+  time: string; // "HH:mm"
+  isActive: boolean;
+}
