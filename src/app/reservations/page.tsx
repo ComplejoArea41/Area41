@@ -39,9 +39,9 @@ export default function ReservationPage() {
 
   const [selectedCourtType, setSelectedCourtType] = useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(startOfDay(new Date()));
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [dialogData, setDialogData] = useState<{time: string, date: Date}>({ time: '', date: new Date()});
 
   const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
@@ -55,7 +55,8 @@ export default function ReservationPage() {
   const reservationsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDate) return null;
     const start = startOfDay(selectedDate);
-    const end = addDays(start, 1);
+    // Fetch for two days to cover overnight bookings for the selected date.
+    const end = addDays(start, 2);
     return query(
       collection(firestore, 'reservations'),
       where('reservationDateTime', '>=', Timestamp.fromDate(start)),
@@ -78,12 +79,7 @@ export default function ReservationPage() {
   // Reset dependent selections when a higher-level selection changes
   useEffect(() => {
       setSelectedCourtId(null);
-      setSelectedTime(null);
   }, [selectedCourtType]);
-
-  useEffect(() => {
-      setSelectedTime(null);
-  }, [selectedCourtId, selectedDate]);
 
   const availableTimes = useMemo(() => {
     const slots = [];
@@ -96,52 +92,63 @@ export default function ReservationPage() {
     return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
   }, []);
 
-  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): boolean => {
-    if (!allCourts) return false;
+  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean } => {
+    if (!allCourts || !forDate) return { isBlocked: false, isFixed: false };
   
     const [hour, minute] = time.split(':').map(Number);
-    const slotDateTime = set(forDate, { hours: hour, minutes: minute }).getTime();
+    let checkDate = forDate;
+    
+    // If the time is in the early morning, it's for the next calendar day
+    if (hour >= 0 && hour < 8) {
+        checkDate = addDays(forDate, 1);
+    }
+
+    const slotDateTime = set(checkDate, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 }).getTime();
     const courtToCheck = allCourts.find(c => c.id === courtId);
-    if (!courtToCheck) return false;
+    if (!courtToCheck) return { isBlocked: false, isFixed: false };
   
     // Check fixed reservations
     if (fixedReservations) {
-      const dayOfWeek = forDate.getDay();
+      const dayOfWeek = checkDate.getDay();
       for (const fixedRes of fixedReservations) {
         if (!fixedRes.isActive || fixedRes.dayOfWeek !== dayOfWeek || fixedRes.time !== time) continue;
         
         const fixedCourt = allCourts.find(c => c.id === fixedRes.courtId);
         if (!fixedCourt) continue;
         
-        let isBlocked = false;
-        if (fixedCourt.id === courtId) isBlocked = true;
+        let isBlockedByFixed = false;
+        if (fixedCourt.id === courtId) isBlockedByFixed = true;
         else if (courtToCheck.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
-          if (courtToCheck.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === fixedCourt.courtNumber * 2) isBlocked = true;
+          if (courtToCheck.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === fixedCourt.courtNumber * 2) isBlockedByFixed = true;
         } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
-          if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === (courtToCheck.courtNumber * 2)) isBlocked = true;
+          if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === (courtToCheck.courtNumber * 2)) isBlockedByFixed = true;
         }
-        if (isBlocked) return true;
+        if (isBlockedByFixed) return { isBlocked: true, isFixed: true };
       }
     }
   
     // Check regular reservations
     if (reservations) {
-      const reservationsForSlot = reservations.filter(res => res.reservationDateTime && (res.reservationDateTime as any).toDate().getTime() === slotDateTime);
-      for (const reservation of reservationsForSlot) {
-        for (const reservedCourtId of reservation.courtIds) {
-          if (reservedCourtId === courtId) return true;
-          const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
-          if (!reservedCourt) continue;
-          if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-            if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === (reservedCourt.courtNumber * 2)) return true;
-          } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
-            if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) return true;
-          }
+      for (const reservation of reservations) {
+        if (!reservation.reservationDateTime) continue;
+        const resDateTime = (reservation.reservationDateTime as any).toDate().getTime();
+
+        if (resDateTime === slotDateTime) {
+            for (const reservedCourtId of reservation.courtIds) {
+                if (reservedCourtId === courtId) return { isBlocked: true, isFixed: false };
+                const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
+                if (!reservedCourt) continue;
+                if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === (reservedCourt.courtNumber * 2)) return { isBlocked: true, isFixed: false };
+                } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                    if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) return { isBlocked: true, isFixed: false };
+                }
+            }
         }
       }
     }
     
-    return false;
+    return { isBlocked: false, isFixed: false };
   }, [reservations, allCourts, fixedReservations]);
 
   const handleTimeSelect = (time: string) => {
@@ -153,12 +160,24 @@ export default function ReservationPage() {
         toast({ title: 'Perfil Incompleto', description: 'Por favor completa tu nombre, apellido y teléfono en tu perfil antes de reservar.', variant: 'destructive', action: (<Button onClick={() => router.push('/profile')}>Ir al Perfil</Button>) });
         return;
     }
-    setSelectedTime(time);
+    
+    const [hour] = time.split(':').map(Number);
+    let reservationDate = selectedDate;
+    if (hour >= 0 && hour < 8) { // Assuming hours 0-7 are for the next day
+      reservationDate = addDays(selectedDate!, 1);
+    }
+
+    setDialogData({
+      time: time,
+      date: reservationDate || new Date(),
+    });
     setIsDialogOpen(true);
   }
 
   async function confirmReservation() {
-    if (!user || !allCourts || !firestore || !selectedDate || !selectedTime || !selectedCourtId) return;
+    if (!user || !allCourts || !firestore || !selectedCourtId) return;
+
+    const { time, date } = dialogData;
 
     const courtToReserve = allCourts.find(c => c.id === selectedCourtId);
     if (!courtToReserve) return;
@@ -173,13 +192,11 @@ export default function ReservationPage() {
     }
   
     const reservationsCollection = collection(firestore, 'reservations');
-    const [hour, minute] = selectedTime.split(':').map(Number);
-    const reservationDateTime = set(selectedDate, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
       
     const reservationData = {
       userId: user.uid,
       courtIds: courtIdsToReserve, 
-      reservationDateTime: Timestamp.fromDate(reservationDateTime),
+      reservationDateTime: Timestamp.fromDate(date),
       durationMinutes: 60,
     };
     
@@ -207,8 +224,8 @@ export default function ReservationPage() {
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
       `*Cancha:* ${courtDescription}\n` +
-      `*Fecha:* ${format(selectedDate, 'dd/MM/yyyy')}\n` +
-      `*Horario:* ${selectedTime}\n` +
+      `*Fecha:* ${format(date, 'dd/MM/yyyy')}\n` +
+      `*Horario:* ${time}\n` +
       `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
       `*Nombre:* ${fullName}\n` +
       `*Teléfono:* ${phone}`
@@ -217,7 +234,6 @@ export default function ReservationPage() {
     const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
     window.open(whatsappUrl, '_blank');
   
-    setSelectedTime(null);
     setIsDialogOpen(false);
   }
   
@@ -249,7 +265,7 @@ export default function ReservationPage() {
               </TabsList>
             </Tabs>
           </div>
-
+          
           <div>
             <h3 className="mb-4 text-lg font-semibold">2. Elige la cancha</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -295,9 +311,9 @@ export default function ReservationPage() {
                             onClick={() => setSelectedDate(day)}
                             disabled={isBefore(day, startOfDay(new Date()))}
                           >
-                            <span className="text-xs font-medium text-muted-foreground">{dayLabel}</span>
+                            <span className="text-xs font-medium ">{dayLabel}</span>
                             <span className="text-2xl font-bold">{format(day, 'd')}</span>
-                            <span className="text-xs font-medium text-muted-foreground">{monthLabel}</span>
+                            <span className="text-xs font-medium ">{monthLabel}</span>
                           </Button>
                         </div>
                       </CarouselItem>
@@ -319,17 +335,28 @@ export default function ReservationPage() {
                 ) : (
                     availableTimes.map(time => {
                         const [hour] = time.split(':').map(Number);
-                        const timeDate = set(selectedDate, { hours: hour, minutes: 0 });
-                        const isPast = isSameDay(selectedDate, new Date()) && isBefore(timeDate, new Date());
-                        const isBlocked = isSlotBlocked(time, selectedCourtId, selectedDate);
+                        
+                        let dateForThisTime = selectedDate!;
+                        if (hour >= 0 && hour < 8) {
+                          dateForThisTime = addDays(dateForThisTime, 1);
+                        }
+                        
+                        const timeDate = set(dateForThisTime, { hours: hour, minutes: 0, seconds: 0, milliseconds: 0 });
+                        const isPast = isBefore(timeDate, new Date());
+                        
+                        const { isBlocked, isFixed } = isSlotBlocked(time, selectedCourtId, selectedDate!);
+                        
                         const isDisabled = isPast || isBlocked;
                         
                         return (
                             <Button 
                                 key={time} 
-                                variant="outline"
+                                variant={isFixed ? 'secondary' : 'outline'}
                                 disabled={isDisabled}
                                 onClick={() => handleTimeSelect(time)}
+                                className={cn({
+                                    "border-primary": isFixed,
+                                })}
                             >
                                 {time}
                             </Button>
