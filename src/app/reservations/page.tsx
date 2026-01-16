@@ -6,7 +6,6 @@ import { es } from 'date-fns/locale';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Card,
   CardContent,
@@ -86,6 +85,10 @@ export default function ReservationPage() {
     return slots;
   }, []);
 
+  const nextSevenDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+  }, []);
+
   const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): boolean => {
     if (!allCourts) return false;
   
@@ -108,7 +111,7 @@ export default function ReservationPage() {
         else if (courtToCheck.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
           if (courtToCheck.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === fixedCourt.courtNumber * 2) isBlocked = true;
         } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
-          if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === courtToCheck.courtNumber * 2) isBlocked = true;
+          if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === (courtToCheck.courtNumber * 2)) isBlocked = true;
         }
         if (isBlocked) return true;
       }
@@ -254,15 +257,30 @@ export default function ReservationPage() {
           {selectedCourtId && (
             <div>
               <h3 className="mb-4 text-lg font-semibold">2. Elige la fecha</h3>
-              <div className="rounded-md border">
-                <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    disabled={(date) => isBefore(date, startOfDay(new Date()))}
-                    initialFocus
-                    className="w-full"
-                />
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                {nextSevenDays.map((day) => {
+                    const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+                    
+                    let dayLabel = format(day, 'EEE', { locale: es });
+                    if (isSameDay(day, new Date())) {
+                        dayLabel = 'Hoy';
+                    } else if (isSameDay(day, addDays(new Date(), 1))) {
+                        dayLabel = 'Mañana';
+                    }
+
+                    return (
+                        <Button
+                            key={day.toISOString()}
+                            variant={isSelected ? 'default' : 'outline'}
+                            className="flex h-auto flex-col items-center justify-center gap-1 p-3 text-center"
+                            onClick={() => setSelectedDate(day)}
+                            disabled={isBefore(day, startOfDay(new Date()))}
+                        >
+                            <span className="text-xs font-medium uppercase text-muted-foreground">{dayLabel}</span>
+                            <span className="text-3xl font-bold">{format(day, 'd')}</span>
+                        </Button>
+                    );
+                })}
               </div>
             </div>
           )}
