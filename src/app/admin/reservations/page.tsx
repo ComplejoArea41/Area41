@@ -1,7 +1,6 @@
-
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, set, Timestamp } from 'firebase/firestore';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,14 +14,14 @@ import {
     DialogTitle,
   } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Goal } from 'lucide-react';
 import type { Reservation, User, Court } from '@/lib/types';
-import { format, startOfWeek, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfWeek, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 type FullReservation = Reservation & {
     user: User | null;
-    court: Court | null;
+    court: Court | null; // The court of the current calendar context
 };
 
 const hours = Array.from({ length: 18 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
@@ -32,12 +31,12 @@ export default function AdminReservationsCalendarPage() {
     const firestore = useFirestore();
     const router = useRouter();
 
-    const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
-
+    const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedReservation, setSelectedReservation] = useState<FullReservation | null>(null);
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+    
+    const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
     const reservationsRef = useMemoFirebase(() => collection(firestore, 'reservations'), [firestore]);
     const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsRef);
@@ -57,82 +56,145 @@ export default function AdminReservationsCalendarPage() {
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     const weekDays = useMemo(() => {
         return Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
     }, [weekStart]);
-
-    const reservationsByDayAndCourt = useMemo(() => {
-        if (!reservations || !users || !courts) return {};
-
-        const usersMap = new Map(users.map(u => [u.id, u]));
-        const courtsMap = new Map(courts.map(c => [c.id, c]));
+    
+    const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
+        if (!reservations || !users || !courts) return undefined;
         
-        const grouped: { [key: string]: FullReservation[] } = {};
-
-        reservations.forEach(res => {
-            const resDate = (res.reservationDateTime as any).toDate();
-            const dayKey = format(resDate, 'yyyy-MM-dd');
-
-            res.courtIds.forEach(courtId => {
-                const court = courtsMap.get(courtId);
-                 if (court && (court.courtType === 'Futbol 5' || court.courtType === 'Futbol 7')) {
-                    const parentF7 = court.courtType === 'Futbol 5' ? courts.find(c => c.courtType === 'Futbol 7' && (c.courtNumber * 2 - 1 === court.courtNumber || c.courtNumber * 2 === court.courtNumber)) : undefined;
-                    if (parentF7 && res.courtIds.includes(parentF7.id)) return;
-
-
-                    const fullRes: FullReservation = {
-                        ...res,
-                        user: usersMap.get(res.userId) || null,
-                        court,
-                    };
-                    
-                    if (!grouped[dayKey]) {
-                        grouped[dayKey] = [];
-                    }
-                    grouped[dayKey].push(fullRes);
-                }
-            });
+        const [hourNum] = hour.split(':').map(Number);
+        const slotDateTime = new Date(day);
+        slotDateTime.setHours(hourNum, 0, 0, 0);
+    
+        const courtToDisplay = courts.find(c => c.id === courtId);
+        if (!courtToDisplay) return undefined;
+    
+        const reservationsInSlot = reservations.filter(res => {
+            const resDateTime = (res.reservationDateTime as any).toDate();
+            return resDateTime.getTime() === slotDateTime.getTime();
         });
-        return grouped;
-    }, [reservations, users, courts]);
-
+    
+        if (reservationsInSlot.length === 0) return undefined;
+    
+        const usersMap = new Map(users.map(u => [u.id, u]));
+    
+        for (const reservation of reservationsInSlot) {
+            let isBlocked = false;
+            for (const reservedCourtId of reservation.courtIds) {
+                 if (reservedCourtId === courtId) {
+                    isBlocked = true;
+                    break;
+                 }
+    
+                 const reservedCourt = courts.find(c => c.id === reservedCourtId);
+                 if (!reservedCourt) continue;
+    
+                if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                    const f7Number = reservedCourt.courtNumber;
+                    const f5Equivalent1 = (f7Number * 2) - 1;
+                    const f5Equivalent2 = f7Number * 2;
+                    if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) {
+                        isBlocked = true;
+                        break;
+                    }
+                }
+                
+                if (courtToDisplay.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                     const f7TargetNumber = courtToDisplay.courtNumber;
+                     const f5Equivalent1 = (f7TargetNumber * 2) - 1;
+                     const f5Equivalent2 = f7TargetNumber * 2;
+                     if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
+                        isBlocked = true;
+                        break;
+                     }
+                }
+            }
+    
+            if (isBlocked) {
+                return {
+                    ...reservation,
+                    user: usersMap.get(reservation.userId) || null,
+                    court: courtToDisplay,
+                };
+            }
+        }
+    
+        return undefined;
+    };
+    
+    const sortedCourts = useMemo(() => courts?.filter(c => c.courtType === 'Futbol 5' || c.courtType === 'Futbol 7').sort((a, b) => {
+        if (a.courtType < b.courtType) return -1;
+        if (a.courtType > b.courtType) return 1;
+        return a.courtNumber - b.courtNumber;
+    }) || [], [courts]);
 
     const isLoading = isUserLoading || isProfileLoading || areReservationsLoading || areUsersLoading || areCourtsLoading;
 
     if (isLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
-                <p className="text-primary-foreground">Cargando calendario de reservas...</p>
+                <p className="text-primary-foreground">Cargando gestión de reservas...</p>
             </div>
         );
     }
     
-    const sortedCourts = courts?.filter(c => c.courtType === 'Futbol 5' || c.courtType === 'Futbol 7').sort((a, b) => {
-        if (a.courtType < b.courtType) return -1;
-        if (a.courtType > b.courtType) return 1;
-        return a.courtNumber - b.courtNumber;
-    }) || [];
+    if (!selectedCourt) {
+        const futbol5Courts = sortedCourts.filter(c => c.courtType === 'Futbol 5');
+        const futbol7Courts = sortedCourts.filter(c => c.courtType === 'Futbol 7');
 
-    const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
-        const dayKey = format(day, 'yyyy-MM-dd');
-        const dayReservations = reservationsByDayAndCourt[dayKey];
-        if (!dayReservations) return undefined;
-        
-        return dayReservations.find(res => {
-            const resDate = (res.reservationDateTime as any).toDate();
-            const resHour = format(resDate, 'HH:00');
-            return res.court?.id === courtId && resHour === hour;
-        });
+        return (
+            <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
+                <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
+                    <CardHeader>
+                        <CardTitle>Seleccionar Cancha</CardTitle>
+                        <CardDescription>
+                            Elige una cancha para ver su calendario de reservas.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-8">
+                         <div>
+                            <h3 className="text-2xl font-bold mb-4">Canchas de Fútbol 5</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {futbol5Courts.map(court => (
+                                    <Button key={court.id} variant="outline" className="h-20 text-lg" onClick={() => setSelectedCourt(court)}>
+                                        <Goal className="mr-2" /> Cancha {court.courtNumber}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-bold mb-4">Canchas de Fútbol 7</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {futbol7Courts.map(court => (
+                                    <Button key={court.id} variant="outline" className="h-20 text-lg" onClick={() => setSelectedCourt(court)}>
+                                       <Goal className="mr-2" /> Cancha {court.courtNumber}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
     }
 
     return (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
             <Card className="bg-card/80 backdrop-blur-sm w-full">
                 <CardHeader>
-                    <CardTitle>Calendario de Reservas</CardTitle>
-                    <CardDescription>
-                        Vista semanal de todas las reservas del complejo. Haz clic en una reserva para ver los detalles.
-                    </CardDescription>
+                    <div className="flex items-center gap-4">
+                         <Button variant="outline" size="icon" onClick={() => setSelectedCourt(null)}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <div>
+                            <CardTitle>Calendario de Reservas</CardTitle>
+                            <CardDescription>
+                                {`Mostrando reservas para ${selectedCourt.courtType} - Cancha ${selectedCourt.courtNumber}`}
+                            </CardDescription>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-between items-center mb-4">
@@ -148,42 +210,35 @@ export default function AdminReservationsCalendarPage() {
                     </div>
                     <div className="overflow-x-auto rounded-lg border">
                         <div className="grid grid-cols-[auto_repeat(7,minmax(140px,1fr))]">
-                            <div className="sticky left-0 bg-card z-10 p-2 border-r border-b font-semibold text-center">Cancha</div>
+                            <div className="sticky left-0 bg-card z-10 p-2 border-r border-b font-semibold text-center">Hora</div>
                             {weekDays.map(day => (
                                 <div key={day.toString()} className="p-2 border-b font-semibold text-center">
                                     {format(day, 'EEE d', { locale: es })}
                                 </div>
                             ))}
-                            {sortedCourts.map((court) => (
-                                <React.Fragment key={court.id}>
+                            {hours.map((hour) => (
+                                <React.Fragment key={hour}>
                                     <div className="sticky left-0 bg-card z-10 p-2 border-r flex items-center justify-center text-center font-medium">
-                                        {court.courtType} {court.courtNumber}
+                                        {hour}
                                     </div>
-                                    {weekDays.map((day) => (
-                                        <div key={`${day.toString()}-${court.id}`} className="border-b p-1 space-y-1 relative">
-                                            {hours.map(hour => {
-                                                const reservation = getReservationForSlot(day, hour, court.id);
-                                                return (
-                                                    <div key={hour} className="text-xs rounded-md">
-                                                        {reservation ? (
-                                                            <button
-                                                                onClick={() => setSelectedReservation(reservation)}
-                                                                className="w-full text-left p-1 rounded-md bg-primary/90 text-primary-foreground hover:bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-                                                            >
-                                                                <div className="font-semibold truncate">{reservation.user?.firstName}</div>
-                                                                <div className="opacity-80">{hour}</div>
-                                                            </button>
-                                                        ) : (
-                                                            <div className="p-1">
-                                                                <span className="text-muted-foreground">{hour}: </span>
-                                                                <span className="text-muted-foreground/50">Libre</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ))}
+                                    {weekDays.map((day) => {
+                                        const reservation = getReservationForSlot(day, hour, selectedCourt.id);
+                                        return (
+                                            <div key={`${day.toString()}-${hour}`} className="border-b p-1 h-16 flex items-center justify-center">
+                                                {reservation ? (
+                                                    <button
+                                                        onClick={() => setSelectedReservation(reservation)}
+                                                        className="w-full h-full text-left p-2 rounded-md bg-primary/90 text-primary-foreground hover:bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                                                    >
+                                                        <div className="font-semibold truncate">{reservation.user?.firstName}</div>
+                                                        <div className="text-xs opacity-80 truncate">{reservation.user?.lastName}</div>
+                                                    </button>
+                                                ) : (
+                                                    <div className="text-xs text-muted-foreground/50">Libre</div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </React.Fragment>
                             ))}
                         </div>
@@ -201,7 +256,7 @@ export default function AdminReservationsCalendarPage() {
                     </DialogHeader>
                     {selectedReservation && (
                         <div className="space-y-3 text-sm">
-                            <div>
+                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Cliente</h4>
                                 <p className="text-base">{selectedReservation.user?.firstName} {selectedReservation.user?.lastName}</p>
                             </div>
@@ -216,7 +271,7 @@ export default function AdminReservationsCalendarPage() {
                             <Separator className="my-4" />
                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Cancha</h4>
-                                <p>{selectedReservation.court?.courtType} {selectedReservation.court?.courtNumber}</p>
+                                <p>{selectedCourt.courtType} {selectedCourt.courtNumber}</p>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
