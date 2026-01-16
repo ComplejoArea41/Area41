@@ -1,29 +1,33 @@
 
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Reservation, User, Court } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, startOfWeek, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// New combined type
 type FullReservation = Reservation & {
     user: User | null;
-    courtDetails: { name: string, type: string }[];
+    court: Court | null;
 };
 
-export default function AdminReservationsPage() {
+const hours = Array.from({ length: 18 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+
+export default function AdminReservationsCalendarPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
+
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
 
     const reservationsRef = useMemoFirebase(() => collection(firestore, 'reservations'), [firestore]);
     const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsRef);
@@ -34,8 +38,6 @@ export default function AdminReservationsPage() {
     const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsRef);
 
-    const [searchTerm, setSearchTerm] = useState('');
-
     useEffect(() => {
         if (isUserLoading || isProfileLoading) return;
         if (!user) {
@@ -45,119 +47,133 @@ export default function AdminReservationsPage() {
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
-    const fullReservations = useMemo(() => {
-        if (!reservations || !users || !courts) return [];
+    const weekDays = useMemo(() => {
+        return Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
+    }, [weekStart]);
+
+    const reservationsByDayAndCourt = useMemo(() => {
+        if (!reservations || !users || !courts) return {};
 
         const usersMap = new Map(users.map(u => [u.id, u]));
         const courtsMap = new Map(courts.map(c => [c.id, c]));
+        
+        const grouped: { [key: string]: FullReservation[] } = {};
 
-        return reservations
-            .map((res): FullReservation => {
-                const courtDetails = res.courtIds
-                    .map(id => courtsMap.get(id))
-                    .filter((c): c is Court => !!c)
-                    // We only want to show the main court, not the sub-courts for F7
-                    .filter(c => {
-                        if (c.courtType === 'Futbol 5') {
-                            // if it's a F5 court, check if any of the other reserved courts is a F7 that contains it.
-                            const parentF7 = res.courtIds.map(id => courtsMap.get(id)).find(otherCourt => otherCourt?.courtType === 'Futbol 7');
-                            return !parentF7;
-                        }
-                        return true;
-                    })
-                    .map(c => ({ name: `Cancha ${c.courtNumber}`, type: c.courtType }));
-                
-                return {
-                    ...res,
-                    user: usersMap.get(res.userId) || null,
-                    courtDetails
-                };
-            })
-            .sort((a, b) => {
-                const dateA = (a.reservationDateTime as any)?.toDate() || 0;
-                const dateB = (b.reservationDateTime as any)?.toDate() || 0;
-                return dateB - dateA; // Sort descending
+        reservations.forEach(res => {
+            const resDate = (res.reservationDateTime as any).toDate();
+            const dayKey = format(resDate, 'yyyy-MM-dd');
+
+            res.courtIds.forEach(courtId => {
+                const court = courtsMap.get(courtId);
+                // Only process primary courts (F5 or F7), not the sub-courts of F7
+                 if (court && (court.courtType === 'Futbol 5' || court.courtType === 'Futbol 7')) {
+                    const parentF7 = court.courtType === 'Futbol 5' ? courts.find(c => c.courtType === 'Futbol 7' && (c.courtNumber * 2 - 1 === court.courtNumber || c.courtNumber * 2 === court.courtNumber)) : undefined;
+                    if (parentF7 && res.courtIds.includes(parentF7.id)) return;
+
+
+                    const fullRes: FullReservation = {
+                        ...res,
+                        user: usersMap.get(res.userId) || null,
+                        court,
+                    };
+                    
+                    if (!grouped[dayKey]) {
+                        grouped[dayKey] = [];
+                    }
+                    grouped[dayKey].push(fullRes);
+                }
             });
+        });
+        return grouped;
     }, [reservations, users, courts]);
 
-    const filteredReservations = useMemo(() => {
-        if (!searchTerm) return fullReservations;
-        return fullReservations.filter(res => {
-            const userName = `${res.user?.firstName || ''} ${res.user?.lastName || ''}`.toLowerCase();
-            const userPhone = res.user?.phoneNumber || '';
-            const search = searchTerm.toLowerCase();
-            return userName.includes(search) || userPhone.includes(search);
-        });
-    }, [fullReservations, searchTerm]);
 
     const isLoading = isUserLoading || isProfileLoading || areReservationsLoading || areUsersLoading || areCourtsLoading;
 
     if (isLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
-                <p className="text-primary-foreground">Cargando reservas...</p>
+                <p className="text-primary-foreground">Cargando calendario de reservas...</p>
             </div>
         );
+    }
+    
+    const sortedCourts = courts?.filter(c => c.courtType === 'Futbol 5' || c.courtType === 'Futbol 7').sort((a, b) => {
+        if (a.courtType < b.courtType) return -1;
+        if (a.courtType > b.courtType) return 1;
+        return a.courtNumber - b.courtNumber;
+    }) || [];
+
+    const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
+        const dayKey = format(day, 'yyyy-MM-dd');
+        const dayReservations = reservationsByDayAndCourt[dayKey];
+        if (!dayReservations) return undefined;
+        
+        return dayReservations.find(res => {
+            const resDate = (res.reservationDateTime as any).toDate();
+            const resHour = format(resDate, 'HH:00');
+            return res.court?.id === courtId && resHour === hour;
+        });
     }
 
     return (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-            <Card className="bg-card/80 backdrop-blur-sm w-full max-w-7xl">
+            <Card className="bg-card/80 backdrop-blur-sm w-full">
                 <CardHeader>
-                    <CardTitle>Historial de Reservas</CardTitle>
+                    <CardTitle>Calendario de Reservas</CardTitle>
                     <CardDescription>
-                        Un registro de todas las reservas hechas en el complejo.
+                        Vista semanal de todas las reservas del complejo.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="mb-4">
-                        <Input
-                            placeholder="Buscar por nombre o teléfono..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="max-w-sm"
-                        />
+                    <div className="flex justify-between items-center mb-4">
+                        <Button variant="outline" onClick={() => setCurrentDate(subDays(currentDate, 7))}>
+                            <ChevronLeft className="h-4 w-4 mr-2" /> Anterior
+                        </Button>
+                        <h3 className="text-xl font-semibold text-center">
+                            Semana del {format(weekStart, 'd \'de\' LLLL', { locale: es })}
+                        </h3>
+                        <Button variant="outline" onClick={() => setCurrentDate(addDays(currentDate, 7))}>
+                            Siguiente <ChevronRight className="h-4 w-4 ml-2" />
+                        </Button>
                     </div>
                     <div className="overflow-x-auto rounded-lg border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Cancha</TableHead>
-                                    <TableHead>Fecha</TableHead>
-                                    <TableHead>Horario</TableHead>
-                                    <TableHead>Nombre</TableHead>
-                                    <TableHead>Apellido</TableHead>
-                                    <TableHead>Teléfono</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredReservations.length > 0 ? (
-                                    filteredReservations.map((res) => (
-                                        <TableRow key={res.id}>
-                                            <TableCell>{res.courtDetails.map(c => `${c.type} - ${c.name}`).join(', ')}</TableCell>
-                                            <TableCell>
-                                                {res.reservationDateTime ? format((res.reservationDateTime as any).toDate(), 'dd/MM/yyyy', { locale: es }) : 'N/A'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {res.reservationDateTime ? format((res.reservationDateTime as any).toDate(), 'HH:mm', { locale: es }) : 'N/A'}
-                                            </TableCell>
-                                            <TableCell>{res.user?.firstName || 'N/A'}</TableCell>
-                                            <TableCell>{res.user?.lastName || 'N/A'}</TableCell>
-                                            <TableCell>{res.user?.phoneNumber || 'N/A'}</TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center">
-                                            {isLoading ? 'Cargando...' : 'No se encontraron reservas.'}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                        <div className="grid grid-cols-[auto_repeat(7,minmax(140px,1fr))]">
+                            <div className="sticky left-0 bg-card z-10 p-2 border-r border-b font-semibold text-center">Cancha</div>
+                            {weekDays.map(day => (
+                                <div key={day.toString()} className="p-2 border-b font-semibold text-center">
+                                    {format(day, 'EEE d', { locale: es })}
+                                </div>
+                            ))}
+                            {sortedCourts.map((court, courtIndex) => (
+                                <React.Fragment key={court.id}>
+                                    <div className="sticky left-0 bg-card z-10 p-2 border-r flex items-center justify-center text-center font-medium">
+                                        {court.courtType} {court.courtNumber}
+                                    </div>
+                                    {weekDays.map((day, dayIndex) => (
+                                        <div key={`${day.toString()}-${court.id}`} className="border-b p-1 space-y-1 relative">
+                                            {hours.map(hour => {
+                                                const reservation = getReservationForSlot(day, hour, court.id);
+                                                return (
+                                                    <div key={hour} className="text-xs p-1 rounded-md bg-muted/30">
+                                                        <span className="text-muted-foreground">{hour}: </span>
+                                                        {reservation ? (
+                                                            <span className="font-semibold text-primary">{reservation.user?.firstName}</span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground/50">Libre</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                                </React.Fragment>
+                            ))}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
         </div>
     );
 }
+
