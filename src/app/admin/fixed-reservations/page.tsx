@@ -215,9 +215,9 @@ export default function AdminFixedReservationsPage() {
     }
 
     const renderReservationCard = (item: FixedReservation) => (
-        <Card key={item.id} className="bg-secondary/90 text-secondary-foreground flex flex-col p-3 gap-2">
+        <Card key={item.id} className="bg-secondary/90 text-secondary-foreground flex flex-col p-2 gap-1.5">
             <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{item.clientName}</CardTitle>
+                <CardTitle className="text-base font-semibold">{item.clientName}</CardTitle>
                 <div className="flex items-center space-x-2">
                     <Switch
                         id={`active-switch-${item.id}`}
@@ -229,16 +229,16 @@ export default function AdminFixedReservationsPage() {
                 </div>
             </div>
             <div className="flex-grow">
-                <p className="text-sm opacity-80">{getCourtName(item.courtId)}</p>
-                <p className="text-base font-bold">{item.time} hs</p>
-                {item.phoneNumber && <p className="text-xs opacity-80">Tel: {item.phoneNumber}</p>}
+                <p className="text-xs opacity-80">{getCourtName(item.courtId)}</p>
+                <p className="text-sm font-bold">{item.time} hs</p>
+                {item.phoneNumber && <p className="text-xs opacity-70">Tel: {item.phoneNumber}</p>}
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-8 w-8">
-                    <Edit className="h-4 w-4" />
+            <div className="flex justify-end gap-1 pt-1">
+                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-7 w-7">
+                    <Edit className="h-3 w-3" />
                 </Button>
-                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-8 w-8">
-                    <Trash2 className="h-4 w-4" />
+                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-7 w-7">
+                    <Trash2 className="h-3 w-3" />
                 </Button>
             </div>
         </Card>
