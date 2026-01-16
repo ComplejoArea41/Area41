@@ -6,6 +6,15 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+  } from "@/components/ui/dialog";
+import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Reservation, User, Court } from '@/lib/types';
 import { format, startOfWeek, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -27,6 +36,7 @@ export default function AdminReservationsCalendarPage() {
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedReservation, setSelectedReservation] = useState<FullReservation | null>(null);
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
 
     const reservationsRef = useMemoFirebase(() => collection(firestore, 'reservations'), [firestore]);
@@ -65,7 +75,6 @@ export default function AdminReservationsCalendarPage() {
 
             res.courtIds.forEach(courtId => {
                 const court = courtsMap.get(courtId);
-                // Only process primary courts (F5 or F7), not the sub-courts of F7
                  if (court && (court.courtType === 'Futbol 5' || court.courtType === 'Futbol 7')) {
                     const parentF7 = court.courtType === 'Futbol 5' ? courts.find(c => c.courtType === 'Futbol 7' && (c.courtNumber * 2 - 1 === court.courtNumber || c.courtNumber * 2 === court.courtNumber)) : undefined;
                     if (parentF7 && res.courtIds.includes(parentF7.id)) return;
@@ -122,7 +131,7 @@ export default function AdminReservationsCalendarPage() {
                 <CardHeader>
                     <CardTitle>Calendario de Reservas</CardTitle>
                     <CardDescription>
-                        Vista semanal de todas las reservas del complejo.
+                        Vista semanal de todas las reservas del complejo. Haz clic en una reserva para ver los detalles.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -145,22 +154,30 @@ export default function AdminReservationsCalendarPage() {
                                     {format(day, 'EEE d', { locale: es })}
                                 </div>
                             ))}
-                            {sortedCourts.map((court, courtIndex) => (
+                            {sortedCourts.map((court) => (
                                 <React.Fragment key={court.id}>
                                     <div className="sticky left-0 bg-card z-10 p-2 border-r flex items-center justify-center text-center font-medium">
                                         {court.courtType} {court.courtNumber}
                                     </div>
-                                    {weekDays.map((day, dayIndex) => (
+                                    {weekDays.map((day) => (
                                         <div key={`${day.toString()}-${court.id}`} className="border-b p-1 space-y-1 relative">
                                             {hours.map(hour => {
                                                 const reservation = getReservationForSlot(day, hour, court.id);
                                                 return (
-                                                    <div key={hour} className="text-xs p-1 rounded-md bg-muted/30">
-                                                        <span className="text-muted-foreground">{hour}: </span>
+                                                    <div key={hour} className="text-xs rounded-md">
                                                         {reservation ? (
-                                                            <span className="font-semibold text-primary">{reservation.user?.firstName}</span>
+                                                            <button
+                                                                onClick={() => setSelectedReservation(reservation)}
+                                                                className="w-full text-left p-1 rounded-md bg-primary/90 text-primary-foreground hover:bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                                                            >
+                                                                <div className="font-semibold truncate">{reservation.user?.firstName}</div>
+                                                                <div className="opacity-80">{hour}</div>
+                                                            </button>
                                                         ) : (
-                                                            <span className="text-muted-foreground/50">Libre</span>
+                                                            <div className="p-1">
+                                                                <span className="text-muted-foreground">{hour}: </span>
+                                                                <span className="text-muted-foreground/50">Libre</span>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 );
@@ -173,7 +190,46 @@ export default function AdminReservationsCalendarPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Dialog open={!!selectedReservation} onOpenChange={(isOpen) => { if (!isOpen) setSelectedReservation(null) }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Detalles de la Reserva</DialogTitle>
+                        <DialogDescription>
+                            Información completa de la reserva y el cliente.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedReservation && (
+                        <div className="space-y-3 text-sm">
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Cliente</h4>
+                                <p className="text-base">{selectedReservation.user?.firstName} {selectedReservation.user?.lastName}</p>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Email</h4>
+                                <p>{selectedReservation.user?.email}</p>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Teléfono</h4>
+                                <p>{selectedReservation.user?.phoneNumber}</p>
+                            </div>
+                            <Separator className="my-4" />
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Cancha</h4>
+                                <p>{selectedReservation.court?.courtType} {selectedReservation.court?.courtNumber}</p>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
+                                <p>{format((selectedReservation.reservationDateTime as any).toDate(), "EEEE d 'de' LLLL 'a las' HH:mm 'hs'", { locale: es })}</p>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedReservation(null)}>Cerrar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
-
