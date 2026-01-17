@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { addDays, format, startOfDay, isBefore, set, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { es } from 'date-fns/locale/es';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -140,7 +140,7 @@ export default function ReservationPage() {
                 if (!reservedCourt) continue;
                 if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
                     if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === (reservedCourt.courtNumber * 2)) return { isBlocked: true, isFixed: false };
-                } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
+                } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
                     if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) return { isBlocked: true, isFixed: false };
                 }
             }
@@ -162,14 +162,14 @@ export default function ReservationPage() {
     }
     
     const [hour] = time.split(':').map(Number);
-    let reservationDate = selectedDate;
+    let reservationDate = selectedDate!;
     if (hour >= 0 && hour < 8) { // Assuming hours 0-7 are for the next day
       reservationDate = addDays(selectedDate!, 1);
     }
 
     setDialogData({
       time: time,
-      date: reservationDate || new Date(),
+      date: reservationDate,
     });
     setIsDialogOpen(true);
   }
