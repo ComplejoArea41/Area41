@@ -139,7 +139,7 @@ export default function ReservationPage() {
                 const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
                 if (!reservedCourt) continue;
                 if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === (reservedCourt.courtNumber * 2)) return { isBlocked: true, isFixed: false };
+                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === reservedCourt.courtNumber * 2) return { isBlocked: true, isFixed: false };
                 } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
                     if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) return { isBlocked: true, isFixed: false };
                 }
@@ -349,17 +349,41 @@ export default function ReservationPage() {
                         
                         const { isBlocked, isFixed } = isSlotBlocked(time, selectedCourtId, selectedDate!);
                         
-                        const isDisabled = isPast || isBlocked;
+                        if (isBlocked) {
+                            if (isFixed) {
+                                return (
+                                    <Button
+                                        key={time}
+                                        variant="secondary"
+                                        disabled
+                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full"
+                                        aria-label="Turno fijo"
+                                    >
+                                        Fijo
+                                    </Button>
+                                );
+                            } else {
+                                return (
+                                    <Button
+                                        key={time}
+                                        variant="destructive"
+                                        disabled
+                                        className="w-full"
+                                        aria-label="Reservado"
+                                    >
+                                        Reservado
+                                    </Button>
+                                );
+                            }
+                        }
                         
                         return (
                             <Button 
                                 key={time} 
-                                variant={isFixed ? 'secondary' : 'outline'}
-                                disabled={isDisabled}
+                                variant='outline'
+                                disabled={isPast}
                                 onClick={() => handleTimeSelect(time)}
-                                className={cn({
-                                    "border-primary": isFixed,
-                                })}
+                                aria-label={`Reservar a las ${time}`}
                             >
                                 {time}
                             </Button>
