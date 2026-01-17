@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { addDays, format, startOfDay, isBefore, set, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export default function ReservationPage() {
   const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
   const { data: allCourts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
-  const fixedReservationsRef = useMemoFirebase(() => collection(firestore, 'fixed_reservations'), [firestore]);
+  const fixedReservationsRef = useMemoFirebase(() => query(collection(firestore, 'fixed_reservations'), where('isActive', '==', true)), [firestore]);
   const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
   
   const reservationsQuery = useMemoFirebase(() => {
@@ -140,7 +140,7 @@ export default function ReservationPage() {
                 if (!reservedCourt) continue;
                 if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
                     if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === (reservedCourt.courtNumber * 2)) return { isBlocked: true, isFixed: false };
-                } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
                     if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) return { isBlocked: true, isFixed: false };
                 }
             }
