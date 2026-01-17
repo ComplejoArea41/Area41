@@ -175,31 +175,34 @@ export default function ReservationPage() {
   }
 
   async function confirmReservation() {
-    if (!user || !allCourts || !firestore || !selectedCourtId) return;
-
+    if (!user || !allCourts || !firestore || !selectedCourtId || !userProfile) return;
+  
     const { time, date } = dialogData;
-
+  
     const courtToReserve = allCourts.find(c => c.id === selectedCourtId);
     if (!courtToReserve) return;
-    
+  
     let courtIdsToReserve = [courtToReserve.id];
     if (courtToReserve.courtType === 'Futbol 7') {
-        const f7Number = courtToReserve.courtNumber;
-        const f5Court1 = allCourts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === (f7Number * 2) - 1);
-        const f5Court2 = allCourts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f7Number * 2);
-        if(f5Court1) courtIdsToReserve.push(f5Court1.id);
-        if(f5Court2) courtIdsToReserve.push(f5Court2.id);
+      const f7Number = courtToReserve.courtNumber;
+      const f5Court1 = allCourts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === (f7Number * 2) - 1);
+      const f5Court2 = allCourts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f7Number * 2);
+      if (f5Court1) courtIdsToReserve.push(f5Court1.id);
+      if (f5Court2) courtIdsToReserve.push(f5Court2.id);
     }
   
     const reservationsCollection = collection(firestore, 'reservations');
-      
+  
+    const [hour, minute] = time.split(':').map(Number);
+    const reservationFullDate = set(date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
+  
     const reservationData = {
       userId: user.uid,
-      courtIds: courtIdsToReserve, 
-      reservationDateTime: Timestamp.fromDate(date),
+      courtIds: courtIdsToReserve,
+      reservationDateTime: Timestamp.fromDate(reservationFullDate),
       durationMinutes: 60,
     };
-    
+  
     try {
       await addDoc(reservationsCollection, reservationData).catch(error => {
         const permissionError = new FirestorePermissionError({
@@ -210,12 +213,12 @@ export default function ReservationPage() {
         errorEmitter.emit('permission-error', permissionError);
         throw error;
       });
-    } catch(e) {
-      toast({ title: 'Error en la Reserva', description: 'No se pudo registrar la reserva. Por favor, inténtalo de nuevo.', variant: 'destructive'});
-      setIsDialogOpen(false); 
-      return; 
+    } catch (e) {
+      toast({ title: 'Error en la Reserva', description: 'No se pudo registrar la reserva. Por favor, inténtalo de nuevo.', variant: 'destructive' });
+      setIsDialogOpen(false);
+      return;
     }
-
+  
     const courtDescription = `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}`;
     const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
     const phone = userProfile.phoneNumber || 'No especificado';
@@ -224,7 +227,7 @@ export default function ReservationPage() {
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
       `*Cancha:* ${courtDescription}\n` +
-      `*Fecha:* ${format(date, 'dd/MM/yyyy')}\n` +
+      `*Fecha:* ${format(reservationFullDate, 'dd/MM/yyyy')}\n` +
       `*Horario:* ${time}\n` +
       `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
       `*Nombre:* ${fullName}\n` +
