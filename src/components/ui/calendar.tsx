@@ -3,7 +3,7 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
-import { es } from "date-fns/locale/es"
+import es from "date-fns/locale/es"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -55,8 +55,8 @@ function Calendar({
       weekStartsOn={1}
       locale={es}
       components={{
-        IconPrevious: () => <ChevronLeft className="h-4 w-4" />,
-        IconNext: () => <ChevronRight className="h-4 w-4" />,
+        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+        IconRight: () => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />
