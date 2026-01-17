@@ -3,7 +3,7 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
-import es from "date-fns/locale/es"
+import { es } from "date-fns/locale/es"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"

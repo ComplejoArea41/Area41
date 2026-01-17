@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, ChevronRight, ArrowLeft, Goal } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays } from 'date-fns';
-import es from 'date-fns/locale/es';
+import { es } from 'date-fns/locale/es';
 
 type FullReservation = Reservation & {
     user: User | null;
