@@ -44,7 +44,7 @@ service cloud.firestore {
       allow write: if isSignedIn() && isAdmin();
     }
 
-    match /menu_items/{docId} {
+    match /menu_items/{menuItemId} {
         allow read: if true;
         allow write: if isSignedIn() && isAdmin();
     }
@@ -58,7 +58,8 @@ service cloud.firestore {
     }
 
     match /fixed_reservations/{docId} {
-      allow read, write: if isSignedIn() && isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
     }
   }
 }
