@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { addDays, format, startOfDay, isBefore, set, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { es } from 'date-fns/locale/es';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, Firestor
 import { useRouter } from 'next/navigation';
 import type { Court, Reservation, FixedReservation } from '@/lib/types';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Loader2 } from 'lucide-react';
 
 
 export default function ReservationPage() {
@@ -42,6 +43,7 @@ export default function ReservationPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(startOfDay(new Date()));
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogData, setDialogData] = useState<{time: string, date: Date}>({ time: '', date: new Date()});
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
@@ -177,10 +179,15 @@ export default function ReservationPage() {
   async function confirmReservation() {
     if (!user || !allCourts || !firestore || !selectedCourtId || !userProfile) return;
   
+    setIsConfirming(true);
     const { time, date } = dialogData;
   
     const courtToReserve = allCourts.find(c => c.id === selectedCourtId);
-    if (!courtToReserve) return;
+    if (!courtToReserve) {
+        setIsConfirming(false);
+        setIsDialogOpen(false);
+        return;
+    }
   
     let courtIdsToReserve = [courtToReserve.id];
     if (courtToReserve.courtType === 'Futbol 7') {
@@ -395,7 +402,10 @@ export default function ReservationPage() {
           )}
         </CardContent>
       </Card>
-      <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <AlertDialog open={isDialogOpen} onOpenChange={(isOpen) => {
+          if (!isOpen) setIsConfirming(false);
+          setIsDialogOpen(isOpen);
+        }}>
           <AlertDialogContent>
           <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
@@ -404,9 +414,16 @@ export default function ReservationPage() {
               </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-              <AlertDialogCancel>Volver</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmReservation}>
-              Aceptar y Enviar WhatsApp
+              <AlertDialogCancel disabled={isConfirming}>Volver</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmReservation} disabled={isConfirming}>
+              {isConfirming ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Confirmando...
+                </>
+              ) : (
+                'Aceptar y Enviar WhatsApp'
+              )}
               </AlertDialogAction>
           </AlertDialogFooter>
           </AlertDialogContent>
