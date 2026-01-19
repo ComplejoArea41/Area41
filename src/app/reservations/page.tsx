@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { addDays, format, startOfDay, isBefore, set, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -235,7 +235,7 @@ export default function ReservationPage() {
     );
   
     const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
-    window.open(whatsappUrl, '_blank');
+    window.location.assign(whatsappUrl);
   
     setIsDialogOpen(false);
   }
