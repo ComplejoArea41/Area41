@@ -222,7 +222,7 @@ export default function ReservationPage() {
       });
     } catch (e) {
       toast({ title: 'Error en la Reserva', description: 'No se pudo registrar la reserva. Por favor, inténtalo de nuevo.', variant: 'destructive' });
-      setIsDialogOpen(false);
+      setIsConfirming(false);
       return;
     }
   
@@ -407,25 +407,30 @@ export default function ReservationPage() {
           setIsDialogOpen(isOpen);
         }}>
           <AlertDialogContent>
-          <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
-              <AlertDialogDescription>
-              ¡Estás a un paso de asegurar tu cancha! Se generará un mensaje de WhatsApp para que envíes y confirmes. Te recordamos que, para cancelar sin costo, es necesario avisar con la debida antelación. En caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias por tu compromiso!
-              </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-              <AlertDialogCancel disabled={isConfirming}>Volver</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmReservation} disabled={isConfirming}>
-              {isConfirming ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Confirmando...
-                </>
-              ) : (
-                'Aceptar y Enviar WhatsApp'
-              )}
-              </AlertDialogAction>
-          </AlertDialogFooter>
+            {isConfirming ? (
+              <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <h3 className="text-xl font-semibold">Procesando tu reserva...</h3>
+                <p className="text-muted-foreground">
+                  Espera un momento, te estamos redirigiendo a WhatsApp para que confirmes tu turno.
+                </p>
+              </div>
+            ) : (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
+                  <AlertDialogDescription>
+                  ¡Estás a un paso de asegurar tu cancha! Se generará un mensaje de WhatsApp para que envíes y confirmes. Te recordamos que, para cancelar sin costo, es necesario avisar con la debida antelación. En caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias por tu compromiso!
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmReservation}>
+                    Aceptar y Enviar WhatsApp
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            )}
           </AlertDialogContent>
       </AlertDialog>
     </div>
