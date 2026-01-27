@@ -11,6 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -116,7 +127,7 @@ export default function AdminFixedReservationsPage() {
         
                 if (courtA && courtB) {
                   if (courtA.courtType < courtB.courtType) return -1;
-                  if (courtA.courtType > courtB.courtType) return 1;
+                  if (courtA.courtType > b.courtType) return 1;
                   return (courtA.courtNumber || 0) - (courtB.courtNumber || 0);
                 }
                 return 0;
@@ -216,9 +227,27 @@ export default function AdminFixedReservationsPage() {
                 <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-5 w-5">
                     <Edit className="h-2.5 w-2.5" />
                 </Button>
-                <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-5 w-5">
-                    <Trash2 className="h-2.5 w-2.5" />
-                </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon" className="h-5 w-5">
+                            <Trash2 className="h-2.5 w-2.5" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro de cancelar el turno fijo?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta acción eliminará la reserva recurrente de forma permanente. No se podrá deshacer.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Volver</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>
+                                Confirmar Cancelación
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </Card>
     );

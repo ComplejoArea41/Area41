@@ -1,10 +1,20 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, doc, Timestamp } from 'firebase/firestore';
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Dialog,
     DialogContent,
@@ -17,7 +27,8 @@ import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, ChevronRight, ArrowLeft, Goal } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays } from 'date-fns';
-import { es } from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 type FullReservation = Reservation & {
     user: User | null;
@@ -31,10 +42,12 @@ export default function AdminReservationsCalendarPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
+    const { toast } = useToast();
 
     const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedReservation, setSelectedReservation] = useState<FullReservation | null>(null);
+    const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
     
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
@@ -64,6 +77,32 @@ export default function AdminReservationsCalendarPage() {
     const weekDays = useMemo(() => {
         return Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
     }, [weekStart]);
+
+    const handleCancelReservation = () => {
+        if (!selectedReservation || !firestore) return;
+
+        const isFixed = selectedReservation.isFixed;
+        const collectionName = isFixed ? 'fixed_reservations' : 'reservations';
+        const docRef = doc(firestore, collectionName, selectedReservation.id);
+
+        try {
+            deleteDocumentNonBlocking(docRef);
+            toast({
+                title: "Reserva cancelada",
+                description: `El turno ha sido eliminado correctamente.`,
+            });
+        } catch (error) {
+            console.error("Error cancelling reservation:", error);
+            toast({
+                variant: "destructive",
+                title: "Error al cancelar",
+                description: "No se pudo eliminar la reserva.",
+            });
+        }
+        
+        setIsCancelAlertOpen(false);
+        setSelectedReservation(null);
+    };
     
     const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
         if (!courts) return undefined;
@@ -330,11 +369,38 @@ export default function AdminReservationsCalendarPage() {
                              {selectedReservation.isFixed && <p className="text-center font-bold text-secondary-foreground bg-secondary p-2 rounded-md">Este es un turno fijo semanal.</p>}
                         </div>
                     )}
-                    <DialogFooter>
+                    <DialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
+                        <Button
+                            variant="destructive"
+                            onClick={() => setIsCancelAlertOpen(true)}
+                            disabled={!selectedReservation}
+                         >
+                            Cancelar Reserva
+                        </Button>
                         <Button variant="outline" onClick={() => setSelectedReservation(null)}>Cerrar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás realmente seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {selectedReservation?.isFixed 
+                                ? "Esta acción eliminará el TURNO FIJO de forma permanente. Todas las futuras reservas para este turno se cancelarán."
+                                : "Esta acción cancelará la reserva de forma permanente. No se podrá deshacer."
+                            }
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Volver</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleCancelReservation}>
+                            Confirmar Cancelación
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
         </div>
     );
