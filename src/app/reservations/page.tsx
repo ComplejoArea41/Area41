@@ -363,19 +363,19 @@ export default function ReservationPage() {
                                         key={time}
                                         variant="secondary"
                                         disabled
-                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full"
+                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100"
                                         aria-label="Turno fijo"
                                     >
                                         Fijo
                                     </Button>
                                 );
                             } else {
+                                const bgColor = selectedCourtType === 'Futbol 5' ? 'bg-red-600' : 'bg-orange-500';
                                 return (
                                     <Button
                                         key={time}
-                                        variant="destructive"
                                         disabled
-                                        className="w-full"
+                                        className={cn("w-full text-white opacity-100 border-0", bgColor)}
                                         aria-label="Reservado"
                                     >
                                         Reservado

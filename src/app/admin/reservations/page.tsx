@@ -29,6 +29,7 @@ import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type FullReservation = Reservation & {
     user: User | null;
@@ -317,7 +318,14 @@ export default function AdminReservationsCalendarPage() {
                                                 {reservation ? (
                                                     <button
                                                         onClick={() => setSelectedReservation(reservation)}
-                                                        className={`w-full h-full text-left p-2 rounded-md ${reservation.isFixed ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90' : 'bg-primary/90 text-primary-foreground hover:bg-primary'} transition-colors focus:outline-none focus:ring-2 focus:ring-ring`}
+                                                        className={cn(
+                                                            "w-full h-full text-left p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                                                            reservation.isFixed 
+                                                                ? "bg-[#800000] text-white hover:bg-[#800000]/90" 
+                                                                : (selectedCourt.courtType === 'Futbol 5' 
+                                                                    ? "bg-red-600 text-white hover:bg-red-700" 
+                                                                    : "bg-orange-500 text-white hover:bg-orange-600")
+                                                        )}
                                                     >
                                                         <div className="font-semibold truncate">{reservation.user?.firstName}</div>
                                                         <div className="text-xs opacity-80 truncate">{reservation.user?.lastName}</div>
@@ -366,7 +374,7 @@ export default function AdminReservationsCalendarPage() {
                                 <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
                                 <p>{format((selectedReservation.reservationDateTime as any).toDate(), "EEEE d 'de' LLLL 'a las' HH:mm 'hs'", { locale: es })}</p>
                             </div>
-                             {selectedReservation.isFixed && <p className="text-center font-bold text-secondary-foreground bg-secondary p-2 rounded-md">Este es un turno fijo semanal.</p>}
+                             {selectedReservation.isFixed && <p className="text-center font-bold text-secondary-foreground bg-[#800000] p-2 rounded-md text-white">Este es un turno fijo semanal.</p>}
                         </div>
                     )}
                     <DialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
