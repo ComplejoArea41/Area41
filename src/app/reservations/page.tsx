@@ -372,8 +372,7 @@ export default function ReservationPage() {
                                         className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100 flex flex-col items-center justify-center p-0 h-10"
                                         aria-label="Turno fijo"
                                     >
-                                        <span className="text-[10px] leading-none">Fijo</span>
-                                        <span className="text-xs font-bold leading-none">{typeSuffix}</span>
+                                        <span className="text-[10px] leading-none">Fijo {typeSuffix}</span>
                                     </Button>
                                 );
                             } else {
@@ -385,8 +384,7 @@ export default function ReservationPage() {
                                         className={cn("w-full text-white opacity-100 border-0 flex flex-col items-center justify-center p-0 h-10", bgColor)}
                                         aria-label="Reservado"
                                     >
-                                        <span className="text-[10px] leading-none">Reser.</span>
-                                        <span className="text-xs font-bold leading-none">{typeSuffix}</span>
+                                        <span className="text-[10px] leading-none">Reservado {typeSuffix}</span>
                                     </Button>
                                 );
                             }
