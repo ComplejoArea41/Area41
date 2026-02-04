@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -94,7 +95,7 @@ export default function ReservationPage() {
     return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
   }, []);
 
-  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean } => {
+  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean; reservedCourtType?: string } => {
     if (!allCourts || !forDate) return { isBlocked: false, isFixed: false };
   
     const [hour, minute] = time.split(':').map(Number);
@@ -125,7 +126,7 @@ export default function ReservationPage() {
         } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
           if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === (courtToCheck.courtNumber * 2)) isBlockedByFixed = true;
         }
-        if (isBlockedByFixed) return { isBlocked: true, isFixed: true };
+        if (isBlockedByFixed) return { isBlocked: true, isFixed: true, reservedCourtType: fixedCourt.courtType };
       }
     }
   
@@ -137,14 +138,18 @@ export default function ReservationPage() {
 
         if (resDateTime === slotDateTime) {
             for (const reservedCourtId of reservation.courtIds) {
-                if (reservedCourtId === courtId) return { isBlocked: true, isFixed: false };
                 const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
                 if (!reservedCourt) continue;
-                if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === reservedCourt.courtNumber * 2) return { isBlocked: true, isFixed: false };
+
+                let blocksThisSlot = false;
+                if (reservedCourtId === courtId) blocksThisSlot = true;
+                else if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === reservedCourt.courtNumber * 2) blocksThisSlot = true;
                 } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
-                    if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) return { isBlocked: true, isFixed: false };
+                    if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) blocksThisSlot = true;
                 }
+
+                if (blocksThisSlot) return { isBlocked: true, isFixed: false, reservedCourtType: reservedCourt.courtType };
             }
         }
       }
@@ -354,31 +359,34 @@ export default function ReservationPage() {
                         const timeDate = set(dateForThisTime, { hours: hour, minutes: 0, seconds: 0, milliseconds: 0 });
                         const isPast = isBefore(timeDate, new Date());
                         
-                        const { isBlocked, isFixed } = isSlotBlocked(time, selectedCourtId, selectedDate!);
+                        const { isBlocked, isFixed, reservedCourtType } = isSlotBlocked(time, selectedCourtId, selectedDate!);
                         
                         if (isBlocked) {
+                            const typeSuffix = reservedCourtType === 'Futbol 7' ? '7' : '5';
                             if (isFixed) {
                                 return (
                                     <Button
                                         key={time}
                                         variant="secondary"
                                         disabled
-                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100"
+                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100 flex flex-col items-center justify-center p-0 h-10"
                                         aria-label="Turno fijo"
                                     >
-                                        Fijo
+                                        <span className="text-[10px] leading-none">Fijo</span>
+                                        <span className="text-xs font-bold leading-none">{typeSuffix}</span>
                                     </Button>
                                 );
                             } else {
-                                const bgColor = selectedCourtType === 'Futbol 5' ? 'bg-red-600' : 'bg-orange-500';
+                                const bgColor = reservedCourtType === 'Futbol 5' ? 'bg-red-600' : 'bg-orange-500';
                                 return (
                                     <Button
                                         key={time}
                                         disabled
-                                        className={cn("w-full text-white opacity-100 border-0", bgColor)}
+                                        className={cn("w-full text-white opacity-100 border-0 flex flex-col items-center justify-center p-0 h-10", bgColor)}
                                         aria-label="Reservado"
                                     >
-                                        Reservado
+                                        <span className="text-[10px] leading-none">Reser.</span>
+                                        <span className="text-xs font-bold leading-none">{typeSuffix}</span>
                                     </Button>
                                 );
                             }

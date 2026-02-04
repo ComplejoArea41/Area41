@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { collection, doc, Timestamp } from 'firebase/firestore';
@@ -33,7 +34,7 @@ import { cn } from '@/lib/utils';
 
 type FullReservation = Reservation & {
     user: User | null;
-    court: Court | null; // The court of the current calendar context
+    court: Court | null; // The actual court that holds the reservation
     isFixed?: boolean;
 };
 
@@ -124,22 +125,22 @@ export default function AdminReservationsCalendarPage() {
             });
     
             for (const reservation of reservationsInSlot) {
-                let isBlocked = false;
+                let blockingCourt: Court | null = null;
                 for (const reservedCourtId of reservation.courtIds) {
-                     if (reservedCourtId === courtId) {
-                        isBlocked = true;
-                        break;
-                     }
-        
                      const reservedCourt = courts.find(c => c.id === reservedCourtId);
                      if (!reservedCourt) continue;
+
+                     if (reservedCourtId === courtId) {
+                        blockingCourt = reservedCourt;
+                        break;
+                     }
         
                     if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
                         const f7Number = reservedCourt.courtNumber;
                         const f5Equivalent1 = (f7Number * 2) - 1;
                         const f5Equivalent2 = f7Number * 2;
                         if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) {
-                            isBlocked = true;
+                            blockingCourt = reservedCourt;
                             break;
                         }
                     }
@@ -149,17 +150,17 @@ export default function AdminReservationsCalendarPage() {
                          const f5Equivalent1 = (f7TargetNumber * 2) - 1;
                          const f5Equivalent2 = f7TargetNumber * 2;
                          if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
-                            isBlocked = true;
+                            blockingCourt = reservedCourt;
                             break;
                          }
                     }
                 }
         
-                if (isBlocked) {
+                if (blockingCourt) {
                     return {
                         ...reservation,
                         user: usersMap.get(reservation.userId) || null,
-                        court: courtToDisplay,
+                        court: blockingCourt,
                         isFixed: false,
                     };
                 }
@@ -172,25 +173,25 @@ export default function AdminReservationsCalendarPage() {
             const matchingFixedReservations = fixedReservations.filter(fr => fr.isActive && fr.dayOfWeek === dayOfWeek && fr.time === hour);
             
             for (const fixedRes of matchingFixedReservations) {
-                let isBlocked = false;
+                let blockingCourt: Court | null = null;
                 const fixedCourt = courts.find(c => c.id === fixedRes.courtId);
                 if (!fixedCourt) continue;
 
                 if (fixedCourt.id === courtId) {
-                    isBlocked = true;
+                    blockingCourt = fixedCourt;
                 } else if (courtToDisplay.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
                     const f7Number = fixedCourt.courtNumber;
                     const f5Equivalent1 = (f7Number * 2) - 1;
                     const f5Equivalent2 = f7Number * 2;
-                    if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) isBlocked = true;
+                    if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) blockingCourt = fixedCourt;
                 } else if (courtToDisplay.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
                     const f7TargetNumber = courtToDisplay.courtNumber;
                     const f5Equivalent1 = (f7TargetNumber * 2) - 1;
                     const f5Equivalent2 = f7TargetNumber * 2;
-                    if (fixedCourt.courtNumber === f5Equivalent1 || fixedCourt.courtNumber === f5Equivalent2) isBlocked = true;
+                    if (fixedCourt.courtNumber === f5Equivalent1 || fixedCourt.courtNumber === f5Equivalent2) blockingCourt = fixedCourt;
                 }
 
-                if (isBlocked) {
+                if (blockingCourt) {
                     return {
                         id: fixedRes.id,
                         userId: 'fixed-user',
@@ -204,7 +205,7 @@ export default function AdminReservationsCalendarPage() {
                             email: 'N/A',
                             phoneNumber: fixedRes.phoneNumber || 'N/A'
                         },
-                        court: courtToDisplay,
+                        court: blockingCourt,
                         isFixed: true
                     }
                 }
@@ -313,22 +314,25 @@ export default function AdminReservationsCalendarPage() {
                                     </div>
                                     {weekDays.map((day) => {
                                         const reservation = getReservationForSlot(day, hour, selectedCourt.id);
+                                        const typeSuffix = reservation?.court?.courtType === 'Futbol 7' ? '7' : '5';
+                                        const labelPrefix = reservation?.isFixed ? 'Fijo' : 'Reservado';
+
                                         return (
                                             <div key={`${day.toString()}-${hour}`} className="border-b p-1 h-16 flex items-center justify-center">
                                                 {reservation ? (
                                                     <button
                                                         onClick={() => setSelectedReservation(reservation)}
                                                         className={cn(
-                                                            "w-full h-full text-left p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                                                            "w-full h-full text-left p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 flex flex-col justify-center",
                                                             reservation.isFixed 
                                                                 ? "bg-[#800000] text-white hover:bg-[#800000]/90" 
-                                                                : (selectedCourt.courtType === 'Futbol 5' 
+                                                                : (reservation.court?.courtType === 'Futbol 5' 
                                                                     ? "bg-red-600 text-white hover:bg-red-700" 
                                                                     : "bg-orange-500 text-white hover:bg-orange-600")
                                                         )}
                                                     >
-                                                        <div className="font-semibold truncate">{reservation.user?.firstName}</div>
-                                                        <div className="text-xs opacity-80 truncate">{reservation.user?.lastName}</div>
+                                                        <div className="font-semibold truncate text-xs">{reservation.user?.firstName}</div>
+                                                        <div className="text-[10px] font-bold opacity-90">{labelPrefix} {typeSuffix}</div>
                                                     </button>
                                                 ) : (
                                                     <div className="text-xs text-muted-foreground/50">Libre</div>
@@ -367,8 +371,8 @@ export default function AdminReservationsCalendarPage() {
                             </div>
                             <Separator className="my-4" />
                             <div>
-                                <h4 className="font-semibold text-muted-foreground">Cancha</h4>
-                                <p>{selectedCourt.courtType} {selectedCourt.courtNumber}</p>
+                                <h4 className="font-semibold text-muted-foreground">Cancha Reservada</h4>
+                                <p>{selectedReservation.court?.courtType} {selectedReservation.court?.courtNumber}</p>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
