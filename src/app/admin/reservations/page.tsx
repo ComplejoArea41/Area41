@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, Timestamp, increment, updateDoc } from 'firebase/firestore';
+import { collection, doc, Timestamp, increment, updateDoc, writeBatch } from 'firebase/firestore';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,16 +24,17 @@ import {
     DialogTitle,
   } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle, History } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle, History, Edit } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
-import { format, startOfWeek, addDays, subDays } from 'date-fns';
+import { format, startOfWeek, addDays, subDays, set } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 type FullReservation = Reservation & {
     user: User | null;
-    court: Court | null; // The actual court that holds the reservation
+    court: Court | null; 
     isFixed?: boolean;
     hasConflict?: boolean;
 };
@@ -51,6 +52,13 @@ export default function AdminReservationsCalendarPage() {
     const [selectedReservation, setSelectedReservation] = useState<FullReservation | null>(null);
     const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
     
+    // Edit states
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        courtId: '',
+        time: '',
+    });
+
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
@@ -88,7 +96,6 @@ export default function AdminReservationsCalendarPage() {
         const docRef = doc(firestore, collectionName, selectedReservation.id);
 
         try {
-            // Incrementar contador de cancelaciones del usuario si no es un turno fijo genérico
             if (!isFixed && selectedReservation.userId && selectedReservation.userId !== 'fixed-user') {
                 const userDocRef = doc(firestore, 'users', selectedReservation.userId);
                 await updateDoc(userDocRef, {
@@ -113,6 +120,60 @@ export default function AdminReservationsCalendarPage() {
         setIsCancelAlertOpen(false);
         setSelectedReservation(null);
     };
+
+    const handleOpenEdit = () => {
+        if (!selectedReservation) return;
+        setEditFormData({
+            courtId: selectedReservation.court?.id || '',
+            time: format((selectedReservation.reservationDateTime as any).toDate(), 'HH:mm'),
+        });
+        setIsEditDialogOpen(true);
+    };
+
+    const handleUpdateReservation = async () => {
+        if (!selectedReservation || !firestore || !courts) return;
+
+        const isFixed = selectedReservation.isFixed;
+        
+        if (isFixed) {
+            // Redirect to Fixed Reservations page or handle here. For now, let's inform.
+            toast({ title: "Edición de turno fijo", description: "Para editar un turno fijo, por favor dirígete a la sección de 'Turnos Fijos'." });
+            router.push('/admin/fixed-reservations');
+            return;
+        }
+
+        const resRef = doc(firestore, 'reservations', selectedReservation.id);
+        const newCourt = courts.find(c => c.id === editFormData.courtId);
+        if (!newCourt) return;
+
+        // Calculate new court IDs (Fútbol 7 blocks 2 courts of 5)
+        let newCourtIds = [newCourt.id];
+        if (newCourt.courtType === 'Futbol 7') {
+            const f7Num = newCourt.courtNumber;
+            const f5_1 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === (f7Num * 2) - 1);
+            const f5_2 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f7Num * 2);
+            if (f5_1) newCourtIds.push(f5_1.id);
+            if (f5_2) newCourtIds.push(f5_2.id);
+        }
+
+        // Calculate new timestamp
+        const currentResDate = (selectedReservation.reservationDateTime as any).toDate();
+        const [hour, min] = editFormData.time.split(':').map(Number);
+        const newDate = set(currentResDate, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
+
+        try {
+            await updateDoc(resRef, {
+                courtIds: newCourtIds,
+                reservationDateTime: Timestamp.fromDate(newDate)
+            });
+            toast({ title: "Turno actualizado", description: "La reserva ha sido modificada correctamente." });
+            setIsEditDialogOpen(false);
+            setSelectedReservation(null);
+        } catch (error) {
+            console.error("Error updating reservation:", error);
+            toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar la reserva." });
+        }
+    };
     
     const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
         if (!courts) return undefined;
@@ -127,7 +188,6 @@ export default function AdminReservationsCalendarPage() {
         let regularMatch: FullReservation | undefined;
         let fixedMatch: FullReservation | undefined;
 
-        // 1. Check for regular reservations
         if (reservations && users) {
             const usersMap = new Map(users.map(u => [u.id, u]));
             const reservationsInSlot = reservations.filter(res => {
@@ -179,7 +239,6 @@ export default function AdminReservationsCalendarPage() {
             }
         }
 
-        // 2. Check for fixed reservations
         if (fixedReservations) {
             const dayOfWeek = day.getDay();
             const matchingFixedReservations = fixedReservations.filter(fr => fr.isActive && fr.dayOfWeek === dayOfWeek && fr.time === hour);
@@ -425,14 +484,78 @@ export default function AdminReservationsCalendarPage() {
                         </div>
                     )}
                     <DialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
-                        <Button
-                            variant="destructive"
-                            onClick={() => setIsCancelAlertOpen(true)}
-                            disabled={!selectedReservation}
-                         >
-                            Cancelar Reserva
-                        </Button>
-                        <Button variant="outline" onClick={() => setSelectedReservation(null)}>Cerrar</Button>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <Button
+                                variant="destructive"
+                                onClick={() => setIsCancelAlertOpen(true)}
+                                disabled={!selectedReservation}
+                                className="flex-1 sm:flex-none"
+                            >
+                                Cancelar Turno
+                            </Button>
+                            {!selectedReservation?.isFixed && (
+                                <Button
+                                    variant="outline"
+                                    onClick={handleOpenEdit}
+                                    className="flex-1 sm:flex-none"
+                                >
+                                    <Edit className="mr-2 h-4 w-4" /> Modificar Turno
+                                </Button>
+                            )}
+                        </div>
+                        <Button variant="ghost" onClick={() => setSelectedReservation(null)}>Cerrar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Modificar Reserva</DialogTitle>
+                        <DialogDescription>
+                            Cambia la cancha o el horario de esta reserva puntual.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <label className="text-right text-sm font-medium">Cancha</label>
+                            <Select 
+                                value={editFormData.courtId} 
+                                onValueChange={(val) => setEditFormData(prev => ({...prev, courtId: val}))}
+                            >
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Selecciona cancha" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {sortedCourts.map(c => (
+                                        <SelectItem key={c.id} value={c.id}>
+                                            {c.courtType} - Cancha {c.courtNumber}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <label className="text-right text-sm font-medium">Hora</label>
+                            <Select 
+                                value={editFormData.time} 
+                                onValueChange={(val) => setEditFormData(prev => ({...prev, time: val}))}
+                            >
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Selecciona hora" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {hours.map(h => (
+                                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleUpdateReservation}>Guardar Cambios</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
