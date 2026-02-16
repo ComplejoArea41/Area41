@@ -25,7 +25,7 @@ import {
     DialogTitle,
   } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight, ArrowLeft, Goal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -36,6 +36,7 @@ type FullReservation = Reservation & {
     user: User | null;
     court: Court | null; // The actual court that holds the reservation
     isFixed?: boolean;
+    hasConflict?: boolean;
 };
 
 const hours = Array.from({ length: 18 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
@@ -116,6 +117,9 @@ export default function AdminReservationsCalendarPage() {
         const courtToDisplay = courts.find(c => c.id === courtId);
         if (!courtToDisplay) return undefined;
     
+        let regularMatch: FullReservation | undefined;
+        let fixedMatch: FullReservation | undefined;
+
         // 1. Check for regular reservations
         if (reservations && users) {
             const usersMap = new Map(users.map(u => [u.id, u]));
@@ -157,12 +161,13 @@ export default function AdminReservationsCalendarPage() {
                 }
         
                 if (blockingCourt) {
-                    return {
+                    regularMatch = {
                         ...reservation,
                         user: usersMap.get(reservation.userId) || null,
                         court: blockingCourt,
                         isFixed: false,
                     };
+                    break;
                 }
             }
         }
@@ -192,7 +197,7 @@ export default function AdminReservationsCalendarPage() {
                 }
 
                 if (blockingCourt) {
-                    return {
+                    fixedMatch = {
                         id: fixedRes.id,
                         userId: 'fixed-user',
                         courtIds: [fixedRes.courtId],
@@ -208,11 +213,16 @@ export default function AdminReservationsCalendarPage() {
                         court: blockingCourt,
                         isFixed: true
                     }
+                    break;
                 }
             }
         }
     
-        return undefined;
+        if (regularMatch && fixedMatch) {
+            return { ...regularMatch, hasConflict: true };
+        }
+
+        return regularMatch || fixedMatch;
     };
     
     const sortedCourts = useMemo(() => courts?.filter(c => c.courtType === 'Futbol 5' || c.courtType === 'Futbol 7').sort((a, b) => {
@@ -323,16 +333,24 @@ export default function AdminReservationsCalendarPage() {
                                                     <button
                                                         onClick={() => setSelectedReservation(reservation)}
                                                         className={cn(
-                                                            "w-full h-full text-left p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 flex flex-col justify-center",
-                                                            reservation.isFixed 
-                                                                ? "bg-[#800000] text-white hover:bg-[#800000]/90" 
-                                                                : (reservation.court?.courtType === 'Futbol 5' 
-                                                                    ? "bg-red-600 text-white hover:bg-red-700" 
-                                                                    : "bg-orange-500 text-white hover:bg-orange-600")
+                                                            "w-full h-full text-left p-2 rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 flex flex-col justify-center relative",
+                                                            reservation.hasConflict 
+                                                                ? "bg-yellow-500 text-black hover:bg-yellow-600 border-2 border-dashed border-red-600" 
+                                                                : (reservation.isFixed 
+                                                                    ? "bg-[#800000] text-white hover:bg-[#800000]/90" 
+                                                                    : (reservation.court?.courtType === 'Futbol 5' 
+                                                                        ? "bg-red-600 text-white hover:bg-red-700" 
+                                                                        : "bg-orange-500 text-white hover:bg-orange-600"))
                                                         )}
                                                     >
-                                                        <div className="font-semibold truncate text-xs">{reservation.user?.firstName}</div>
-                                                        <div className="text-[10px] font-bold opacity-90">{labelPrefix} {typeSuffix}</div>
+                                                        <div className="font-semibold truncate text-[10px] leading-tight">{reservation.user?.firstName}</div>
+                                                        <div className="text-[9px] font-bold opacity-90">
+                                                            {reservation.hasConflict ? (
+                                                                <span className="flex items-center gap-0.5"><AlertTriangle className="h-2 w-2"/> CONFLICTO</span>
+                                                            ) : (
+                                                                `${labelPrefix} ${typeSuffix}`
+                                                            )}
+                                                        </div>
                                                     </button>
                                                 ) : (
                                                     <div className="text-xs text-muted-foreground/50">Libre</div>
@@ -357,6 +375,12 @@ export default function AdminReservationsCalendarPage() {
                     </DialogHeader>
                     {selectedReservation && (
                         <div className="space-y-3 text-sm">
+                             {selectedReservation.hasConflict && (
+                                <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 text-yellow-700 mb-4">
+                                    <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4"/> ATENCIÓN: Superposición detectada</p>
+                                    <p>Existe un turno fijo y una reserva puntual ocupando este mismo horario. Por favor, verifica con los clientes.</p>
+                                </div>
+                             )}
                              <div>
                                 <h4 className="font-semibold text-muted-foreground">Cliente</h4>
                                 <p className="text-base">{selectedReservation.user?.firstName} {selectedReservation.user?.lastName}</p>

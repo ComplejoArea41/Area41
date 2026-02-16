@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -36,8 +37,9 @@ import { collection, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { FixedReservation, Court } from "@/lib/types";
-import { Trash2, Edit, PlusCircle, CalendarClock } from "lucide-react";
+import type { FixedReservation, Court, Reservation } from "@/lib/types";
+import { Trash2, Edit, PlusCircle, CalendarClock, AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
 
 type FormData = Omit<FixedReservation, 'id'>;
 
@@ -78,6 +80,9 @@ export default function AdminFixedReservationsPage() {
 
     const fixedReservationsRef = useMemoFirebase(() => collection(firestore, 'fixed_reservations'), [firestore]);
     const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
+
+    const reservationsRef = useMemoFirebase(() => collection(firestore, 'reservations'), [firestore]);
+    const { data: allReservations } = useCollection<Reservation>(reservationsRef);
 
     const [isSaving, setIsSaving] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -136,6 +141,66 @@ export default function AdminFixedReservationsPage() {
         
         return grouped;
     }, [fixedReservations, courts]);
+
+    const conflictInfo = useMemo(() => {
+        if (!formData.courtId || !formData.time || !fixedReservations || !courts) return null;
+
+        const selectedCourt = courts.find(c => c.id === formData.courtId);
+        if (!selectedCourt) return null;
+
+        // 1. Check fixed conflicts
+        const fixedConflict = fixedReservations.find(res => {
+            if (res.id === editingItem?.id || !res.isActive || res.dayOfWeek !== formData.dayOfWeek || res.time !== formData.time) return false;
+            const otherCourt = courts.find(c => c.id === res.courtId);
+            if (!otherCourt) return false;
+            if (res.courtId === formData.courtId) return true;
+            if (selectedCourt.courtType === 'Futbol 5' && otherCourt.courtType === 'Futbol 7') {
+                const f5Eq1 = (otherCourt.courtNumber * 2) - 1;
+                const f5Eq2 = otherCourt.courtNumber * 2;
+                if (selectedCourt.courtNumber === f5Eq1 || selectedCourt.courtNumber === f5Eq2) return true;
+            }
+            if (selectedCourt.courtType === 'Futbol 7' && otherCourt.courtType === 'Futbol 5') {
+                const f5Eq1 = (selectedCourt.courtNumber * 2) - 1;
+                const f5Eq2 = selectedCourt.courtNumber * 2;
+                if (otherCourt.courtNumber === f5Eq1 || otherCourt.courtNumber === f5Eq2) return true;
+            }
+            return false;
+        });
+
+        // 2. Check standard future conflicts
+        const standardConflict = allReservations?.find(res => {
+            const resDate = (res.reservationDateTime as any).toDate();
+            if (resDate < new Date()) return false;
+            if (resDate.getDay() !== formData.dayOfWeek) return false;
+            const resTime = format(resDate, 'HH:mm');
+            if (resTime !== formData.time) return false;
+
+            for (const resCourtId of res.courtIds) {
+                if (resCourtId === formData.courtId) return true;
+                const resCourt = courts.find(c => c.id === resCourtId);
+                if (!resCourt) continue;
+                if (selectedCourt.courtType === 'Futbol 5' && resCourt.courtType === 'Futbol 7') {
+                    const f5Eq1 = (resCourt.courtNumber * 2) - 1;
+                    const f5Eq2 = resCourt.courtNumber * 2;
+                    if (selectedCourt.courtNumber === f5Eq1 || selectedCourt.courtNumber === f5Eq2) return true;
+                }
+                if (selectedCourt.courtType === 'Futbol 7' && resCourt.courtType === 'Futbol 5') {
+                    const f5Eq1 = (selectedCourt.courtNumber * 2) - 1;
+                    const f5Eq2 = selectedCourt.courtNumber * 2;
+                    if (resCourt.courtNumber === f5Eq1 || resCourt.courtNumber === f5Eq2) return true;
+                }
+            }
+            return false;
+        });
+
+        if (fixedConflict || standardConflict) {
+            return {
+                type: fixedConflict ? 'Fijo' : 'Puntual',
+                name: fixedConflict ? fixedConflict.clientName : 'Reserva de cliente'
+            };
+        }
+        return null;
+    }, [formData, fixedReservations, allReservations, courts, editingItem]);
 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,6 +367,15 @@ export default function AdminFixedReservationsPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                        {conflictInfo && (
+                            <div className="bg-yellow-100 border-l-4 border-yellow-500 p-3 text-yellow-700 text-xs flex items-start gap-2">
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                <div>
+                                    <p className="font-bold">Aviso de superposición</p>
+                                    <p>Este horario ya está ocupado por un turno {conflictInfo.type} ({conflictInfo.name}).</p>
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="clientName" className="text-right">Cliente</Label>
                             <Input id="clientName" name="clientName" value={formData.clientName} onChange={handleInputChange} className="col-span-3" />
