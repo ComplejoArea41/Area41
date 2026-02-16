@@ -1,7 +1,6 @@
-
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, Timestamp } from 'firebase/firestore';
+import { collection, doc, Timestamp, increment, updateDoc } from 'firebase/firestore';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +24,7 @@ import {
     DialogTitle,
   } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle, History } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -81,7 +80,7 @@ export default function AdminReservationsCalendarPage() {
         return Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
     }, [weekStart]);
 
-    const handleCancelReservation = () => {
+    const handleCancelReservation = async () => {
         if (!selectedReservation || !firestore) return;
 
         const isFixed = selectedReservation.isFixed;
@@ -89,10 +88,18 @@ export default function AdminReservationsCalendarPage() {
         const docRef = doc(firestore, collectionName, selectedReservation.id);
 
         try {
+            // Incrementar contador de cancelaciones del usuario si no es un turno fijo genérico
+            if (!isFixed && selectedReservation.userId && selectedReservation.userId !== 'fixed-user') {
+                const userDocRef = doc(firestore, 'users', selectedReservation.userId);
+                await updateDoc(userDocRef, {
+                    cancellationCount: increment(1)
+                });
+            }
+
             deleteDocumentNonBlocking(docRef);
             toast({
                 title: "Reserva cancelada",
-                description: `El turno ha sido eliminado correctamente.`,
+                description: `El turno ha sido eliminado. Se ha registrado la cancelación en el perfil del cliente.`,
             });
         } catch (error) {
             console.error("Error cancelling reservation:", error);
@@ -208,7 +215,8 @@ export default function AdminReservationsCalendarPage() {
                             firstName: fixedRes.clientName,
                             lastName: '(Turno Fijo)',
                             email: 'N/A',
-                            phoneNumber: fixedRes.phoneNumber || 'N/A'
+                            phoneNumber: fixedRes.phoneNumber || 'N/A',
+                            cancellationCount: 0
                         },
                         court: blockingCourt,
                         isFixed: true
@@ -381,6 +389,17 @@ export default function AdminReservationsCalendarPage() {
                                     <p>Existe un turno fijo y una reserva puntual ocupando este mismo horario. Por favor, verifica con los clientes.</p>
                                 </div>
                              )}
+                             
+                             {(selectedReservation.user?.cancellationCount || 0) > 0 && (
+                                <div className="bg-red-100 border-l-4 border-red-500 p-4 text-red-700 mb-4 flex items-start gap-3">
+                                    <History className="h-5 w-5 shrink-0" />
+                                    <div>
+                                        <p className="font-bold">Observación del Cliente</p>
+                                        <p>Este cliente ha cancelado turnos <strong>{selectedReservation.user?.cancellationCount}</strong> veces anteriormente.</p>
+                                    </div>
+                                </div>
+                             )}
+
                              <div>
                                 <h4 className="font-semibold text-muted-foreground">Cliente</h4>
                                 <p className="text-base">{selectedReservation.user?.firstName} {selectedReservation.user?.lastName}</p>
@@ -425,7 +444,7 @@ export default function AdminReservationsCalendarPage() {
                         <AlertDialogDescription>
                             {selectedReservation?.isFixed 
                                 ? "Esta acción eliminará el TURNO FIJO de forma permanente. Todas las futuras reservas para este turno se cancelarán."
-                                : "Esta acción cancelará la reserva de forma permanente. No se podrá deshacer."
+                                : "Esta acción cancelará la reserva permanentemente y se sumará al historial de cancelaciones del cliente."
                             }
                         </AlertDialogDescription>
                     </AlertDialogHeader>

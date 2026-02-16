@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -28,7 +27,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import type { Court, Reservation, FixedReservation } from '@/lib/types';
+import type { Court, Reservation, FixedReservation, User } from '@/lib/types';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Loader2 } from 'lucide-react';
 
@@ -47,7 +46,7 @@ export default function ReservationPage() {
   const [isConfirming, setIsConfirming] = useState(false);
 
   const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
   const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
   const { data: allCourts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
@@ -235,6 +234,7 @@ export default function ReservationPage() {
     const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
     const phone = userProfile.phoneNumber || 'No especificado';
     const totalCost = courtToReserve.price;
+    const cancellations = userProfile.cancellationCount || 0;
   
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
@@ -243,7 +243,8 @@ export default function ReservationPage() {
       `*Horario:* ${time}\n` +
       `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
       `*Nombre:* ${fullName}\n` +
-      `*Teléfono:* ${phone}`
+      `*Teléfono:* ${phone}` +
+      (cancellations > 0 ? `\n\n⚠️ NOTA: Este cliente tiene ${cancellations} cancelaciones previas.` : "")
     );
   
     const whatsappUrl = `https://wa.me/2324500029?text=${message}`;

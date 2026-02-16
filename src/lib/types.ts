@@ -1,5 +1,3 @@
-
-
 export interface User {
   id: string;
   firstName: string;
@@ -7,6 +5,7 @@ export interface User {
   phoneNumber: string;
   email: string;
   isAdmin?: boolean;
+  cancellationCount?: number;
 }
 
 export interface Court {
