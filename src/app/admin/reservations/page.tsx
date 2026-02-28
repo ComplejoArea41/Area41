@@ -136,7 +136,6 @@ export default function AdminReservationsCalendarPage() {
         const isFixed = selectedReservation.isFixed;
         
         if (isFixed) {
-            // Redirect to Fixed Reservations page or handle here. For now, let's inform.
             toast({ title: "Edición de turno fijo", description: "Para editar un turno fijo, por favor dirígete a la sección de 'Turnos Fijos'." });
             router.push('/admin/fixed-reservations');
             return;
@@ -146,7 +145,6 @@ export default function AdminReservationsCalendarPage() {
         const newCourt = courts.find(c => c.id === editFormData.courtId);
         if (!newCourt) return;
 
-        // Calculate new court IDs (Fútbol 7 blocks 2 courts of 5)
         let newCourtIds = [newCourt.id];
         if (newCourt.courtType === 'Futbol 7') {
             const f7Num = newCourt.courtNumber;
@@ -156,7 +154,6 @@ export default function AdminReservationsCalendarPage() {
             if (f5_2) newCourtIds.push(f5_2.id);
         }
 
-        // Calculate new timestamp
         const currentResDate = (selectedReservation.reservationDateTime as any).toDate();
         const [hour, min] = editFormData.time.split(':').map(Number);
         const newDate = set(currentResDate, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
@@ -380,8 +377,9 @@ export default function AdminReservationsCalendarPage() {
                         <div className="grid grid-cols-[auto_repeat(7,minmax(140px,1fr))]">
                             <div className="sticky left-0 bg-card z-10 p-2 border-r border-b font-semibold text-center">Hora</div>
                             {weekDays.map(day => (
-                                <div key={day.toString()} className="p-2 border-b font-semibold text-center">
+                                <div key={day.toString()} className={cn("p-2 border-b font-semibold text-center", day.getDay() === 0 && "text-muted-foreground bg-muted/10")}>
                                     {format(day, 'EEE d', { locale: es })}
+                                    {day.getDay() === 0 && <span className="block text-[10px] uppercase text-primary">Cerrado</span>}
                                 </div>
                             ))}
                             {hours.map((hour) => (
@@ -390,13 +388,16 @@ export default function AdminReservationsCalendarPage() {
                                         {hour}
                                     </div>
                                     {weekDays.map((day) => {
+                                        const isSunday = day.getDay() === 0;
                                         const reservation = getReservationForSlot(day, hour, selectedCourt.id);
                                         const typeSuffix = reservation?.court?.courtType === 'Futbol 7' ? '7' : '5';
                                         const labelPrefix = reservation?.isFixed ? 'Fijo' : 'Reservado';
 
                                         return (
-                                            <div key={`${day.toString()}-${hour}`} className="border-b p-1 h-16 flex items-center justify-center">
-                                                {reservation ? (
+                                            <div key={`${day.toString()}-${hour}`} className={cn("border-b p-1 h-16 flex items-center justify-center", isSunday && "bg-muted/5")}>
+                                                {isSunday ? (
+                                                    <div className="text-[10px] opacity-20 rotate-[30deg] font-bold select-none">CERRADO</div>
+                                                ) : reservation ? (
                                                     <button
                                                         onClick={() => setSelectedReservation(reservation)}
                                                         className={cn(
@@ -420,7 +421,7 @@ export default function AdminReservationsCalendarPage() {
                                                         </div>
                                                     </button>
                                                 ) : (
-                                                    <div className="text-xs text-muted-foreground/50">Libre</div>
+                                                    <div className="text-xs text-muted-foreground/30">Libre</div>
                                                 )}
                                             </div>
                                         );
@@ -508,7 +509,6 @@ export default function AdminReservationsCalendarPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Edit Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>

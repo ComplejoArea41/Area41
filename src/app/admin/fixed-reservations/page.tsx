@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -50,7 +49,7 @@ const weekDays = [
     { value: 4, label: 'Jueves' },
     { value: 5, label: 'Viernes' },
     { value: 6, label: 'Sábado' },
-    { value: 0, label: 'Domingo' },
+    { value: 0, label: 'Domingo (Cerrado)' },
 ];
 
 const generateTimeSlots = () => {
@@ -148,7 +147,6 @@ export default function AdminFixedReservationsPage() {
         const selectedCourt = courts.find(c => c.id === formData.courtId);
         if (!selectedCourt) return null;
 
-        // 1. Check fixed conflicts
         const fixedConflict = fixedReservations.find(res => {
             if (res.id === editingItem?.id || !res.isActive || res.dayOfWeek !== formData.dayOfWeek || res.time !== formData.time) return false;
             const otherCourt = courts.find(c => c.id === res.courtId);
@@ -167,7 +165,6 @@ export default function AdminFixedReservationsPage() {
             return false;
         });
 
-        // 2. Check standard future conflicts
         const standardConflict = allReservations?.find(res => {
             const resDate = (res.reservationDateTime as any).toDate();
             if (resDate < new Date()) return false;
@@ -242,6 +239,11 @@ export default function AdminFixedReservationsPage() {
         if (!firestore) return;
         if (!formData.clientName || !formData.courtId || !formData.time) {
             toast({ variant: 'destructive', title: 'Campos requeridos', description: 'Por favor, completa el nombre, la cancha y la hora.' });
+            return;
+        }
+
+        if (formData.dayOfWeek === 0) {
+            toast({ variant: 'destructive', title: 'Domingo Cerrado', description: 'No se pueden crear turnos fijos los domingos por descanso del complejo.' });
             return;
         }
 
@@ -340,8 +342,11 @@ export default function AdminFixedReservationsPage() {
                     ) : (
                          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
                             {weekDays.map(day => (
-                                <div key={day.value} className="flex flex-col gap-4 rounded-lg bg-background/30 p-2">
-                                    <h3 className="text-xl font-bold text-center sticky top-16 bg-card/80 p-2 rounded-md z-10 backdrop-blur-sm">{day.label}</h3>
+                                <div key={day.value} className={cn("flex flex-col gap-4 rounded-lg p-2", day.value === 0 ? "bg-muted/10 opacity-60" : "bg-background/30")}>
+                                    <h3 className="text-xl font-bold text-center sticky top-16 bg-card/80 p-2 rounded-md z-10 backdrop-blur-sm">
+                                        {day.label.replace(' (Cerrado)', '')}
+                                        {day.value === 0 && <span className="block text-[10px] text-primary">CERRADO</span>}
+                                    </h3>
                                     <div className="flex flex-col gap-2">
                                         {reservationsByDay[day.value] && reservationsByDay[day.value].length > 0 ? (
                                             reservationsByDay[day.value].map(renderReservationCard)
@@ -405,7 +410,7 @@ export default function AdminFixedReservationsPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {weekDays.map(day => (
-                                        <SelectItem key={day.value} value={String(day.value)}>{day.label}</SelectItem>
+                                        <SelectItem key={day.value} value={String(day.value)} disabled={day.value === 0}>{day.label}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
