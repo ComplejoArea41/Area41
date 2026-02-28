@@ -29,7 +29,7 @@ import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, Firestor
 import { useRouter } from 'next/navigation';
 import type { Court, Reservation, FixedReservation, User } from '@/lib/types';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Moon } from 'lucide-react';
 
 
 export default function ReservationPage() {
@@ -40,10 +40,20 @@ export default function ReservationPage() {
 
   const [selectedCourtType, setSelectedCourtType] = useState<'Futbol 5' | 'Futbol 7'>('Futbol 5');
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(startOfDay(new Date()));
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogData, setDialogData] = useState<{time: string, date: Date}>({ time: '', date: new Date()});
   const [isConfirming, setIsConfirming] = useState(false);
+
+  // Initialize selectedDate with the first available non-Sunday date
+  useEffect(() => {
+    const today = startOfDay(new Date());
+    if (today.getDay() === 0) {
+      setSelectedDate(addDays(today, 1));
+    } else {
+      setSelectedDate(today);
+    }
+  }, []);
 
   const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
@@ -57,7 +67,6 @@ export default function ReservationPage() {
   const reservationsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDate) return null;
     const start = startOfDay(selectedDate);
-    // Fetch for two days to cover overnight bookings for the selected date.
     const end = addDays(start, 2);
     return query(
       collection(firestore, 'reservations'),
@@ -78,7 +87,6 @@ export default function ReservationPage() {
     return allCourts.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber);
   }, [allCourts, selectedCourtType]);
   
-  // Reset dependent selections when a higher-level selection changes
   useEffect(() => {
       setSelectedCourtId(null);
   }, [selectedCourtType]);
@@ -100,7 +108,6 @@ export default function ReservationPage() {
     const [hour, minute] = time.split(':').map(Number);
     let checkDate = forDate;
     
-    // If the time is in the early morning, it's for the next calendar day
     if (hour >= 0 && hour < 8) {
         checkDate = addDays(forDate, 1);
     }
@@ -109,7 +116,6 @@ export default function ReservationPage() {
     const courtToCheck = allCourts.find(c => c.id === courtId);
     if (!courtToCheck) return { isBlocked: false, isFixed: false };
   
-    // Check fixed reservations
     if (fixedReservations) {
       const dayOfWeek = checkDate.getDay();
       for (const fixedRes of fixedReservations) {
@@ -129,7 +135,6 @@ export default function ReservationPage() {
       }
     }
   
-    // Check regular reservations
     if (reservations) {
       for (const reservation of reservations) {
         if (!reservation.reservationDateTime) continue;
@@ -169,8 +174,13 @@ export default function ReservationPage() {
     
     const [hour] = time.split(':').map(Number);
     let reservationDate = selectedDate!;
-    if (hour >= 0 && hour < 8) { // Assuming hours 0-7 are for the next day
+    if (hour >= 0 && hour < 8) {
       reservationDate = addDays(selectedDate!, 1);
+    }
+
+    if (reservationDate.getDay() === 0) {
+      toast({ title: 'Domingo Cerrado', description: 'Los domingos el complejo permanece cerrado por descanso.', variant: 'destructive' });
+      return;
     }
 
     setDialogData({
@@ -310,6 +320,8 @@ export default function ReservationPage() {
                 <CarouselContent className="-ml-2">
                   {nextFourteenDays.map((day, index) => {
                     const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+                    const isSunday = day.getDay() === 0;
+                    
                     let dayLabel = format(day, 'EEE', { locale: es }).toUpperCase();
                     if (isSameDay(day, new Date())) {
                       dayLabel = 'HOY';
@@ -323,9 +335,12 @@ export default function ReservationPage() {
                         <div className="p-1">
                           <Button
                             variant={isSelected ? 'default' : 'outline'}
-                            className="flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center"
-                            onClick={() => setSelectedDate(day)}
-                            disabled={isBefore(day, startOfDay(new Date()))}
+                            className={cn(
+                              "flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center",
+                              isSunday && "opacity-50 cursor-not-allowed bg-muted/20"
+                            )}
+                            onClick={() => !isSunday && setSelectedDate(day)}
+                            disabled={isBefore(day, startOfDay(new Date())) || isSunday}
                           >
                             <span className="text-xs font-medium ">{dayLabel}</span>
                             <span className="text-2xl font-bold">{format(day, 'd')}</span>
@@ -339,10 +354,16 @@ export default function ReservationPage() {
                 <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
                 <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
               </Carousel>
+              {selectedDate?.getDay() === 0 && (
+                <div className="mt-4 p-4 bg-muted/20 rounded-lg flex items-center gap-3 text-muted-foreground border border-dashed">
+                  <Moon className="h-5 w-5" />
+                  <p className="text-sm">El complejo permanece cerrado los domingos por descanso.</p>
+                </div>
+              )}
             </div>
           )}
 
-          {selectedCourtId && selectedDate && (
+          {selectedCourtId && selectedDate && selectedDate.getDay() !== 0 && (
             <div>
                 <h3 className="mb-4 text-lg font-semibold">4. Elige el horario</h3>
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
