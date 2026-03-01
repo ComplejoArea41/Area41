@@ -39,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { FixedReservation, Court, Reservation } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, CalendarClock, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type FormData = Omit<FixedReservation, 'id'>;
 
