@@ -16,39 +16,54 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    /**
+     * Checks if the current user has admin privileges.
+     */
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
 
-    // Users can read their own profile, admins can read any profile
+    // Users can read their own profile, admins can read and write any profile
     match /users/{userId} {
-      allow read: if isSignedIn() && isOwner(userId);
-      allow write: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
     // Publicly readable collections for UI elements and general info
     match /background_images/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Further restricted by storage rules to admins
+      allow write: if isSignedIn() && isAdmin();
     }
 
     match /logo_images/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Further restricted by storage rules to admins
+      allow write: if isSignedIn() && isAdmin();
     }
 
     match /courts/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); 
+      allow write: if isSignedIn() && isAdmin();
     }
 
     match /menu_items/{docId} {
         allow read: if true;
-        allow write: if isSignedIn();
+        allow write: if isSignedIn() && isAdmin();
     }
 
-    // Reservations can be read and created by authenticated users
+    // Reservations rules
     match /reservations/{reservationId} {
-      allow read, create: if isSignedIn();
-      // Allow update/delete only by the user who created it (add more secure logic if needed)
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      // Allow update/delete only by the user who created it OR an admin.
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Fixed reservations only for admins to write, anyone signed in can read
+    match /fixed_reservations/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
     }
   }
 }

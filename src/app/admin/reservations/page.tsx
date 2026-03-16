@@ -1,7 +1,8 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, Timestamp, increment, updateDoc, writeBatch } from 'firebase/firestore';
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc, Timestamp, increment, updateDoc } from 'firebase/firestore';
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,8 +98,9 @@ export default function AdminReservationsCalendarPage() {
 
         try {
             if (!isFixed && selectedReservation.userId && selectedReservation.userId !== 'fixed-user') {
-                const userDocRef = doc(firestore, 'users', selectedReservation.userId);
-                await updateDoc(userDocRef, {
+                const customerProfileRef = doc(firestore, 'users', selectedReservation.userId);
+                // Update cancellation count non-blocking or simple update
+                updateDocumentNonBlocking(customerProfileRef, {
                     cancellationCount: increment(1)
                 });
             }
@@ -106,7 +108,7 @@ export default function AdminReservationsCalendarPage() {
             deleteDocumentNonBlocking(docRef);
             toast({
                 title: "Reserva cancelada",
-                description: `El turno ha sido eliminado. Se ha registrado la cancelación en el perfil del cliente.`,
+                description: `El turno ha sido eliminado correctamente.`,
             });
         } catch (error) {
             console.error("Error cancelling reservation:", error);
@@ -159,7 +161,7 @@ export default function AdminReservationsCalendarPage() {
         const newDate = set(currentResDate, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
 
         try {
-            await updateDoc(resRef, {
+            updateDocumentNonBlocking(resRef, {
                 courtIds: newCourtIds,
                 reservationDateTime: Timestamp.fromDate(newDate)
             });
@@ -390,6 +392,7 @@ export default function AdminReservationsCalendarPage() {
                                     {weekDays.map((day) => {
                                         const isSunday = day.getDay() === 0;
                                         const reservation = getReservationForSlot(day, hour, selectedCourt.id);
+                                        
                                         const typeSuffix = reservation?.court?.courtType === 'Futbol 7' ? '7' : '5';
                                         const labelPrefix = reservation?.isFixed ? 'Fijo' : 'Reservado';
 
