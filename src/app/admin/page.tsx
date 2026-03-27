@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@
 import { collection, doc, query, where, Timestamp, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff, X } from "lucide-react";
+import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff, X, Volume2 } from "lucide-react";
 import { startOfDay, addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Reservation, User } from "@/lib/types";
@@ -30,6 +30,7 @@ export default function AdminPage() {
     const [alerts, setAlerts] = useState<any[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const isFirstRun = useRef(true);
+    const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
@@ -77,11 +78,12 @@ export default function AdminPage() {
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
-    // Real-time listener for NEW reservations to play sound
+    // Real-time listener for NEW reservations
     useEffect(() => {
         if (!firestore || !notificationsEnabled || !userProfile?.isAdmin) return;
 
         const reservationsRef = collection(firestore, 'reservations');
+        // Listen to the most recent reservation added
         const q = query(reservationsRef, orderBy('reservationDateTime', 'desc'), limit(1));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -94,9 +96,18 @@ export default function AdminPage() {
                 if (change.type === "added") {
                     const newRes = change.doc.data();
                     
-                    // Play sound
+                    // Trigger Alarm
+                    setIsAlarmPlaying(true);
                     if (audioRef.current) {
-                        audioRef.current.play().catch(e => console.log("Audio play blocked", e));
+                        audioRef.current.loop = true;
+                        audioRef.current.play().catch(e => {
+                            console.log("Audio play blocked by browser", e);
+                            toast({
+                                variant: "destructive",
+                                title: "¡Nueva Reserva!",
+                                description: "El navegador bloqueó el sonido. Toca la pantalla para activar el audio.",
+                            });
+                        });
                     }
                     
                     // Add to local alerts list
@@ -106,17 +117,15 @@ export default function AdminPage() {
                         data: newRes
                     }, ...prev]);
 
-                    // Show Browser Notification
+                    // Browser System Notification
                     if (Notification.permission === "granted") {
-                        new Notification("⚽ Nueva Reserva en Area41", {
-                            body: "¡Alguien acaba de reservar una cancha!",
+                        new Notification("⚽ AREA41: ¡Nueva Reserva!", {
+                            body: "Se ha registrado un nuevo turno. Entra para ver los detalles.",
+                            icon: "/icon.png",
+                            tag: "new-reservation",
+                            renotify: true
                         });
                     }
-
-                    toast({
-                        title: "¡Nueva Reserva!",
-                        description: "Se ha registrado un nuevo turno en el complejo.",
-                    });
                 }
             });
         });
@@ -124,30 +133,45 @@ export default function AdminPage() {
         return () => unsubscribe();
     }, [firestore, notificationsEnabled, userProfile, toast]);
 
+    const stopAlarm = () => {
+        setIsAlarmPlaying(false);
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+    };
+
     const toggleNotifications = async () => {
         if (!notificationsEnabled) {
             const permission = await Notification.requestPermission();
-            if (permission === "granted") {
-                setNotificationsEnabled(true);
-                toast({ title: "Alertas activadas", description: "Recibirás un sonido y aviso cuando entre una reserva." });
-            } else {
-                toast({ variant: "destructive", title: "Permiso denegado", description: "Debes permitir las notificaciones en tu navegador." });
-            }
+            setNotificationsEnabled(true);
+            toast({ 
+                title: "Alertas activadas", 
+                description: "Tu celular sonará y vibrará cuando entre una reserva. Mantén esta pestaña abierta." 
+            });
         } else {
             setNotificationsEnabled(false);
-            setAlerts([]);
+            stopAlarm();
             toast({ title: "Alertas desactivadas" });
         }
     };
 
     const removeAlert = (id: string) => {
         setAlerts(prev => prev.filter(a => a.id !== id));
+        if (alerts.length <= 1) {
+            stopAlarm();
+        }
     };
 
-    const testSound = () => {
+    const testAlarm = () => {
         if (audioRef.current) {
-            audioRef.current.play().catch(e => toast({ variant: 'destructive', title: 'Error de audio', description: 'Tu navegador bloqueó el sonido. Interactúa con la página primero.' }));
-            toast({ title: "Prueba de sonido", description: "Si escuchaste el silbato, las alertas están funcionando bien." });
+            audioRef.current.loop = false;
+            audioRef.current.play().catch(e => toast({ 
+                variant: 'destructive', 
+                title: 'Error de audio', 
+                description: 'El navegador bloqueó el sonido. Toca cualquier parte de la página primero.' 
+            }));
+            toast({ title: "Prueba de sonido", description: "Sonando silbato de prueba..." });
         }
     };
 
@@ -161,75 +185,86 @@ export default function AdminPage() {
   
   return (
       <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-        <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" />
+        {/* Sound file: Whistle sound */}
+        <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
         
-        <div className="w-full max-w-4xl">
-            <div className="flex justify-between items-center mb-4 gap-2">
-                <Button variant="outline" size="sm" onClick={testSound}>
-                    Probar Sonido
-                </Button>
-                <Button 
-                    variant={notificationsEnabled ? "default" : "outline"} 
-                    className={notificationsEnabled ? "bg-green-600 hover:bg-green-700" : ""}
-                    onClick={toggleNotifications}
-                >
-                    {notificationsEnabled ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
-                    {notificationsEnabled ? "Alertas Activadas" : "Activar Alertas de Reservas"}
-                </Button>
+        <div className="w-full max-w-4xl space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <div className={cn("h-3 w-3 rounded-full animate-pulse", notificationsEnabled ? "bg-green-500" : "bg-red-500")} />
+                    <span className="text-sm font-medium">
+                        Estado del Monitor: {notificationsEnabled ? "ESCUCHANDO RESERVAS" : "APAGADO"}
+                    </span>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={testAlarm} className="border-primary/50">
+                        <Volume2 className="mr-2 h-4 w-4" /> Probar Alarma
+                    </Button>
+                    <Button 
+                        variant={notificationsEnabled ? "default" : "outline"} 
+                        className={cn("transition-all", notificationsEnabled ? "bg-green-600 hover:bg-green-700" : "border-primary")}
+                        onClick={toggleNotifications}
+                    >
+                        {notificationsEnabled ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
+                        {notificationsEnabled ? "Alertas Activadas" : "Activar Alertas"}
+                    </Button>
+                </div>
             </div>
 
-            {/* Real-time Alerts List */}
+            {/* Real-time Alerts List - Persistent UI */}
             {alerts.length > 0 && (
-                <div className="mb-6 space-y-2">
+                <div className="space-y-3">
                     {alerts.map(alert => (
-                        <div key={alert.id} className="bg-primary text-primary-foreground p-4 rounded-lg shadow-lg flex items-center justify-between animate-bounce">
-                            <div className="flex items-center gap-3">
-                                <Goal className="h-6 w-6" />
+                        <div key={alert.id} className="bg-primary text-primary-foreground p-6 rounded-xl shadow-2xl flex items-center justify-between border-4 border-white animate-pulse">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-white p-2 rounded-full">
+                                    <Goal className="h-8 w-8 text-primary" />
+                                </div>
                                 <div>
-                                    <p className="font-bold">¡NUEVA RESERVA RECIBIDA!</p>
-                                    <p className="text-xs opacity-90">Entró a las {alert.time}. Revisa el calendario para ver detalles.</p>
+                                    <p className="text-2xl font-black">¡NUEVA RESERVA!</p>
+                                    <p className="text-sm opacity-90">Recibida a las {alert.time}. Toca para silenciar.</p>
                                 </div>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => removeAlert(alert.id)} className="hover:bg-primary-foreground/20">
-                                <X className="h-4 w-4" />
+                            <Button variant="secondary" size="lg" onClick={() => removeAlert(alert.id)} className="font-bold">
+                                ENTENDIDO / SILENCIAR
                             </Button>
                         </div>
                     ))}
                 </div>
             )}
 
-            <Card className="bg-card/80 backdrop-blur-sm w-full mb-8">
+            <Card className="bg-card/80 backdrop-blur-sm border-primary/20">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <ShieldAlert className="h-6 w-6 text-primary" />
-                        Panel de Administración
+                        Panel de Control Area41
                     </CardTitle>
                     <CardDescription>
-                        Gestiona las reservas, precios y configuraciones del complejo.
+                        Administra tu complejo desde este celular. Mantén esta pantalla encendida para recibir avisos al instante.
                     </CardDescription>
                 </CardHeader>
             </Card>
 
             {reservationsWithUsers.length > 0 && (
-                <Card className="bg-orange-500/10 border-orange-500 mb-8">
+                <Card className="bg-orange-500/10 border-orange-500">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-orange-500">
                             <AlertTriangle className="h-5 w-5" />
-                            Atención: Reservas para el Domingo
+                            Turnos el Domingo (Cerrado)
                         </CardTitle>
                         <CardDescription className="text-orange-200">
-                            Se detectaron {reservationsWithUsers.length} reserva(s) para el próximo domingo ({format(nextSunday, 'dd/MM', { locale: es })}). 
-                            Debes contactar a estos clientes y cancelar sus turnos ya que el complejo cierra.
+                            Hay {reservationsWithUsers.length} reserva(s) para el próximo domingo {format(nextSunday, 'dd/MM', { locale: es })}. 
+                            Por favor cancelalas y avisa a los clientes.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-2">
                             {reservationsWithUsers.map(res => (
-                                <li key={res.id} className="text-sm bg-orange-500/20 p-2 rounded flex justify-between items-center">
+                                <li key={res.id} className="text-sm bg-orange-500/20 p-3 rounded-lg flex justify-between items-center">
                                     <span>
                                         <strong>{res.user?.firstName} {res.user?.lastName}</strong> - {format((res.reservationDateTime as any).toDate(), 'HH:mm')} hs
                                     </span>
-                                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => router.push('/admin/reservations')}>
+                                    <Button size="sm" variant="outline" className="h-8 text-xs bg-background/50" onClick={() => router.push('/admin/reservations')}>
                                         Gestionar
                                     </Button>
                                 </li>
@@ -239,93 +274,70 @@ export default function AdminPage() {
                 </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Goal />Gestión de Canchas</CardTitle>
-                        <CardDescription>
-                            Modifica los precios y la disponibilidad de las canchas.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onClick={() => router.push('/admin/courts')}>
-                            Administrar Canchas <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Utensils />Gestión de Buffet</CardTitle>
-                        <CardDescription>
-                           Añade o modifica los precios y artículos del menú.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/buffet')}>
-                            Administrar Menú <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><ImageIcon />Gestión de Fondos</CardTitle>
-                        <CardDescription>
-                           Modifica la imagen de fondo de la aplicación.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/backgrounds')}>
-                            Administrar Fondos <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                 <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Award />Gestión de Logo</CardTitle>
-                        <CardDescription>
-                           Cambia el logo de la aplicación.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/logo')}>
-                            Administrar Logo <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-                
-                <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Calendar />Gestión de Reservas</CardTitle>
-                        <CardDescription>
-                           Visualiza y edita el historial completo de reservas.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/reservations')}>
-                            Ver Reservas <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-card/80 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><CalendarClock />Gestión de Turnos Fijos</CardTitle>
-                        <CardDescription>
-                           Crea y gestiona reservas recurrentes semanales.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button onClick={() => router.push('/admin/fixed-reservations')}>
-                            Administrar Turnos Fijos <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardContent>
-                </Card>
-
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <AdminNavCard 
+                    title="Reservas" 
+                    desc="Calendario y gestión" 
+                    icon={<Calendar className="h-6 w-6" />} 
+                    path="/admin/reservations" 
+                    router={router} 
+                />
+                <AdminNavCard 
+                    title="Turnos Fijos" 
+                    desc="Reservas semanales" 
+                    icon={<CalendarClock className="h-6 w-6" />} 
+                    path="/admin/fixed-reservations" 
+                    router={router} 
+                />
+                <AdminNavCard 
+                    title="Canchas" 
+                    desc="Precios y ajustes" 
+                    icon={<Goal className="h-6 w-6" />} 
+                    path="/admin/courts" 
+                    router={router} 
+                />
+                <AdminNavCard 
+                    title="Buffet" 
+                    desc="Menú y productos" 
+                    icon={<Utensils className="h-6 w-6" />} 
+                    path="/admin/buffet" 
+                    router={router} 
+                />
+                <AdminNavCard 
+                    title="Fondos" 
+                    desc="Imagen de la web" 
+                    icon={<ImageIcon className="h-6 w-6" />} 
+                    path="/admin/backgrounds" 
+                    router={router} 
+                />
+                <AdminNavCard 
+                    title="Logo" 
+                    desc="Logo de la marca" 
+                    icon={<Award className="h-6 w-6" />} 
+                    path="/admin/logo" 
+                    router={router} 
+                />
             </div>
         </div>
       </div>
   );
+}
+
+function AdminNavCard({ title, desc, icon, path, router }: { title: string, desc: string, icon: React.ReactNode, path: string, router: any }) {
+    return (
+        <Card className="bg-card/80 backdrop-blur-sm hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(path)}>
+            <CardHeader className="p-4">
+                <CardTitle className="flex items-center gap-3 text-lg">
+                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                        {icon}
+                    </div>
+                    {title}
+                </CardTitle>
+                <CardDescription className="text-xs">{desc}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 flex justify-end">
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </CardContent>
+        </Card>
+    );
 }
