@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -29,7 +30,7 @@ import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, Firestor
 import { useRouter } from 'next/navigation';
 import type { Court, Reservation, FixedReservation, User } from '@/lib/types';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { Loader2, Moon } from 'lucide-react';
+import { Loader2, Moon, MessageSquareText } from 'lucide-react';
 
 
 export default function ReservationPage() {
@@ -148,7 +149,7 @@ export default function ReservationPage() {
                 let blocksThisSlot = false;
                 if (reservedCourtId === courtId) blocksThisSlot = true;
                 else if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === reservedCourt.courtNumber * 2) blocksThisSlot = true;
+                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || reservedCourt.courtNumber === reservedCourt.courtNumber * 2) blocksThisSlot = true;
                 } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
                     if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) blocksThisSlot = true;
                 }
@@ -447,14 +448,25 @@ export default function ReservationPage() {
               <>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar Tu Reserva</AlertDialogTitle>
-                  <AlertDialogDescription>
-                  ¡Estás a un paso de asegurar tu cancha! Se generará un mensaje de WhatsApp para que envíes y confirmes. Te recordamos que, para cancelar sin costo, es necesario avisar con la debida antelación. En caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias por tu compromiso!
+                  <AlertDialogDescription className="space-y-4">
+                    <p>
+                        ¡Estás a un paso de asegurar tu cancha! Para que tu turno sea válido, **ES OBLIGATORIO** que envíes el mensaje de WhatsApp que se generará a continuación.
+                    </p>
+                    <div className="bg-primary/10 p-3 rounded-lg border border-primary/30 flex items-start gap-3">
+                        <MessageSquareText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs text-primary font-medium">
+                            Si no envías el mensaje de WhatsApp, no recibiremos tu aviso y podrías perder el turno.
+                        </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Te recordamos que en caso de no presentarse, el valor de la reserva deberá ser abonado en tu próxima visita. ¡Gracias!
+                    </p>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Volver</AlertDialogCancel>
                   <AlertDialogAction onClick={confirmReservation}>
-                    Aceptar y Enviar WhatsApp
+                    Entendido, Enviar WhatsApp
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </>

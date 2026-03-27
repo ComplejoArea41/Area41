@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -9,18 +10,24 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, doc, query, where, Timestamp } from "firebase/firestore";
+import { collection, doc, query, where, Timestamp, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
-import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle } from "lucide-react";
-import { startOfDay, addDays, format, isSameDay } from "date-fns";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff } from "lucide-react";
+import { startOfDay, addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Reservation, User } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
+    const { toast } = useToast();
+
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const isFirstRun = useRef(true);
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
@@ -68,6 +75,60 @@ export default function AdminPage() {
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
+    // Real-time listener for NEW reservations to play sound
+    useEffect(() => {
+        if (!firestore || !notificationsEnabled || !userProfile?.isAdmin) return;
+
+        const reservationsRef = collection(firestore, 'reservations');
+        const q = query(reservationsRef, orderBy('reservationDateTime', 'desc'), limit(1));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            if (isFirstRun.current) {
+                isFirstRun.current = false;
+                return;
+            }
+
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                    // Play sound
+                    if (audioRef.current) {
+                        audioRef.current.play().catch(e => console.log("Audio play blocked", e));
+                    }
+                    
+                    // Show Browser Notification
+                    if (Notification.permission === "granted") {
+                        new Notification("⚽ Nueva Reserva en Area41", {
+                            body: "¡Alguien acaba de reservar una cancha! Revisa el panel.",
+                            icon: "/icon.png"
+                        });
+                    }
+
+                    toast({
+                        title: "¡Nueva Reserva!",
+                        description: "Se ha registrado un nuevo turno en el complejo.",
+                    });
+                }
+            });
+        });
+
+        return () => unsubscribe();
+    }, [firestore, notificationsEnabled, userProfile, toast]);
+
+    const toggleNotifications = async () => {
+        if (!notificationsEnabled) {
+            const permission = await Notification.requestPermission();
+            if (permission === "granted") {
+                setNotificationsEnabled(true);
+                toast({ title: "Alertas activadas", description: "Recibirás un sonido y aviso cuando entre una reserva." });
+            } else {
+                toast({ variant: "destructive", title: "Permiso denegado", description: "Debes permitir las notificaciones en tu navegador." });
+            }
+        } else {
+            setNotificationsEnabled(false);
+            toast({ title: "Alertas desactivadas" });
+        }
+    };
+
     if (isUserLoading || isProfileLoading || (user && !userProfile)) {
         return (
             <div className="flex min-h-screen items-center justify-center dark bg-background">
@@ -78,7 +139,20 @@ export default function AdminPage() {
   
   return (
       <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
+        <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" />
+        
         <div className="w-full max-w-4xl">
+            <div className="flex justify-end mb-4">
+                <Button 
+                    variant={notificationsEnabled ? "default" : "outline"} 
+                    className={notificationsEnabled ? "bg-green-600 hover:bg-green-700" : ""}
+                    onClick={toggleNotifications}
+                >
+                    {notificationsEnabled ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
+                    {notificationsEnabled ? "Alertas Activadas" : "Activar Alertas de Reservas"}
+                </Button>
+            </div>
+
             <Card className="bg-card/80 backdrop-blur-sm w-full mb-8">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -86,7 +160,7 @@ export default function AdminPage() {
                         Panel de Administración
                     </CardTitle>
                     <CardDescription>
-                        Aquí podrás gestionar los precios y otras configuraciones del complejo.
+                        Gestiona las reservas, precios y configuraciones del complejo.
                     </CardDescription>
                 </CardHeader>
             </Card>
@@ -100,7 +174,7 @@ export default function AdminPage() {
                         </CardTitle>
                         <CardDescription className="text-orange-200">
                             Se detectaron {reservationsWithUsers.length} reserva(s) para el próximo domingo ({format(nextSunday, 'dd/MM', { locale: es })}). 
-                            Como ahora el complejo cierra los domingos, debes contactar a estos clientes y cancelar sus turnos.
+                            Debes contactar a estos clientes y cancelar sus turnos ya que el complejo cierra.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -125,7 +199,7 @@ export default function AdminPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Goal />Gestión de Canchas</CardTitle>
                         <CardDescription>
-                            Modifica los precios y la disponibilidad de las canchas de Fútbol 5 y Fútbol 7.
+                            Modifica los precios y la disponibilidad de las canchas.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -139,7 +213,7 @@ export default function AdminPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Utensils />Gestión de Buffet</CardTitle>
                         <CardDescription>
-                           Añade o modifica los precios y artículos del menú del buffet.
+                           Añade o modifica los precios y artículos del menú.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
@@ -153,7 +227,7 @@ export default function AdminPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><ImageIcon />Gestión de Fondos</CardTitle>
                         <CardDescription>
-                           Añade o modifica la imagen de fondo de la aplicación.
+                           Modifica la imagen de fondo de la aplicación.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
@@ -167,7 +241,7 @@ export default function AdminPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Award />Gestión de Logo</CardTitle>
                         <CardDescription>
-                           Añade o modifica el logo de la aplicación.
+                           Cambia el logo de la aplicación.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
@@ -181,7 +255,7 @@ export default function AdminPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Calendar />Gestión de Reservas</CardTitle>
                         <CardDescription>
-                           Visualiza el historial completo de reservas y busca por cliente.
+                           Visualiza y edita el historial completo de reservas.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
@@ -195,7 +269,7 @@ export default function AdminPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><CalendarClock />Gestión de Turnos Fijos</CardTitle>
                         <CardDescription>
-                           Crea y gestiona reservas recurrentes para clientes habituales.
+                           Crea y gestiona reservas recurrentes semanales.
                         </CardDescription>
                     </CardHeader>
                      <CardContent>
