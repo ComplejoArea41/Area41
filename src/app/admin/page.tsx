@@ -13,11 +13,12 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@
 import { collection, doc, query, where, Timestamp, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff } from "lucide-react";
+import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff, X } from "lucide-react";
 import { startOfDay, addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Reservation, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export default function AdminPage() {
     const { user, isUserLoading } = useUser();
@@ -26,6 +27,7 @@ export default function AdminPage() {
     const { toast } = useToast();
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [alerts, setAlerts] = useState<any[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const isFirstRun = useRef(true);
 
@@ -90,16 +92,24 @@ export default function AdminPage() {
 
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
+                    const newRes = change.doc.data();
+                    
                     // Play sound
                     if (audioRef.current) {
                         audioRef.current.play().catch(e => console.log("Audio play blocked", e));
                     }
                     
+                    // Add to local alerts list
+                    setAlerts(prev => [{
+                        id: change.doc.id,
+                        time: new Date().toLocaleTimeString(),
+                        data: newRes
+                    }, ...prev]);
+
                     // Show Browser Notification
                     if (Notification.permission === "granted") {
                         new Notification("⚽ Nueva Reserva en Area41", {
-                            body: "¡Alguien acaba de reservar una cancha! Revisa el panel.",
-                            icon: "/icon.png"
+                            body: "¡Alguien acaba de reservar una cancha!",
                         });
                     }
 
@@ -125,7 +135,19 @@ export default function AdminPage() {
             }
         } else {
             setNotificationsEnabled(false);
+            setAlerts([]);
             toast({ title: "Alertas desactivadas" });
+        }
+    };
+
+    const removeAlert = (id: string) => {
+        setAlerts(prev => prev.filter(a => a.id !== id));
+    };
+
+    const testSound = () => {
+        if (audioRef.current) {
+            audioRef.current.play().catch(e => toast({ variant: 'destructive', title: 'Error de audio', description: 'Tu navegador bloqueó el sonido. Interactúa con la página primero.' }));
+            toast({ title: "Prueba de sonido", description: "Si escuchaste el silbato, las alertas están funcionando bien." });
         }
     };
 
@@ -142,7 +164,10 @@ export default function AdminPage() {
         <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" />
         
         <div className="w-full max-w-4xl">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4 gap-2">
+                <Button variant="outline" size="sm" onClick={testSound}>
+                    Probar Sonido
+                </Button>
                 <Button 
                     variant={notificationsEnabled ? "default" : "outline"} 
                     className={notificationsEnabled ? "bg-green-600 hover:bg-green-700" : ""}
@@ -152,6 +177,26 @@ export default function AdminPage() {
                     {notificationsEnabled ? "Alertas Activadas" : "Activar Alertas de Reservas"}
                 </Button>
             </div>
+
+            {/* Real-time Alerts List */}
+            {alerts.length > 0 && (
+                <div className="mb-6 space-y-2">
+                    {alerts.map(alert => (
+                        <div key={alert.id} className="bg-primary text-primary-foreground p-4 rounded-lg shadow-lg flex items-center justify-between animate-bounce">
+                            <div className="flex items-center gap-3">
+                                <Goal className="h-6 w-6" />
+                                <div>
+                                    <p className="font-bold">¡NUEVA RESERVA RECIBIDA!</p>
+                                    <p className="text-xs opacity-90">Entró a las {alert.time}. Revisa el calendario para ver detalles.</p>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => removeAlert(alert.id)} className="hover:bg-primary-foreground/20">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <Card className="bg-card/80 backdrop-blur-sm w-full mb-8">
                 <CardHeader>

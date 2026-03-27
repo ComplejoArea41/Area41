@@ -247,6 +247,7 @@ export default function ReservationPage() {
     const totalCost = courtToReserve.price;
     const cancellations = userProfile.cancellationCount || 0;
   
+    // Destinatario actualizado al número solicitado por el admin
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
       `*Cancha:* ${courtDescription}\n` +
@@ -258,7 +259,7 @@ export default function ReservationPage() {
       (cancellations > 0 ? `\n\n⚠️ NOTA: Este cliente tiene ${cancellations} cancelaciones previas.` : "")
     );
   
-    const whatsappUrl = `https://wa.me/2324500029?text=${message}`;
+    const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
     window.location.assign(whatsappUrl);
   
     setIsDialogOpen(false);
@@ -393,7 +394,7 @@ export default function ReservationPage() {
                                         variant="secondary"
                                         disabled
                                         className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100 flex flex-col items-center justify-center p-0 h-10"
-                                        aria-label="Turno fijo"
+                                        aria-label="Fijo"
                                     >
                                         <span className="text-[10px] leading-none">Fijo {typeSuffix}</span>
                                     </Button>
