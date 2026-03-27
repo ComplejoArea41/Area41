@@ -13,7 +13,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@
 import { collection, doc, query, where, Timestamp, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff, X, Volume2 } from "lucide-react";
+import { ShieldAlert, ArrowRight, Utensils, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff, Volume2, Smartphone } from "lucide-react";
 import { startOfDay, addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Reservation, User } from "@/lib/types";
@@ -78,6 +78,17 @@ export default function AdminPage() {
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
+    // Update Badge on the App Icon (The "H" icon)
+    useEffect(() => {
+        if ('setAppBadge' in navigator) {
+            if (alerts.length > 0) {
+                (navigator as any).setAppBadge(alerts.length).catch(console.error);
+            } else {
+                (navigator as any).clearAppBadge().catch(console.error);
+            }
+        }
+    }, [alerts]);
+
     // Real-time listener for NEW reservations
     useEffect(() => {
         if (!firestore || !notificationsEnabled || !userProfile?.isAdmin) return;
@@ -102,11 +113,6 @@ export default function AdminPage() {
                         audioRef.current.loop = true;
                         audioRef.current.play().catch(e => {
                             console.log("Audio play blocked by browser", e);
-                            toast({
-                                variant: "destructive",
-                                title: "¡Nueva Reserva!",
-                                description: "El navegador bloqueó el sonido. Toca la pantalla para activar el audio.",
-                            });
                         });
                     }
                     
@@ -117,13 +123,14 @@ export default function AdminPage() {
                         data: newRes
                     }, ...prev]);
 
-                    // Browser System Notification
+                    // System Notification (The one that shows up in the "H" icon area/lock screen)
                     if (Notification.permission === "granted") {
                         new Notification("⚽ AREA41: ¡Nueva Reserva!", {
-                            body: "Se ha registrado un nuevo turno. Entra para ver los detalles.",
+                            body: "Se ha registrado un nuevo turno. Toca aquí para ver los detalles.",
                             icon: "/icon.png",
                             tag: "new-reservation",
-                            renotify: true
+                            renotify: true,
+                            vibrate: [200, 100, 200]
                         });
                     }
                 }
@@ -131,7 +138,7 @@ export default function AdminPage() {
         });
 
         return () => unsubscribe();
-    }, [firestore, notificationsEnabled, userProfile, toast]);
+    }, [firestore, notificationsEnabled, userProfile]);
 
     const stopAlarm = () => {
         setIsAlarmPlaying(false);
@@ -147,11 +154,12 @@ export default function AdminPage() {
             setNotificationsEnabled(true);
             toast({ 
                 title: "Alertas activadas", 
-                description: "Tu celular sonará y vibrará cuando entre una reserva. Mantén esta pestaña abierta." 
+                description: "Tu celular ahora tiene el aviso activo. Mantén esta pestaña abierta." 
             });
         } else {
             setNotificationsEnabled(false);
             stopAlarm();
+            setAlerts([]); // Clear badges when disabling
             toast({ title: "Alertas desactivadas" });
         }
     };
@@ -169,9 +177,9 @@ export default function AdminPage() {
             audioRef.current.play().catch(e => toast({ 
                 variant: 'destructive', 
                 title: 'Error de audio', 
-                description: 'El navegador bloqueó el sonido. Toca cualquier parte de la página primero.' 
+                description: 'Toca cualquier parte de la página primero para habilitar sonidos.' 
             }));
-            toast({ title: "Prueba de sonido", description: "Sonando silbato de prueba..." });
+            toast({ title: "Prueba de sonido", description: "Sonando alarma de prueba..." });
         }
     };
 
@@ -185,48 +193,49 @@ export default function AdminPage() {
   
   return (
       <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
-        {/* Sound file: Whistle sound */}
         <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto" />
         
         <div className="w-full max-w-4xl space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <div className={cn("h-3 w-3 rounded-full animate-pulse", notificationsEnabled ? "bg-green-500" : "bg-red-500")} />
-                    <span className="text-sm font-medium">
-                        Estado del Monitor: {notificationsEnabled ? "ESCUCHANDO RESERVAS" : "APAGADO"}
-                    </span>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-primary/5 p-4 rounded-xl border border-primary/20">
+                <div className="flex items-center gap-3">
+                    <div className={cn("h-4 w-4 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]", notificationsEnabled ? "bg-green-500 animate-pulse" : "bg-red-500")} />
+                    <div className="flex flex-col">
+                        <span className="text-sm font-bold uppercase tracking-wider">
+                            Monitor de Alertas: {notificationsEnabled ? "CONECTADO" : "DESCONECTADO"}
+                        </span>
+                        <p className="text-[10px] text-muted-foreground">Recibirás avisos en el ícono de la app (H) y notificaciones.</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={testAlarm} className="border-primary/50">
+                    <Button variant="outline" size="sm" onClick={testAlarm} className="border-primary/50 h-8">
                         <Volume2 className="mr-2 h-4 w-4" /> Probar Alarma
                     </Button>
                     <Button 
                         variant={notificationsEnabled ? "default" : "outline"} 
-                        className={cn("transition-all", notificationsEnabled ? "bg-green-600 hover:bg-green-700" : "border-primary")}
+                        className={cn("transition-all h-8", notificationsEnabled ? "bg-green-600 hover:bg-green-700" : "border-primary")}
                         onClick={toggleNotifications}
                     >
                         {notificationsEnabled ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
-                        {notificationsEnabled ? "Alertas Activadas" : "Activar Alertas"}
+                        {notificationsEnabled ? "Alertas ON" : "Activar Alertas"}
                     </Button>
                 </div>
             </div>
 
-            {/* Real-time Alerts List - Persistent UI */}
             {alerts.length > 0 && (
                 <div className="space-y-3">
                     {alerts.map(alert => (
-                        <div key={alert.id} className="bg-primary text-primary-foreground p-6 rounded-xl shadow-2xl flex items-center justify-between border-4 border-white animate-pulse">
+                        <div key={alert.id} className="bg-primary text-primary-foreground p-6 rounded-xl shadow-2xl flex items-center justify-between border-4 border-white animate-bounce">
                             <div className="flex items-center gap-4">
                                 <div className="bg-white p-2 rounded-full">
-                                    <Goal className="h-8 w-8 text-primary" />
+                                    <Smartphone className="h-8 w-8 text-primary" />
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-black">¡NUEVA RESERVA!</p>
-                                    <p className="text-sm opacity-90">Recibida a las {alert.time}. Toca para silenciar.</p>
+                                    <p className="text-2xl font-black italic">¡NUEVA RESERVA!</p>
+                                    <p className="text-sm font-bold opacity-90 uppercase">Revisa tu WhatsApp o el calendario.</p>
                                 </div>
                             </div>
-                            <Button variant="secondary" size="lg" onClick={() => removeAlert(alert.id)} className="font-bold">
-                                ENTENDIDO / SILENCIAR
+                            <Button variant="secondary" size="lg" onClick={() => removeAlert(alert.id)} className="font-bold border-2 border-primary">
+                                ENTENDIDO
                             </Button>
                         </div>
                     ))}
@@ -240,7 +249,7 @@ export default function AdminPage() {
                         Panel de Control Area41
                     </CardTitle>
                     <CardDescription>
-                        Administra tu complejo desde este celular. Mantén esta pantalla encendida para recibir avisos al instante.
+                        Administración central del complejo. Mantén esta pestaña abierta para que el ícono te avise.
                     </CardDescription>
                 </CardHeader>
             </Card>
@@ -253,7 +262,7 @@ export default function AdminPage() {
                             Turnos el Domingo (Cerrado)
                         </CardTitle>
                         <CardDescription className="text-orange-200">
-                            Hay {reservationsWithUsers.length} reserva(s) para el próximo domingo {format(nextSunday, 'dd/MM', { locale: es })}. 
+                            Hay {reservationsWithUsers.length} reserva(s) para el próximo domingo. 
                             Por favor cancelalas y avisa a los clientes.
                         </CardDescription>
                     </CardHeader>
