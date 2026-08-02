@@ -1,8 +1,8 @@
 
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, Timestamp, increment, updateDoc } from 'firebase/firestore';
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc, Timestamp, increment, addDoc } from 'firebase/firestore';
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,9 @@ import {
   } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle, History, Edit } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle, History, Edit, Plus } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
 import { format, startOfWeek, addDays, subDays, set } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -53,6 +55,15 @@ export default function AdminReservationsCalendarPage() {
     const [selectedReservation, setSelectedReservation] = useState<FullReservation | null>(null);
     const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
     
+    // New Reservation State
+    const [isNewResDialogOpen, setIsNewResDialogOpen] = useState(false);
+    const [newResData, setNewResData] = useState({
+        day: new Date(),
+        hour: '',
+        clientName: '',
+        userId: '',
+    });
+
     // Edit states
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editFormData, setEditFormData] = useState({
@@ -67,7 +78,7 @@ export default function AdminReservationsCalendarPage() {
     const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsRef);
 
     const usersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-    const { data: users, isLoading: areUsersLoading } = useCollection<User>(usersRef);
+    const { data: allUsers, isLoading: areUsersLoading } = useCollection<User>(usersRef);
 
     const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsRef);
@@ -99,7 +110,6 @@ export default function AdminReservationsCalendarPage() {
         try {
             if (!isFixed && selectedReservation.userId && selectedReservation.userId !== 'fixed-user') {
                 const customerProfileRef = doc(firestore, 'users', selectedReservation.userId);
-                // Update cancellation count non-blocking or simple update
                 updateDocumentNonBlocking(customerProfileRef, {
                     cancellationCount: increment(1)
                 });
@@ -173,6 +183,57 @@ export default function AdminReservationsCalendarPage() {
             toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar la reserva." });
         }
     };
+
+    const handleOpenCreate = (day: Date, hour: string) => {
+        setNewResData({
+            day,
+            hour,
+            clientName: '',
+            userId: '',
+        });
+        setIsNewResDialogOpen(true);
+    };
+
+    const handleCreateReservation = async () => {
+        if (!firestore || !selectedCourt || !courts) return;
+
+        if (!newResData.clientName && !newResData.userId) {
+            toast({ variant: 'destructive', title: 'Faltan datos', description: 'Por favor selecciona un cliente o ingresa su nombre.' });
+            return;
+        }
+
+        const [hour, min] = newResData.hour.split(':').map(Number);
+        const resDateTime = set(newResData.day, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
+
+        let courtIds = [selectedCourt.id];
+        if (selectedCourt.courtType === 'Futbol 7') {
+            const f7Num = selectedCourt.courtNumber;
+            const f5_1 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === (f7Num * 2) - 1);
+            const f5_2 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f7Num * 2);
+            if (f5_1) courtIds.push(f5_1.id);
+            if (f5_2) courtIds.push(f5_2.id);
+        }
+
+        // Si el admin ingresó un nombre a mano, usamos el ID del admin pero guardamos el nombre en el perfil del usuario si es necesario.
+        // Por simplicidad, usaremos el userId seleccionado o el del propio admin.
+        const targetUserId = newResData.userId || user!.uid;
+
+        const resData = {
+            userId: targetUserId,
+            courtIds,
+            reservationDateTime: Timestamp.fromDate(resDateTime),
+            durationMinutes: 60,
+        };
+
+        try {
+            await addDocumentNonBlocking(collection(firestore, 'reservations'), resData);
+            toast({ title: 'Reserva creada', description: 'El turno ha sido registrado exitosamente.' });
+            setIsNewResDialogOpen(false);
+        } catch (error) {
+            console.error("Error creating reservation:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo crear la reserva.' });
+        }
+    };
     
     const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
         if (!courts) return undefined;
@@ -187,8 +248,8 @@ export default function AdminReservationsCalendarPage() {
         let regularMatch: FullReservation | undefined;
         let fixedMatch: FullReservation | undefined;
 
-        if (reservations && users) {
-            const usersMap = new Map(users.map(u => [u.id, u]));
+        if (reservations && allUsers) {
+            const usersMap = new Map(allUsers.map(u => [u.id, u]));
             const reservationsInSlot = reservations.filter(res => {
                 const resDateTime = (res.reservationDateTime as any).toDate();
                 return resDateTime.getTime() === slotDateTime.getTime();
@@ -424,7 +485,14 @@ export default function AdminReservationsCalendarPage() {
                                                         </div>
                                                     </button>
                                                 ) : (
-                                                    <div className="text-xs text-muted-foreground/30">Libre</div>
+                                                    <button 
+                                                        onClick={() => handleOpenCreate(day, hour)}
+                                                        className="w-full h-full flex items-center justify-center group"
+                                                    >
+                                                        <div className="text-[10px] text-muted-foreground/30 group-hover:text-primary transition-colors flex items-center gap-1">
+                                                            <Plus className="h-3 w-3" /> Libre
+                                                        </div>
+                                                    </button>
                                                 )}
                                             </div>
                                         );
@@ -435,6 +503,54 @@ export default function AdminReservationsCalendarPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Nueva Reserva Dialog */}
+            <Dialog open={isNewResDialogOpen} onOpenChange={setIsNewResDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Registrar Reserva Manual</DialogTitle>
+                        <DialogDescription>
+                            Asienta un turno recibido por WhatsApp u otro medio.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Horario</Label>
+                            <div className="col-span-3 font-semibold text-primary">
+                                {format(newResData.day, "EEEE d 'de' MMM", { locale: es })} - {newResData.hour} hs
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="clientName" className="text-right">Nombre Cliente</Label>
+                            <Input 
+                                id="clientName" 
+                                value={newResData.clientName} 
+                                onChange={(e) => setNewResData(prev => ({...prev, clientName: e.target.value}))}
+                                className="col-span-3"
+                                placeholder="Ej: Juan Pérez"
+                            />
+                        </div>
+                        <Separator />
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">O elegir usuario</Label>
+                            <Select onValueChange={(val) => setNewResData(prev => ({...prev, userId: val}))} value={newResData.userId}>
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Seleccionar usuario registrado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allUsers?.map(u => (
+                                        <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNewResDialogOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleCreateReservation}>Confirmar Turno</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={!!selectedReservation} onOpenChange={(isOpen) => { if (!isOpen) setSelectedReservation(null) }}>
                 <DialogContent className="sm:max-w-md">
