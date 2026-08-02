@@ -1,6 +1,6 @@
+
 import { ImageResponse } from 'next/og'
 
-export const runtime = 'edge'
 export const size = {
   width: 32,
   height: 32,
@@ -13,13 +13,13 @@ export default function Icon() {
       <div
         style={{
           fontSize: 24,
-          background: '#1E88E5', // Un azul más vibrante
+          background: '#82c91e',
           width: '100%',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white',
+          color: '#0a0d14',
           borderRadius: 8,
         }}
       >
@@ -42,7 +42,6 @@ export default function Icon() {
           <path d="m22 12-5.5-2.5" />
           <path d="m2 12 5.5-2.5" />
           <path d="m12 22 2.5-5.5" />
-          <path d="m12 22-2.5-5.5" />
         </svg>
       </div>
     ),
@@ -51,5 +50,3 @@ export default function Icon() {
     }
   )
 }
-
-    
