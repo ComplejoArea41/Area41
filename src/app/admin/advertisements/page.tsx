@@ -27,7 +27,6 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Advertisement, User } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Megaphone } from "lucide-react";
-import Image from "next/image";
 
 type FormData = Omit<Advertisement, 'id'>;
 
@@ -138,7 +137,7 @@ export default function AdminAdvertisementsPage() {
                         {ads?.map((ad) => (
                             <Card key={ad.id} className="bg-card/60 overflow-hidden">
                                 <div className="relative aspect-video">
-                                     <Image src={ad.imageUrl} alt={ad.title} fill className="object-cover" />
+                                     <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
                                 </div>
                                 <CardHeader className="p-4">
                                     <CardTitle className="text-base truncate">{ad.title}</CardTitle>

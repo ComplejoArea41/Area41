@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -10,7 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import { useState, useMemo } from "react";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
@@ -70,11 +68,10 @@ export default function BuffetPage() {
                             <CardHeader className="p-0">
                                 {item.imageUrl && (
                                     <div className="aspect-video relative">
-                                        <Image
+                                        <img
                                             src={item.imageUrl}
                                             alt={item.name}
-                                            fill
-                                            className="object-cover"
+                                            className="w-full h-full object-cover"
                                         />
                                     </div>
                                 )}
@@ -86,7 +83,7 @@ export default function BuffetPage() {
                                         {item.type}
                                     </Badge>
                                 </div>
-                                <CardDescription>{item.description}</CardDescription>
+                                <CardDescription className="line-clamp-2">{item.description}</CardDescription>
                             </CardContent>
                             <CardFooter className="p-4 pt-0">
                                 <p className="text-2xl font-bold text-primary w-full text-right">{formatPrice(item.price)}</p>
@@ -94,11 +91,14 @@ export default function BuffetPage() {
                         </Card>
                     );
                 })}
+                {filteredItems.length === 0 && (
+                    <div className="col-span-full text-center py-12 text-muted-foreground">
+                        No hay {filter.toLowerCase()} disponibles en este momento.
+                    </div>
+                )}
               </div>
             )}
         </div>
       </div>
   );
 }
-
-    

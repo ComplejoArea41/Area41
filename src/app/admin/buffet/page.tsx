@@ -23,11 +23,10 @@ import { collection, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import type { MenuItem } from "@/lib/types";
+import type { MenuItem, User } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Utensils } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import Image from "next/image";
 
 type FormData = Omit<MenuItem, 'id'>;
 
@@ -38,7 +37,7 @@ export default function AdminBuffetPage() {
     const { toast } = useToast();
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
 
     const menuItemsCollectionRef = useMemoFirebase(() => collection(firestore, 'menu_items'), [firestore]);
     const { data: menuItems, isLoading: areMenuItemsLoading } = useCollection<MenuItem>(menuItemsCollectionRef);
@@ -129,11 +128,10 @@ export default function AdminBuffetPage() {
         <Card key={item.id} className="bg-card/60 flex flex-col overflow-hidden">
              {item.imageUrl && (
                 <div className="aspect-video relative">
-                    <Image
+                    <img
                         src={item.imageUrl}
                         alt={item.name}
-                        fill
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                     />
                 </div>
             )}
@@ -227,12 +225,12 @@ export default function AdminBuffetPage() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
-                            <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" />
+                            <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://..." />
                         </div>
                          <div className="col-span-4 px-1">
                             <p className="text-xs text-muted-foreground text-center">
                                 Pega el enlace directo a la imagen (debe terminar en .jpg, .png, etc.).<br/>
-                                Sube tu imagen a <a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">ImgBB</a> para obtener un enlace válido.
+                                Puedes usar cualquier sitio de imágenes.
                             </p>
                         </div>
                     </div>
