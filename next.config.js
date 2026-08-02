@@ -14,6 +14,7 @@ const nextConfig = {
         { protocol: 'https', hostname: 'www.delabahia.com.ar' },
         { protocol: 'https', hostname: 'i.pinimg.com' },
         { protocol: 'https', hostname: 'i.ibb.co' },
+        { protocol: 'https', hostname: 'as2.ftcdn.net' },
       ],
     },
   };
