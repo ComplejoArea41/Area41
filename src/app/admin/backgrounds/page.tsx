@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -27,7 +28,6 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { BackgroundImage } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Image as ImageIcon } from "lucide-react";
-import NextImage from "next/image";
 
 type FormData = Omit<BackgroundImage, 'id' | 'isActive' | 'storagePath'>;
 
@@ -82,7 +82,6 @@ export default function AdminBackgroundsPage() {
         try {
             await deleteDoc(imageRef);
 
-            // If the image had a file in storage, delete it too
             if (image.storagePath && storage) {
                 const storageRef = ref(storage, image.storagePath);
                 try {
@@ -139,7 +138,6 @@ export default function AdminBackgroundsPage() {
         
         try {
             if (editingImage) {
-                // If the image URL changed and there was an old storage path, delete the old file
                 if (editingImage.imageUrl !== formData.imageUrl && editingImage.storagePath && storage) {
                     const oldStorageRef = ref(storage, editingImage.storagePath);
                     try { 
@@ -148,7 +146,6 @@ export default function AdminBackgroundsPage() {
                 }
 
                 const imageRef = doc(firestore, 'background_images', editingImage.id);
-                // We ensure storagePath is not set if we are just using a URL.
                 const updatedData: Partial<BackgroundImage> = {
                     name: formData.name,
                     imageUrl: formData.imageUrl,
@@ -158,7 +155,6 @@ export default function AdminBackgroundsPage() {
                 toast({ title: "¡Imagen actualizada!", description: "Los cambios se han guardado." });
             } else {
                  const collectionRef = collection(firestore, 'background_images');
-                 // For new images via URL, isActive is false and storagePath is null.
                  await addDocumentNonBlocking(collectionRef, { ...formData, isActive: false, storagePath: null });
                  toast({ title: "¡Imagen agregada!", description: "La nueva imagen ya está disponible." });
             }
@@ -200,7 +196,7 @@ export default function AdminBackgroundsPage() {
                         {backgroundImages?.map((image) => (
                             <Card key={image.id} className="bg-card/60 overflow-hidden">
                                 <div className="relative aspect-video">
-                                     <NextImage src={image.imageUrl} alt={image.name} layout="fill" objectFit="cover" />
+                                     <img src={image.imageUrl} alt={image.name} className="w-full h-full object-cover" />
                                 </div>
                                 <CardHeader>
                                     <CardTitle className="truncate">{image.name}</CardTitle>
@@ -256,12 +252,6 @@ export default function AdminBackgroundsPage() {
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
                             <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/imagen.jpg"/>
-                        </div>
-                         <div className="col-span-4 px-1">
-                            <p className="text-xs text-muted-foreground text-center">
-                                Pega el enlace directo a la imagen (debe terminar en .jpg, .png, etc.).<br/>
-                                Sube tu imagen a <a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">ImgBB</a> para obtener un enlace válido.
-                            </p>
                         </div>
                     </div>
                     <DialogFooter>

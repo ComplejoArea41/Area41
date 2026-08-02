@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -27,7 +28,6 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { LogoImage } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, Award } from "lucide-react";
-import NextImage from "next/image";
 
 type FormData = Omit<LogoImage, 'id' | 'isActive' | 'storagePath'>;
 
@@ -187,7 +187,7 @@ export default function AdminLogoPage() {
                         {logoImages?.map((image) => (
                             <Card key={image.id} className="bg-card/60 overflow-hidden">
                                 <div className="relative aspect-square p-4 flex items-center justify-center">
-                                     <NextImage src={image.imageUrl} alt={image.name} layout="fill" objectFit="contain" />
+                                     <img src={image.imageUrl} alt={image.name} className="max-w-full max-h-full object-contain" />
                                 </div>
                                 <CardHeader>
                                     <CardTitle className="truncate">{image.name}</CardTitle>
@@ -243,12 +243,6 @@ export default function AdminLogoPage() {
                          <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="imageUrl" className="text-right">URL de Imagen</Label>
                             <Input id="imageUrl" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="col-span-3" placeholder="https://ejemplo.com/logo.png"/>
-                        </div>
-                        <div className="col-span-4 px-1">
-                            <p className="text-xs text-muted-foreground text-center">
-                                Pega el enlace directo a la imagen (debe terminar en .jpg, .png, etc.).<br/>
-                                Sube tu imagen a <a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">ImgBB</a> para obtener un enlace válido.
-                            </p>
                         </div>
                     </div>
                     <DialogFooter>

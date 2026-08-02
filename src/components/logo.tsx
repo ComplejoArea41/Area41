@@ -1,6 +1,4 @@
 
-import Image from "next/image";
-
 export function Logo() {
   const logoUrl = "https://storage.googleapis.com/aif-public-images/area-41-logo.png";
   const logoDescription = "Area 41 Logo";
@@ -33,11 +31,9 @@ export function Logo() {
   }
 
   return (
-    <Image 
+    <img 
         src={logoUrl}
         alt={logoDescription}
-        width={128}
-        height={128}
         className="h-32 w-32"
     />
   );
