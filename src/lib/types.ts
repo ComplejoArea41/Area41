@@ -59,3 +59,12 @@ export interface Advertisement {
   imageUrl: string;
   isActive: boolean;
 }
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  type: 'Comida' | 'Bebida';
+  imageUrl?: string;
+}
