@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -18,9 +17,12 @@ import {
   LogOut,
   Home,
   LogIn,
+  Download,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Header() {
   const { user, isUserLoading } = useUser();
@@ -28,9 +30,52 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = getAuth();
+  const { toast } = useToast();
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
 
   const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      // Prevenir que el navegador muestre su propio aviso
+      e.preventDefault();
+      // Guardar el evento para dispararlo más tarde
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Detectar si ya está instalada o si es iOS (donde no hay beforeinstallprompt)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      setIsInstallable(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsInstallable(false);
+      }
+      setDeferredPrompt(null);
+    } else {
+      // Si no hay evento (como en iOS), mostramos un mensaje de ayuda
+      toast({
+        title: "Cómo instalar en iPhone",
+        description: "Toca el botón 'Compartir' (el cuadrado con la flecha arriba) en Safari y selecciona 'Agregar a inicio'.",
+      });
+    }
+  };
 
   const handleSignOut = () => {
     signOut(auth).then(() => {
@@ -70,8 +115,19 @@ export default function Header() {
             </Link>
           </Button>
         ))}
+
+        {/* Botón de Instalación Desktop */}
+        <Button 
+          variant="outline" 
+          onClick={handleInstallClick} 
+          className="hidden md:flex border-primary/50 text-primary hover:bg-primary/10"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Instalar App
+        </Button>
+
         {/* Mobile-friendly icons */}
-        <div className="flex md:hidden">
+        <div className="flex md:hidden items-center gap-1">
             {navLinks.map((link) => (
                 <Button key={`${link.href}-mobile`} variant={pathname === link.href ? 'default' : 'ghost'} size="icon" asChild>
                     <Link href={link.href}>
@@ -80,6 +136,10 @@ export default function Header() {
                     </Link>
                 </Button>
             ))}
+            <Button variant="ghost" size="icon" onClick={handleInstallClick} className="text-primary">
+                <Download className="h-4 w-4" />
+                <span className='sr-only'>Instalar App</span>
+            </Button>
         </div>
       </nav>
       
