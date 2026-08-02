@@ -2,10 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Goal, Sparkles, X, Megaphone } from 'lucide-react';
+import { Goal, Megaphone } from 'lucide-react';
 import { DynamicLogo } from '@/components/dynamic-logo';
-import { useState, useEffect } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Advertisement } from '@/lib/types';
@@ -14,17 +12,6 @@ import { Card, CardContent } from '@/components/ui/card';
 export default function WelcomePage() {
   const router = useRouter();
   const firestore = useFirestore();
-  const [showMigrationNotice, setShowMigrationNotice] = useState(false);
-
-  useEffect(() => {
-    const dismissed = localStorage.getItem('hideMigrationNotice');
-    if (!dismissed) setShowMigrationNotice(true);
-  }, []);
-
-  const dismissNotice = () => {
-    localStorage.setItem('hideMigrationNotice', 'true');
-    setShowMigrationNotice(false);
-  };
 
   const adsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'advertisements'), where('isActive', '==', true)) : null),
@@ -36,24 +23,6 @@ export default function WelcomePage() {
       <div className="relative flex flex-1 flex-col items-center justify-start p-4 pt-12">
         <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-4xl">
             
-            {showMigrationNotice && (
-              <Alert className="mb-8 bg-primary/20 border-primary text-foreground relative max-w-lg">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <AlertTitle className="font-bold text-primary">¡Nueva Versión!</AlertTitle>
-                <AlertDescription className="text-xs opacity-90 pr-6">
-                  Si tenías el ícono viejo, <strong>bórralo y vuelve a instalar la App</strong> desde el menú de arriba para activar las nuevas notificaciones.
-                </AlertDescription>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="absolute top-2 right-2 h-6 w-6"
-                  onClick={dismissNotice}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </Alert>
-            )}
-
             <div className="text-center mb-12">
                 <DynamicLogo />
             </div>

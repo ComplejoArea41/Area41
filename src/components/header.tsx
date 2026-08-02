@@ -15,7 +15,7 @@ import {
   Shield,
   LogOut,
   Home,
-  Download,
+  Smartphone,
   Utensils,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
@@ -32,7 +32,6 @@ export default function Header() {
   const { toast } = useToast();
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
 
   const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
@@ -41,11 +40,8 @@ export default function Header() {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setIsInstallable(true);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    if (isStandalone) setIsInstallable(false);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
@@ -53,12 +49,14 @@ export default function Header() {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') setIsInstallable(false);
-      setDeferredPrompt(null);
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
     } else {
+      // Instrucciones manuales para cuando el navegador no soporta el prompt automático (como iOS Safari)
       toast({
-        title: "Cómo instalar en iPhone",
-        description: "Toca 'Compartir' en Safari y selecciona 'Agregar a inicio'.",
+        title: "Instalar App / Crear Acceso Directo",
+        description: "En iPhone: toca el botón de 'Compartir' y luego 'Agregar a inicio'. En Android: toca los tres puntos del menú y 'Instalar aplicación'.",
       });
     }
   };
@@ -98,8 +96,8 @@ export default function Header() {
           onClick={handleInstallClick} 
           className="hidden md:flex border-primary/50 text-primary h-8"
         >
-          <Download className="h-4 w-4 mr-2" />
-          Descargar App
+          <Smartphone className="h-4 w-4 mr-2" />
+          Instalar App
         </Button>
 
         <div className="flex md:hidden items-center gap-1">
@@ -111,7 +109,7 @@ export default function Header() {
                 </Button>
             ))}
             <Button variant="ghost" size="icon" onClick={handleInstallClick} className="text-primary">
-                <Download className="h-4 w-4" />
+                <Smartphone className="h-4 w-4" />
             </Button>
         </div>
       </nav>
