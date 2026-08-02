@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Advertisement } from '@/lib/types';
-import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function WelcomePage() {
@@ -79,30 +78,26 @@ export default function WelcomePage() {
                 </p>
             </div>
 
-            {/* Sección de Publicidades */}
+            {/* Sección de Publicidades Minimalista al Final */}
             {ads && ads.length > 0 && (
-                <div className="w-full space-y-6">
-                    <div className="flex items-center gap-3 border-l-4 border-primary pl-4">
-                        <Megaphone className="h-6 w-6 text-primary" />
-                        <h2 className="text-2xl font-bold tracking-tight">Nuestras Promociones</h2>
+                <div className="w-full mt-auto pt-8 border-t border-white/10">
+                    <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
+                        <Megaphone className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Auspiciantes</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-wrap justify-center gap-3">
                         {ads.map((ad) => (
-                            <Card key={ad.id} className="bg-card/40 backdrop-blur-sm border-white/5 overflow-hidden hover:border-primary/30 transition-colors">
-                                <CardContent className="p-0">
-                                    <div className="relative aspect-[4/3] w-full">
-                                        <Image 
+                            <div key={ad.id} className="group relative">
+                                <Card className="bg-card/30 backdrop-blur-sm border-white/5 overflow-hidden w-24 h-24 hover:border-primary/50 transition-all transform hover:scale-110">
+                                    <CardContent className="p-0 w-full h-full">
+                                        <img 
                                             src={ad.imageUrl} 
                                             alt={ad.title} 
-                                            fill 
-                                            className="object-cover" 
+                                            className="w-full h-full object-cover" 
                                         />
-                                    </div>
-                                    <div className="p-4 bg-background/60">
-                                        <p className="text-center font-semibold text-primary uppercase tracking-wider">{ad.title}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                    </CardContent>
+                                </Card>
+                            </div>
                         ))}
                     </div>
                 </div>
