@@ -184,6 +184,27 @@ export default function ReservationPage() {
       return;
     }
 
+    // Consulta Directa vía WhatsApp para horarios restringidos (8am a 16hs)
+    if (hour >= 8 && hour < 16) {
+        const courtToReserve = allCourts?.find(c => c.id === selectedCourtId);
+        const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
+        const phone = userProfile.phoneNumber || 'No especificado';
+        
+        const message = encodeURIComponent(
+          `¡Hola! Me gustaría consultar por la disponibilidad de la cancha (Horario Consulta):\n\n` +
+          `*Cancha:* ${courtToReserve?.courtType} - Cancha ${courtToReserve?.courtNumber}\n` +
+          `*Fecha:* ${format(reservationDate, 'dd/MM/yyyy')}\n` +
+          `*Horario:* ${time}\n\n` +
+          `*Nombre:* ${fullName}\n` +
+          `*Teléfono:* ${phone}\n\n` +
+          `_Este mensaje es una consulta de disponibilidad para el horario de la mañana/tarde._`
+        );
+      
+        const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
+        window.location.assign(whatsappUrl);
+        return;
+    }
+
     setDialogData({
       time: time,
       date: reservationDate,
@@ -247,7 +268,6 @@ export default function ReservationPage() {
     const totalCost = courtToReserve.price;
     const cancellations = userProfile.cancellationCount || 0;
   
-    // Destinatario actualizado al número solicitado por el admin
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
       `*Cancha:* ${courtDescription}\n` +
@@ -413,21 +433,29 @@ export default function ReservationPage() {
                                 );
                             }
                         }
+
+                        // Horarios restringidos (Consulta Vía WhatsApp)
+                        const isConsultationOnly = hour >= 8 && hour < 16;
                         
                         return (
                             <Button 
                                 key={time} 
-                                variant='outline'
+                                variant={isConsultationOnly ? 'secondary' : 'outline'}
                                 disabled={isPast}
                                 onClick={() => handleTimeSelect(time)}
-                                aria-label={`Reservar a las ${time}`}
+                                className={cn("h-12 flex flex-col items-center justify-center", isConsultationOnly && "border-primary/40")}
+                                aria-label={isConsultationOnly ? `Consultar a las ${time}` : `Reservar a las ${time}`}
                             >
-                                {time}
+                                <span>{time}</span>
+                                {isConsultationOnly && <span className="text-[8px] opacity-70 font-bold uppercase">Consultar</span>}
                             </Button>
                         );
                     })
                 )}
                 </div>
+                <p className="mt-4 text-[10px] text-muted-foreground text-center">
+                    Los turnos de la mañana y tarde requieren consulta directa para confirmar disponibilidad.
+                </p>
             </div>
           )}
         </CardContent>

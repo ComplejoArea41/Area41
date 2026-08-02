@@ -30,6 +30,10 @@
         "isAdmin": {
           "type": "boolean",
           "description": "Indicates if the user is an administrator."
+        },
+        "cancellationCount": {
+          "type": "number",
+          "description": "Number of times the user has cancelled a reservation."
         }
       },
       "required": [
@@ -87,11 +91,11 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Reservation)"
+          "description": "Reference to User."
         },
         "courtIds": {
           "type": "array",
-          "description": "Reference to Court. (Relationship: Court 1:N Reservation)",
+          "description": "Reference to Court IDs.",
           "items": {
             "type": "string"
           }
@@ -139,6 +143,10 @@
         "type": {
           "type": "string",
           "description": "Type of menu item (e.g., beverage, food)."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the item image."
         }
       },
       "required": [
@@ -153,7 +161,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "FixedReservation",
       "type": "object",
-      "description": "Represents a recurring, fixed reservation for a court on a specific day and time.",
+      "description": "Represents a recurring, fixed reservation.",
       "properties": {
         "id": {
           "type": "string",
@@ -161,27 +169,27 @@
         },
         "courtId": {
           "type": "string",
-          "description": "The ID of the court being reserved."
+          "description": "The ID of the court."
         },
         "dayOfWeek": {
           "type": "number",
-          "description": "The day of the week for the reservation (0=Sunday, 1=Monday, ..., 6=Saturday)."
+          "description": "Day of the week (0-6)."
         },
         "time": {
           "type": "string",
-          "description": "The time of the reservation in HH:mm format."
+          "description": "Time in HH:mm format."
         },
         "clientName": {
           "type": "string",
-          "description": "Name of the client or team for the fixed reservation."
+          "description": "Name of the client."
         },
         "phoneNumber": {
           "type": "string",
-          "description": "Contact phone number for the client."
+          "description": "Phone number."
         },
         "isActive": {
           "type": "boolean",
-          "description": "Indicates if the fixed reservation is currently active."
+          "description": "Is active."
         }
       },
       "required": [
@@ -209,7 +217,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile information. Accessible only by the authenticated user."
+          "description": "Stores user profile information."
         }
       },
       {
@@ -229,7 +237,7 @@
           "schema": {
             "$ref": "#/backend/entities/Reservation"
           },
-          "description": "Stores reservation details. Includes userId and courtIds for authorization independence."
+          "description": "Stores reservation details."
         }
       },
       {
@@ -239,7 +247,7 @@
           "schema": {
             "$ref": "#/backend/entities/MenuItem"
           },
-          "description": "Stores the menu items offered by the buffet."
+          "description": "Stores the menu items."
         }
       },
       {
@@ -249,10 +257,10 @@
           "schema": {
             "$ref": "#/backend/entities/FixedReservation"
           },
-          "description": "Stores recurring fixed reservations made by the admin."
+          "description": "Stores recurring fixed reservations."
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The tournament-related collections have been removed as per the user's request. A new 'FixedReservation' entity and collection have been added for admins to manage recurring bookings."
+    "reasoning": "Data structure to support Area41 core features including fixed reservations and user history."
   }
 }

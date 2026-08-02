@@ -30,6 +30,10 @@
         "isAdmin": {
           "type": "boolean",
           "description": "Indicates if the user is an administrator."
+        },
+        "cancellationCount": {
+          "type": "number",
+          "description": "Number of times the user has cancelled a reservation."
         }
       },
       "required": [
@@ -87,11 +91,11 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Reservation)"
+          "description": "Reference to User."
         },
         "courtIds": {
           "type": "array",
-          "description": "Reference to Court. (Relationship: Court 1:N Reservation)",
+          "description": "Reference to Court IDs.",
           "items": {
             "type": "string"
           }
@@ -139,6 +143,10 @@
         "type": {
           "type": "string",
           "description": "Type of menu item (e.g., beverage, food)."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the item image."
         }
       },
       "required": [
@@ -147,6 +155,50 @@
         "description",
         "price",
         "type"
+      ]
+    },
+    "FixedReservation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FixedReservation",
+      "type": "object",
+      "description": "Represents a recurring, fixed reservation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the fixed reservation."
+        },
+        "courtId": {
+          "type": "string",
+          "description": "The ID of the court."
+        },
+        "dayOfWeek": {
+          "type": "number",
+          "description": "Day of the week (0-6)."
+        },
+        "time": {
+          "type": "string",
+          "description": "Time in HH:mm format."
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Name of the client."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Phone number."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Is active."
+        }
+      },
+      "required": [
+        "id",
+        "courtId",
+        "dayOfWeek",
+        "time",
+        "clientName",
+        "isActive"
       ]
     }
   },
@@ -165,7 +217,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile information. Accessible only by the authenticated user."
+          "description": "Stores user profile information."
         }
       },
       {
@@ -185,7 +237,7 @@
           "schema": {
             "$ref": "#/backend/entities/Reservation"
           },
-          "description": "Stores reservation details. Includes userId and courtIds for authorization independence."
+          "description": "Stores reservation details."
         }
       },
       {
@@ -195,10 +247,20 @@
           "schema": {
             "$ref": "#/backend/entities/MenuItem"
           },
-          "description": "Stores the menu items offered by the buffet."
+          "description": "Stores the menu items."
+        }
+      },
+      {
+        "path": "/fixed_reservations/{fixedReservationId}",
+        "definition": {
+          "entityName": "FixedReservation",
+          "schema": {
+            "$ref": "#/backend/entities/FixedReservation"
+          },
+          "description": "Stores recurring fixed reservations."
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the sports complex application's core features. The tournament-related collections have been removed as per the user's request."
+    "reasoning": "Data structure to support Area41 core features including fixed reservations and user history."
   }
 }
