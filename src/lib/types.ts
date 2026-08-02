@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   firstName: string;
@@ -20,9 +21,8 @@ export interface Reservation {
   id: string;
   userId: string;
   courtIds: string[];
-  reservationDateTime: string; // ISO 8601 format
+  reservationDateTime: any; // Se usa any para admitir Timestamp de Firebase y evitar errores de compilación
   durationMinutes: number;
-  // For display purposes
   date?: string;
   time?: string;
 }
