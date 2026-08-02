@@ -15,8 +15,8 @@ import {
   Shield,
   LogOut,
   Home,
-  LogIn,
   Download,
+  Utensils,
 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
@@ -70,6 +70,7 @@ export default function Header() {
   const navLinks = [
     { href: '/', label: 'Inicio', icon: <Home className="h-4 w-4" /> },
     { href: '/reservations', label: 'Reservar', icon: <Calendar className="h-4 w-4" /> },
+    { href: '/buffet', label: 'Buffet', icon: <Utensils className="h-4 w-4" /> },
     { href: '/profile', label: 'Perfil', icon: <UserIcon className="h-4 w-4" /> },
   ];
 

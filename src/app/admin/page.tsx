@@ -12,9 +12,8 @@ import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from "@
 import { collection, doc, query, where, Timestamp, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { ShieldAlert, ArrowRight, Megaphone, Goal, ImageIcon, Award, Calendar, CalendarClock, AlertTriangle, Bell, BellOff, Volume2, Smartphone } from "lucide-react";
-import { startOfDay, addDays, format } from "date-fns";
-import { es } from "date-fns/locale";
+import { ShieldAlert, Megaphone, Goal, ImageIcon, Award, Calendar, CalendarClock, Bell, BellOff, Smartphone, Utensils } from "lucide-react";
+import { startOfDay, addDays } from "date-fns";
 import type { Reservation, User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -33,37 +32,6 @@ export default function AdminPage() {
 
     const userRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userRef);
-
-    const nextSunday = useMemo(() => {
-        let date = new Date();
-        while (date.getDay() !== 0) {
-            date = addDays(date, 1);
-        }
-        return startOfDay(date);
-    }, []);
-
-    const sundayReservationsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        const endOfSunday = addDays(nextSunday, 1);
-        return query(
-            collection(firestore, 'reservations'),
-            where('reservationDateTime', '>=', Timestamp.fromDate(nextSunday)),
-            where('reservationDateTime', '<', Timestamp.fromDate(endOfSunday))
-        );
-    }, [firestore, nextSunday]);
-
-    const { data: sundayReservations } = useCollection<Reservation>(sundayReservationsQuery);
-
-    const usersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-    const { data: allUsers } = useCollection<User>(usersRef);
-
-    const reservationsWithUsers = useMemo(() => {
-        if (!sundayReservations || !allUsers) return [];
-        return sundayReservations.map(res => ({
-            ...res,
-            user: allUsers.find(u => u.id === res.userId)
-        }));
-    }, [sundayReservations, allUsers]);
 
     useEffect(() => {
         if (isUserLoading || isProfileLoading) return;
@@ -98,13 +66,12 @@ export default function AdminPage() {
 
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
-                    const newRes = change.doc.data();
                     setIsAlarmPlaying(true);
                     if (audioRef.current) {
                         audioRef.current.loop = true;
                         audioRef.current.play().catch(e => console.log(e));
                     }
-                    setAlerts(prev => [{ id: change.doc.id, time: new Date().toLocaleTimeString(), data: newRes }, ...prev]);
+                    setAlerts(prev => [{ id: change.doc.id, time: new Date().toLocaleTimeString() }, ...prev]);
                     if (Notification.permission === "granted") {
                         new Notification("⚽ AREA41: ¡Nueva Reserva!", {
                             body: "Se ha registrado un nuevo turno.",
@@ -161,14 +128,16 @@ export default function AdminPage() {
                         <span className="text-sm font-bold">Monitor: {notificationsEnabled ? "CONECTADO" : "OFF"}</span>
                     </div>
                 </div>
-                <Button 
-                    variant={notificationsEnabled ? "default" : "outline"} 
-                    className="h-8"
-                    onClick={toggleNotifications}
-                >
-                    {notificationsEnabled ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
-                    Alertas
-                </Button>
+                <div className="flex gap-2">
+                    <Button 
+                        variant={notificationsEnabled ? "default" : "outline"} 
+                        className="h-8"
+                        onClick={toggleNotifications}
+                    >
+                        {notificationsEnabled ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
+                        Alertas
+                    </Button>
+                </div>
             </div>
 
             {alerts.length > 0 && (
@@ -219,8 +188,15 @@ export default function AdminPage() {
                     router={router} 
                 />
                 <AdminNavCard 
+                    title="Buffet" 
+                    desc="Gestionar menú" 
+                    icon={<Utensils className="h-6 w-6" />} 
+                    path="/admin/buffet" 
+                    router={router} 
+                />
+                <AdminNavCard 
                     title="Canchas" 
-                    desc="Precios" 
+                    desc="Precios y disponibilidad" 
                     icon={<Goal className="h-6 w-6" />} 
                     path="/admin/courts" 
                     router={router} 
