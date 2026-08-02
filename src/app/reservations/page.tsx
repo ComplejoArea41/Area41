@@ -45,7 +45,6 @@ export default function ReservationPage() {
   const [dialogData, setDialogData] = useState<{time: string, date: Date}>({ time: '', date: new Date()});
   const [isConfirming, setIsConfirming] = useState(false);
 
-  // Initialize selectedDate with the first available non-Sunday date
   useEffect(() => {
     const today = startOfDay(new Date());
     if (today.getDay() === 0) {
@@ -82,7 +81,6 @@ export default function ReservationPage() {
     if (!user) router.push('/login');
   }, [user, isUserLoading, router]);
 
-  // IMPORTANT: Filter by isAvailable property
   const courtsForType = useMemo(() => {
     if (!allCourts) return [];
     return allCourts
@@ -186,7 +184,6 @@ export default function ReservationPage() {
       return;
     }
 
-    // Consulta Directa vía WhatsApp para horarios restringidos (8am a 16hs)
     if (hour >= 8 && hour < 16) {
         const courtToReserve = allCourts?.find(c => c.id === selectedCourtId);
         const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
@@ -202,7 +199,7 @@ export default function ReservationPage() {
           `_Este mensaje es una consulta de disponibilidad para el horario de la mañana/tarde._`
         );
       
-        const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
+        const whatsappUrl = `https://wa.me/2324500029?text=${message}`;
         window.location.assign(whatsappUrl);
         return;
     }
@@ -281,7 +278,7 @@ export default function ReservationPage() {
       (cancellations > 0 ? `\n\n⚠️ NOTA: Este cliente tiene ${cancellations} cancelaciones previas.` : "")
     );
   
-    const whatsappUrl = `https://wa.me/2324610433?text=${message}`;
+    const whatsappUrl = `https://wa.me/2324500029?text=${message}`;
     window.location.assign(whatsappUrl);
   
     setIsDialogOpen(false);
@@ -439,7 +436,6 @@ export default function ReservationPage() {
                             }
                         }
 
-                        // Horarios restringidos (Consulta Vía WhatsApp)
                         const isConsultationOnly = hour >= 8 && hour < 16;
                         
                         return (
