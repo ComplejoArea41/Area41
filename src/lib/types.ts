@@ -21,7 +21,7 @@ export interface Reservation {
   id: string;
   userId: string;
   courtIds: string[];
-  reservationDateTime: any; // Se usa any para admitir Timestamp de Firebase y evitar errores de compilación
+  reservationDateTime: any; // Firebase Timestamp or Date
   durationMinutes: number;
   date?: string;
   time?: string;
@@ -32,7 +32,7 @@ export interface BackgroundImage {
   name: string;
   imageUrl: string;
   isActive: boolean;
-  storagePath?: string;
+  storagePath?: string | null;
 }
 
 export interface LogoImage {
@@ -40,7 +40,7 @@ export interface LogoImage {
   name: string;
   imageUrl: string;
   isActive: boolean;
-  storagePath?: string;
+  storagePath?: string | null;
 }
 
 export interface FixedReservation {
@@ -67,4 +67,11 @@ export interface MenuItem {
   price: number;
   type: 'Comida' | 'Bebida';
   imageUrl?: string;
+}
+
+export interface RecentMember {
+  id: string;
+  name: string;
+  email: string;
+  avatarId: string;
 }
