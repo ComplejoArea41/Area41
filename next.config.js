@@ -16,6 +16,7 @@ const nextConfig = {
         { protocol: 'https', hostname: 'i.ibb.co' },
         { protocol: 'https', hostname: 'as2.ftcdn.net' },
         { protocol: 'https', hostname: 'www.shutterstock.com' },
+        { protocol: 'https', hostname: 'cdn.pedix.app' },
       ],
     },
   };
