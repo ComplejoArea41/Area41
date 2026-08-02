@@ -118,86 +118,33 @@
         "durationMinutes"
       ]
     },
-    "MenuItem": {
+    "Advertisement": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "MenuItem",
+      "title": "Advertisement",
       "type": "object",
-      "description": "Represents an item available in the buffet.",
+      "description": "Represents a publicity image shown on the home page.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the menu item."
+          "description": "Unique identifier."
         },
-        "name": {
+        "title": {
           "type": "string",
-          "description": "Name of the menu item."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the menu item."
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the menu item."
-        },
-        "type": {
-          "type": "string",
-          "description": "Type of menu item (e.g., beverage, food)."
+          "description": "Title of the advertisement."
         },
         "imageUrl": {
           "type": "string",
-          "description": "URL of the item image."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "price",
-        "type"
-      ]
-    },
-    "FixedReservation": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FixedReservation",
-      "type": "object",
-      "description": "Represents a recurring, fixed reservation.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the fixed reservation."
-        },
-        "courtId": {
-          "type": "string",
-          "description": "The ID of the court."
-        },
-        "dayOfWeek": {
-          "type": "number",
-          "description": "Day of the week (0-6)."
-        },
-        "time": {
-          "type": "string",
-          "description": "Time in HH:mm format."
-        },
-        "clientName": {
-          "type": "string",
-          "description": "Name of the client."
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "Phone number."
+          "description": "URL of the image."
         },
         "isActive": {
           "type": "boolean",
-          "description": "Is active."
+          "description": "Is it visible?"
         }
       },
       "required": [
         "id",
-        "courtId",
-        "dayOfWeek",
-        "time",
-        "clientName",
+        "title",
+        "imageUrl",
         "isActive"
       ]
     }
@@ -241,26 +188,16 @@
         }
       },
       {
-        "path": "/menu_items/{menuItemId}",
+        "path": "/advertisements/{adId}",
         "definition": {
-          "entityName": "MenuItem",
+          "entityName": "Advertisement",
           "schema": {
-            "$ref": "#/backend/entities/MenuItem"
+            "$ref": "#/backend/entities/Advertisement"
           },
-          "description": "Stores the menu items."
-        }
-      },
-      {
-        "path": "/fixed_reservations/{fixedReservationId}",
-        "definition": {
-          "entityName": "FixedReservation",
-          "schema": {
-            "$ref": "#/backend/entities/FixedReservation"
-          },
-          "description": "Stores recurring fixed reservations."
+          "description": "Stores publicity images."
         }
       }
     ],
-    "reasoning": "Data structure to support Area41 core features including fixed reservations and user history."
+    "reasoning": "Soporte para usuarios, canchas, reservas y publicidad administrable."
   }
 }

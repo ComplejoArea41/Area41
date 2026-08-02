@@ -1,37 +1,25 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * Checks if a user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the request is from the owner of the document.
-     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
     
-    /**
-     * Checks if the current user has admin privileges.
-     */
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Users can read their own profile, admins can read and write any profile
     match /users/{userId} {
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isSignedIn() && isAdmin();
       allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
-    // Publicly readable collections for UI elements and general info
     match /background_images/{docId} {
       allow read: if true;
       allow write: if isSignedIn() && isAdmin();
@@ -47,20 +35,17 @@ service cloud.firestore {
       allow write: if isSignedIn() && isAdmin();
     }
 
-    match /menu_items/{docId} {
+    match /advertisements/{docId} {
         allow read: if true;
         allow write: if isSignedIn() && isAdmin();
     }
 
-    // Reservations rules
     match /reservations/{reservationId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      // Allow update/delete only by the user who created it OR an admin.
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // Fixed reservations only for admins to write, anyone signed in can read
     match /fixed_reservations/{docId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin();

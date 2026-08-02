@@ -22,27 +22,10 @@ export interface Reservation {
   courtIds: string[];
   reservationDateTime: string; // ISO 8601 format
   durationMinutes: number;
-  // For display purposes, will be constructed
+  // For display purposes
   date?: string;
   time?: string;
 }
-
-export interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  type: 'Bebida' | 'Comida';
-  imageUrl: string;
-}
-
-export interface RecentMember {
-    id: string;
-    name: string;
-    email: string;
-    avatarId: string;
-}
-
 
 export interface BackgroundImage {
   id: string;
@@ -67,5 +50,12 @@ export interface FixedReservation {
   courtId: string;
   dayOfWeek: number; // 0 = Sunday, 6 = Saturday
   time: string; // "HH:mm"
+  isActive: boolean;
+}
+
+export interface Advertisement {
+  id: string;
+  title: string;
+  imageUrl: string;
   isActive: boolean;
 }
