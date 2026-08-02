@@ -48,6 +48,11 @@ service cloud.firestore {
         allow write: if isSignedIn() && isAdmin();
     }
 
+    match /menu_items/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn() && isAdmin();
+    }
+
     // Reservations can be read by anyone, but only created by authenticated users.
     match /reservations/{reservationId} {
       allow read: if isSignedIn();
