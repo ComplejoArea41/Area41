@@ -1,5 +1,5 @@
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase";
@@ -8,6 +8,19 @@ import MainLayout from "@/components/main-layout";
 export const metadata: Metadata = {
   title: "Complejo Deportivo Area41",
   description: "Tu centro de deportes y más.",
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Area41',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#82c91e',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
