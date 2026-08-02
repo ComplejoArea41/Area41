@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -11,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,7 +28,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Court } from "@/lib/types";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { Trash2 } from "lucide-react";
 
 
@@ -69,7 +68,7 @@ export default function AdminCourtsPage() {
     const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
-    const [courtDetails, setCourtDetails] = useState<Record<string, { price: number }>>({});
+    const [courtDetails, setCourtDetails] = useState<Record<string, { price: number; isAvailable: boolean }>>({});
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -92,15 +91,16 @@ export default function AdminCourtsPage() {
             const initialDetails = courts.reduce((acc, court) => {
                 acc[court.id] = {
                     price: court.price || 0,
+                    isAvailable: court.isAvailable !== undefined ? court.isAvailable : true
                 };
                 return acc;
-            }, {} as Record<string, { price: number }>);
+            }, {} as Record<string, { price: number; isAvailable: boolean }>);
             setCourtDetails(initialDetails);
         }
     }, [courts]);
 
 
-    const handleDetailChange = (courtId: string, field: 'price', value: string) => {
+    const handlePriceChange = (courtId: string, value: string) => {
         const numericValue = Number(value);
         if (isNaN(numericValue)) return;
     
@@ -108,7 +108,17 @@ export default function AdminCourtsPage() {
             ...prev,
             [courtId]: {
                 ...prev[courtId],
-                [field]: numericValue
+                price: numericValue
+            }
+        }));
+    };
+
+    const handleAvailabilityChange = (courtId: string, checked: boolean) => {
+        setCourtDetails(prev => ({
+            ...prev,
+            [courtId]: {
+                ...prev[courtId],
+                isAvailable: checked
             }
         }));
     };
@@ -127,7 +137,7 @@ export default function AdminCourtsPage() {
             toast({
                 variant: "destructive",
                 title: "Error al eliminar",
-                description: "No se pudo eliminar la cancha. Verifica los permisos e inténtalo de nuevo.",
+                description: "No se pudo eliminar la cancha.",
             });
         }
     };
@@ -142,9 +152,14 @@ export default function AdminCourtsPage() {
             if (details) {
                 const courtRef = doc(firestore, 'courts', court.id);
                 const updatedData: Partial<Court> = {};
+                
                 if (details.price !== court.price) {
                     updatedData.price = details.price;
                 }
+                if (details.isAvailable !== court.isAvailable) {
+                    updatedData.isAvailable = details.isAvailable;
+                }
+                
                 if (Object.keys(updatedData).length > 0) {
                     batch.update(courtRef, updatedData);
                 }
@@ -155,14 +170,14 @@ export default function AdminCourtsPage() {
             await batch.commit();
             toast({
                 title: "¡Datos de canchas actualizados!",
-                description: "Los datos de las canchas se han guardado correctamente.",
+                description: "Los cambios se han guardado correctamente.",
             });
         } catch (error) {
              console.error("Error saving court data:", error);
              toast({
                 variant: "destructive",
                 title: "Error al guardar",
-                description: "No se pudieron guardar los datos. Verifica los permisos e inténtalo de nuevo.",
+                description: "No se pudieron guardar los datos.",
             });
         } finally {
             setIsSaving(false);
@@ -182,20 +197,25 @@ export default function AdminCourtsPage() {
     const renderCourtInputs = (court: Court) => (
         <div key={court.id} className="p-4 border rounded-lg bg-card/50 space-y-4">
             <div className="flex items-center justify-between">
-                <Label htmlFor={`price-${court.id}`} className="text-lg font-semibold">
-                    {`${court.courtType} - Cancha ${court.courtNumber}`}
-                </Label>
+                <div className="flex flex-col">
+                    <Label className="text-lg font-semibold">
+                        {`${court.courtType} - Cancha ${court.courtNumber}`}
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground uppercase">
+                        ID: {court.id.slice(0, 5)}...
+                    </span>
+                </div>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon">
+                        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogTitle>¿Eliminar cancha?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                Esta acción no se puede deshacer. La cancha será eliminada permanentemente.
+                                Esta acción es irreversible.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -207,16 +227,30 @@ export default function AdminCourtsPage() {
                     </AlertDialogContent>
                 </AlertDialog>
             </div>
-            <div className="space-y-2">
-                <Label htmlFor={`price-${court.id}`}>Precio por hora ($)</Label>
-                <Input
-                    id={`price-${court.id}`}
-                    type="number"
-                    value={courtDetails[court.id]?.price ?? ''}
-                    onChange={(e) => handleDetailChange(court.id, 'price', e.target.value)}
-                    className="w-full text-right"
-                    placeholder="0"
-                />
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor={`price-${court.id}`}>Precio ($)</Label>
+                    <Input
+                        id={`price-${court.id}`}
+                        type="number"
+                        value={courtDetails[court.id]?.price ?? ''}
+                        onChange={(e) => handlePriceChange(court.id, e.target.value)}
+                        className="w-full text-right"
+                    />
+                </div>
+                <div className="flex flex-col items-center justify-center gap-2 border rounded-md bg-background/20">
+                    <Label htmlFor={`avail-${court.id}`} className="text-[10px] uppercase">Estado</Label>
+                    <div className="flex items-center gap-2">
+                        <Switch
+                            id={`avail-${court.id}`}
+                            checked={courtDetails[court.id]?.isAvailable ?? true}
+                            onCheckedChange={(checked) => handleAvailabilityChange(court.id, checked)}
+                        />
+                        <span className="text-xs font-bold">
+                            {(courtDetails[court.id]?.isAvailable ?? true) ? 'ACTIVA' : 'DESACT.'}
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -230,25 +264,25 @@ export default function AdminCourtsPage() {
                 <CardHeader>
                     <CardTitle>Gestionar Canchas</CardTitle>
                     <CardDescription>
-                        Actualiza los precios para cada cancha.
+                        Ajusta los precios y activa o desactiva las canchas que ven los clientes.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-8">
                         <div>
-                            <h3 className="text-xl font-bold mb-4">Canchas de Fútbol 5</h3>
+                            <h3 className="text-xl font-bold mb-4 border-l-4 border-primary pl-3">Fútbol 5</h3>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {futbol5Courts.map(renderCourtInputs)}
                              </div>
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold mb-4">Canchas de Fútbol 7</h3>
+                            <h3 className="text-xl font-bold mb-4 border-l-4 border-primary pl-3">Fútbol 7</h3>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {futbol7Courts.map(renderCourtInputs)}
                              </div>
                         </div>
                     </div>
-                    <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full mt-8">
+                    <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full mt-8 text-lg font-bold">
                         {isSaving ? "Guardando..." : "Guardar Cambios"}
                     </Button>
                 </CardContent>

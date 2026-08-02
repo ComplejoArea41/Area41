@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -83,9 +82,12 @@ export default function ReservationPage() {
     if (!user) router.push('/login');
   }, [user, isUserLoading, router]);
 
+  // IMPORTANT: Filter by isAvailable property
   const courtsForType = useMemo(() => {
     if (!allCourts) return [];
-    return allCourts.filter(c => c.courtType === selectedCourtType).sort((a,b) => a.courtNumber - b.courtNumber);
+    return allCourts
+      .filter(c => c.courtType === selectedCourtType && c.isAvailable !== false)
+      .sort((a,b) => a.courtNumber - b.courtNumber);
   }, [allCourts, selectedCourtType]);
   
   useEffect(() => {
@@ -327,6 +329,9 @@ export default function ReservationPage() {
                     </Button>
                 ))}
             </div>
+            {courtsForType.length === 0 && !areCourtsLoading && (
+                <p className="mt-2 text-sm text-muted-foreground italic">No hay canchas de este tipo disponibles actualmente.</p>
+            )}
           </div>
           
           {selectedCourtId && (
