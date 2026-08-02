@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   firstName: string;
@@ -14,14 +13,14 @@ export interface Court {
   courtType: 'Futbol 5' | 'Futbol 7';
   courtNumber: number;
   isAvailable: boolean;
-  price: number; // Price per hour
+  price: number;
 }
 
 export interface Reservation {
   id: string;
   userId: string;
   courtIds: string[];
-  reservationDateTime: any; // Firebase Timestamp or Date
+  reservationDateTime: any; 
   durationMinutes: number;
   date?: string;
   time?: string;
@@ -48,8 +47,8 @@ export interface FixedReservation {
   clientName: string;
   phoneNumber?: string;
   courtId: string;
-  dayOfWeek: number; // 0 = Sunday, 6 = Saturday
-  time: string; // "HH:mm"
+  dayOfWeek: number;
+  time: string;
   isActive: boolean;
 }
 

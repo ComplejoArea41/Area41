@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Header from "./header";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
@@ -16,6 +15,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const isSpecialPage = pathname === '/login';
 
+  // Sistema de corrección para ChunkLoadError (recarga la página si falla un archivo de script)
+  useEffect(() => {
+    const handleChunkError = (e: ErrorEvent) => {
+      if (e.message && (e.message.includes('Loading chunk') || e.message.includes('ChunkLoadError'))) {
+        console.log('Detectado fallo de carga, recargando aplicación...');
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('error', handleChunkError);
+    return () => window.removeEventListener('error', handleChunkError);
+  }, []);
+
   const activeBgQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'background_images'), where('isActive', '==', true)) : null),
     [firestore]
@@ -26,11 +38,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (activeImages && activeImages.length > 0) {
       return activeImages[0].imageUrl;
     }
-    // If not loading and no active image is found, use the default.
     if (!isLoading && (!activeImages || activeImages.length === 0)) {
         return DEFAULT_BACKGROUND_URL;
     }
-    // Return null while loading to prevent flash of default image
     return null; 
   }, [activeImages, isLoading]);
 
