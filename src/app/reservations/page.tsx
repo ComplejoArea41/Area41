@@ -84,6 +84,7 @@ export default function ReservationPage() {
   const courtsForType = useMemo(() => {
     if (!allCourts) return [];
     return allCourts
+      .filter(c => c.courtType === selectedCourtType) // FILTRO CRUCIAL: Solo el tipo seleccionado
       .filter(c => {
         // Solo mostramos F5 canchas 3 y 4, y F7 canchas 1 y 2
         if (c.courtType === 'Futbol 5') {
@@ -96,7 +97,7 @@ export default function ReservationPage() {
       })
       .filter(c => c.isAvailable !== false)
       .sort((a,b) => a.courtNumber - b.courtNumber);
-  }, [allCourts]);
+  }, [allCourts, selectedCourtType]);
   
   useEffect(() => {
       setSelectedCourtId(null);
@@ -127,6 +128,7 @@ export default function ReservationPage() {
     const courtToCheck = allCourts.find(c => c.id === courtId);
     if (!courtToCheck) return { isBlocked: false, isFixed: false };
   
+    // Lógica de Bloqueo por Turnos FIJOS
     if (fixedReservations) {
       const dayOfWeek = checkDate.getDay();
       for (const fixedRes of fixedReservations) {
@@ -137,15 +139,19 @@ export default function ReservationPage() {
         
         let isBlockedByFixed = false;
         if (fixedCourt.id === courtId) isBlockedByFixed = true;
+        // Si la reservada es F7 y yo miro F5
         else if (courtToCheck.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
           if (courtToCheck.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === fixedCourt.courtNumber * 2) isBlockedByFixed = true;
-        } else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
+        } 
+        // Si la reservada es F5 y yo miro F7
+        else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
           if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === (courtToCheck.courtNumber * 2)) isBlockedByFixed = true;
         }
         if (isBlockedByFixed) return { isBlocked: true, isFixed: true, reservedCourtType: fixedCourt.courtType };
       }
     }
   
+    // Lógica de Bloqueo por Reservas PUNTUALES
     if (reservations) {
       for (const reservation of reservations) {
         if (!reservation.reservationDateTime) continue;
@@ -158,9 +164,12 @@ export default function ReservationPage() {
 
                 let blocksThisSlot = false;
                 if (reservedCourtId === courtId) blocksThisSlot = true;
+                // Si la reservada es F7 y yo miro F5
                 else if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || reservedCourt.courtNumber === reservedCourt.courtNumber * 2) blocksThisSlot = true;
-                } else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                    if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === reservedCourt.courtNumber * 2) blocksThisSlot = true;
+                } 
+                // Si la reservada es F5 y yo miro F7
+                else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
                     if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) blocksThisSlot = true;
                 }
 

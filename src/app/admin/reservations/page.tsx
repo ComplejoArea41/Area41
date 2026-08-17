@@ -213,8 +213,6 @@ export default function AdminReservationsCalendarPage() {
             if (f5_2) courtIds.push(f5_2.id);
         }
 
-        // Si el admin ingresó un nombre a mano, usamos el ID del admin pero guardamos el nombre en el perfil del usuario si es necesario.
-        // Por simplicidad, usaremos el userId seleccionado o el del propio admin.
         const targetUserId = newResData.userId || user!.uid;
 
         const resData = {
@@ -352,11 +350,14 @@ export default function AdminReservationsCalendarPage() {
     };
     
     const sortedCourts = useMemo(() => courts?.filter(c => {
-        // En el admin también filtramos para no mostrar por error F5 canchas 1 y 2
+        // En el admin también filtramos estrictamente las canchas permitidas
         if (c.courtType === 'Futbol 5') {
             return c.courtNumber === 3 || c.courtNumber === 4;
         }
-        return c.courtType === 'Futbol 7';
+        if (c.courtType === 'Futbol 7') {
+            return c.courtNumber === 1 || c.courtNumber === 2;
+        }
+        return false;
     }).sort((a, b) => {
         if (a.courtType < b.courtType) return -1;
         if (a.courtType > b.courtType) return 1;
@@ -383,7 +384,7 @@ export default function AdminReservationsCalendarPage() {
                     <CardHeader>
                         <CardTitle>Seleccionar Cancha</CardTitle>
                         <CardDescription>
-                            Elige una cancha para ver su calendario de reservas. (Canchas 1 y 2 de Fútbol 5 están deshabilitadas).
+                            Elige una cancha para ver su calendario de reservas. (F5 Canchas 1 y 2 están ocultas).
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">
