@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { collection, doc, Timestamp, increment, addDoc } from 'firebase/firestore';
@@ -352,7 +351,13 @@ export default function AdminReservationsCalendarPage() {
         return regularMatch || fixedMatch;
     };
     
-    const sortedCourts = useMemo(() => courts?.filter(c => c.courtType === 'Futbol 5' || c.courtType === 'Futbol 7').sort((a, b) => {
+    const sortedCourts = useMemo(() => courts?.filter(c => {
+        // En el admin también filtramos para no mostrar por error F5 canchas 1 y 2
+        if (c.courtType === 'Futbol 5') {
+            return c.courtNumber === 3 || c.courtNumber === 4;
+        }
+        return c.courtType === 'Futbol 7';
+    }).sort((a, b) => {
         if (a.courtType < b.courtType) return -1;
         if (a.courtType > b.courtType) return 1;
         return a.courtNumber - b.courtNumber;
@@ -378,7 +383,7 @@ export default function AdminReservationsCalendarPage() {
                     <CardHeader>
                         <CardTitle>Seleccionar Cancha</CardTitle>
                         <CardDescription>
-                            Elige una cancha para ver su calendario de reservas.
+                            Elige una cancha para ver su calendario de reservas. (Canchas 1 y 2 de Fútbol 5 están deshabilitadas).
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">

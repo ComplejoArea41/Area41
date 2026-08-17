@@ -84,9 +84,19 @@ export default function ReservationPage() {
   const courtsForType = useMemo(() => {
     if (!allCourts) return [];
     return allCourts
-      .filter(c => c.courtType === selectedCourtType && c.isAvailable !== false)
+      .filter(c => {
+        // Solo mostramos F5 canchas 3 y 4, y F7 canchas 1 y 2
+        if (c.courtType === 'Futbol 5') {
+            return c.courtNumber === 3 || c.courtNumber === 4;
+        }
+        if (c.courtType === 'Futbol 7') {
+            return c.courtNumber === 1 || c.courtNumber === 2;
+        }
+        return false;
+      })
+      .filter(c => c.isAvailable !== false)
       .sort((a,b) => a.courtNumber - b.courtNumber);
-  }, [allCourts, selectedCourtType]);
+  }, [allCourts]);
   
   useEffect(() => {
       setSelectedCourtId(null);
