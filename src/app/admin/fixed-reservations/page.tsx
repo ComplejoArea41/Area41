@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -98,12 +99,17 @@ export default function AdminFixedReservationsPage() {
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
     
+    // RESTRICCIÓN: Solo F5 3/4 y F7 1/2
     const sortedCourts = useMemo(() => {
         if (!courts) return [];
-        return [...courts].sort((a: any, b: any) => {
+        return [...courts].filter(c => {
+            if (c.courtType === 'Futbol 5') return c.courtNumber === 3 || c.courtNumber === 4;
+            if (c.courtType === 'Futbol 7') return c.courtNumber === 1 || c.courtNumber === 2;
+            return false;
+        }).sort((a: any, b: any) => {
             if (a.courtType < b.courtType) return -1;
             if (a.courtType > b.courtType) return 1;
-            return (a.courtNumber || 0) - (a.courtNumber || 0);
+            return (a.courtNumber || 0) - (b.courtNumber || 0);
         });
     }, [courts]);
     
@@ -114,6 +120,7 @@ export default function AdminFixedReservationsPage() {
         const courtsMap = new Map(courts.map(c => [c.id, c]));
         
         fixedReservations.forEach(res => {
+            if (!res) return;
             const day = res.dayOfWeek;
             if (grouped[day]) {
                 grouped[day].push(res);
@@ -124,92 +131,14 @@ export default function AdminFixedReservationsPage() {
 
         for (const day in grouped) {
             grouped[Number(day)].sort((a: any, b: any) => {
-                const courtA = courtsMap.get(a.courtId) as any;
-                const courtB = courtsMap.get(b.courtId) as any;
-        
                 if (a.time < b.time) return -1;
                 if (a.time > b.time) return 1;
-        
-                if (courtA && courtB) {
-                  if (courtA.courtType < courtB.courtType) return -1;
-                  if (courtA.courtType > b.courtType) return 1;
-                  return (courtA.courtNumber || 0) - (courtB.courtNumber || 0);
-                }
                 return 0;
             });
         }
         
         return grouped;
     }, [fixedReservations, courts]);
-
-    const conflictInfo = useMemo(() => {
-        if (!formData.courtId || !formData.time || !fixedReservations || !courts) return null;
-
-        const selectedCourt = courts.find(c => c.id === formData.courtId);
-        if (!selectedCourt) return null;
-
-        const fixedConflict = fixedReservations.find(res => {
-            if (res.id === editingItem?.id || !res.isActive || res.dayOfWeek !== formData.dayOfWeek || res.time !== formData.time) return false;
-            const otherCourt = courts.find(c => c.id === res.courtId);
-            if (!otherCourt) return false;
-            if (res.courtId === formData.courtId) return true;
-            if (selectedCourt.courtType === 'Futbol 5' && otherCourt.courtType === 'Futbol 7') {
-                const f5Eq1 = (otherCourt.courtNumber * 2) - 1;
-                const f5Eq2 = otherCourt.courtNumber * 2;
-                if (selectedCourt.courtNumber === f5Eq1 || selectedCourt.courtNumber === f5Eq2) return true;
-            }
-            if (selectedCourt.courtType === 'Futbol 7' && otherCourt.courtType === 'Futbol 5') {
-                const f5Eq1 = (selectedCourt.courtNumber * 2) - 1;
-                const f5Eq2 = selectedCourt.courtNumber * 2;
-                if (otherCourt.courtNumber === f5Eq1 || otherCourt.courtNumber === f5Eq2) return true;
-            }
-            return false;
-        });
-
-        const standardConflict = allReservations?.find(res => {
-            if (!res.reservationDateTime) return false;
-            const resDate = safeToDate(res.reservationDateTime);
-            if (resDate < new Date()) return false;
-            if (resDate.getDay() !== formData.dayOfWeek) return false;
-            const resTime = format(resDate, 'HH:mm');
-            if (resTime !== formData.time) return false;
-
-            for (const resCourtId of (res.courtIds || [])) {
-                if (resCourtId === formData.courtId) return true;
-                const resCourt = courts.find(c => c.id === resCourtId);
-                if (!resCourt) continue;
-                if (selectedCourt.courtType === 'Futbol 5' && resCourt.courtType === 'Futbol 7') {
-                    const f5Eq1 = (resCourt.courtNumber * 2) - 1;
-                    const f5Eq2 = resCourt.courtNumber * 2;
-                    if (selectedCourt.courtNumber === f5Eq1 || selectedCourt.courtNumber === f5Eq2) return true;
-                }
-                if (selectedCourt.courtType === 'Futbol 7' && resCourt.courtType === 'Futbol 5') {
-                    const f5Eq1 = (selectedCourt.courtNumber * 2) - 1;
-                    const f5Eq2 = selectedCourt.courtNumber * 2;
-                    if (resCourt.courtNumber === f5Eq1 || resCourt.courtNumber === f5Eq2) return true;
-                }
-            }
-            return false;
-        });
-
-        if (fixedConflict || standardConflict) {
-            return {
-                type: fixedConflict ? 'Fijo' : 'Puntual',
-                name: fixedConflict ? fixedConflict.clientName : 'Reserva de cliente'
-            };
-        }
-        return null;
-    }, [formData, fixedReservations, allReservations, courts, editingItem]);
-
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-    
-    const handleSelectChange = (name: keyof FormData, value: string | number) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
 
     const handleSwitchChange = (item: FixedReservation) => {
         if(!firestore) return;
@@ -234,33 +163,24 @@ export default function AdminFixedReservationsPage() {
         if (!firestore) return;
         const itemRef = doc(firestore, 'fixed_reservations', itemId);
         deleteDocumentNonBlocking(itemRef);
-        toast({ title: "¡Turno fijo eliminado!", description: "El turno ha sido eliminado correctamente." });
+        toast({ title: "Turno fijo eliminado" });
     };
     
     const handleSaveChanges = () => {
         if (!firestore) return;
         if (!formData.clientName || !formData.courtId || !formData.time) {
-            toast({ variant: 'destructive', title: 'Campos requeridos', description: 'Por favor, completa el nombre, la cancha y la hora.' });
-            return;
-        }
-
-        if (formData.dayOfWeek === 0) {
-            toast({ variant: 'destructive', title: 'Domingo Cerrado', description: 'No se pueden crear turnos fijos los domingos por descanso del complejo.' });
+            toast({ variant: 'destructive', title: 'Campos requeridos' });
             return;
         }
 
         setIsSaving(true);
-        
         if (editingItem) { 
             const itemRef = doc(firestore, 'fixed_reservations', editingItem.id);
             setDocumentNonBlocking(itemRef, formData, { merge: true });
-            toast({ title: "¡Turno actualizado!", description: "Los cambios se han guardado." });
         } else { 
             const collectionRef = collection(firestore, 'fixed_reservations');
             addDocumentNonBlocking(collectionRef, formData);
-            toast({ title: "¡Turno fijo agregado!", description: "El nuevo turno ya está disponible." });
         }
-        
         setIsDialogOpen(false);
         setIsSaving(false);
     };
@@ -268,175 +188,77 @@ export default function AdminFixedReservationsPage() {
     const isLoading = isUserLoading || isProfileLoading || areFixedReservationsLoading || areCourtsLoading;
     
     if (isLoading || (user && !userProfile)) {
-        return (
-            <div className="flex min-h-screen items-center justify-center dark bg-background">
-                <p className="text-primary-foreground">Cargando gestión de turnos fijos...</p>
-            </div>
-        );
+        return <div className="flex min-h-screen items-center justify-center dark bg-background"><p>Cargando...</p></div>;
     }
     
     const getCourtName = (courtId: string) => {
         const court = courts?.find(c => c.id === courtId);
-        return court ? `${(court as any).courtType} - Cancha ${(court as any).courtNumber}` : 'Cancha no encontrada';
+        return court ? `${(court as any).courtType} C.${(court as any).courtNumber}` : 'Cancha';
     }
-
-    const renderReservationCard = (item: FixedReservation) => (
-        <Card key={item.id} className="bg-secondary/90 text-secondary-foreground flex items-center p-1.5 justify-between gap-1">
-            <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-semibold truncate">{item.clientName}</p>
-                <p className="text-xs opacity-80 truncate">{getCourtName(item.courtId).replace('Cancha ','C.')} - {item.time}</p>
-            </div>
-            <div className="flex items-center gap-1">
-                 <Switch
-                    id={`active-switch-${item.id}`}
-                    checked={item.isActive}
-                    onCheckedChange={() => handleSwitchChange(item)}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-background/20 transform scale-[0.6]"
-                />
-                <Button variant="outline" size="icon" onClick={() => openDialogForEdit(item)} className="bg-background/20 hover:bg-background/40 border-0 h-5 w-5">
-                    <Edit className="h-2.5 w-2.5" />
-                </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon" className="h-5 w-5">
-                            <Trash2 className="h-2.5 w-2.5" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>¿Estás seguro de cancelar el turno fijo?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Esta acción eliminará la reserva recurrente de forma permanente. No se podrá deshacer.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Volver</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>
-                                Confirmar Cancelación
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
-        </Card>
-    );
 
     return (
         <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
             <Card className="bg-card/80 backdrop-blur-sm w-full max-w-full">
                 <CardHeader className="flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Gestionar Turnos Fijos</CardTitle>
-                        <CardDescription>
-                            Crea y administra las reservas recurrentes en una vista de calendario semanal.
-                        </CardDescription>
+                        <CardTitle>Turnos Fijos</CardTitle>
+                        <CardDescription>Canchas 1 y 2 (F5) deshabilitadas.</CardDescription>
                     </div>
-                    <Button onClick={openDialogForNew}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Turno Fijo
-                    </Button>
+                    <Button onClick={openDialogForNew}><PlusCircle className="mr-2 h-4 w-4" /> Nuevo</Button>
                 </CardHeader>
                 <CardContent>
-                    {(!fixedReservations || fixedReservations.length === 0) && !areFixedReservationsLoading ? (
-                        <div className="text-center py-16 text-muted-foreground col-span-full">
-                            <CalendarClock className="mx-auto h-12 w-12" />
-                            <p className="mt-4">No hay turnos fijos todavía. ¡Crea el primero!</p>
-                        </div>
-                    ) : (
-                         <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
-                            {weekDays.map(day => (
-                                <div key={day.value} className={cn("flex flex-col gap-4 rounded-lg p-2", day.value === 0 ? "bg-muted/10 opacity-60" : "bg-background/30")}>
-                                    <h3 className="text-xl font-bold text-center sticky top-16 bg-card/80 p-2 rounded-md z-10 backdrop-blur-sm">
-                                        {day.label.replace(' (Cerrado)', '')}
-                                        {day.value === 0 && <span className="block text-[10px] text-primary">CERRADO</span>}
-                                    </h3>
-                                    <div className="flex flex-col gap-2">
-                                        {reservationsByDay[day.value] && reservationsByDay[day.value].length > 0 ? (
-                                            reservationsByDay[day.value].map(renderReservationCard)
-                                        ) : (
-                                            <div className="flex items-center justify-center h-24">
-                                                 <p className="text-xs text-muted-foreground text-center">Sin turnos.</p>
+                    <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
+                        {weekDays.map(day => (
+                            <div key={day.value} className={cn("flex flex-col gap-4 rounded-lg p-2 bg-background/30", day.value === 0 && "opacity-50")}>
+                                <h3 className="text-xl font-bold text-center p-2 rounded-md bg-card/80">
+                                    {day.label.split(' ')[0]}
+                                </h3>
+                                <div className="flex flex-col gap-2">
+                                    {reservationsByDay[day.value]?.map(item => (
+                                        <Card key={item.id} className="bg-secondary/90 p-1.5 flex flex-col gap-1">
+                                            <p className="text-xs font-bold truncate">{item.clientName}</p>
+                                            <p className="text-[10px] opacity-70">{getCourtName(item.courtId)} - {item.time}</p>
+                                            <div className="flex justify-between items-center">
+                                                 <Switch checked={item.isActive} onCheckedChange={() => handleSwitchChange(item)} className="scale-[0.6]"/>
+                                                 <div className="flex gap-1">
+                                                    <Button variant="ghost" size="icon" onClick={() => openDialogForEdit(item)} className="h-5 w-5"><Edit className="h-3 w-3"/></Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)} className="h-5 w-5 text-destructive"><Trash2 className="h-3 w-3"/></Button>
+                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
+                                        </Card>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            </div>
+                        ))}
+                    </div>
                 </CardContent>
             </Card>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>{editingItem ? 'Editar Turno Fijo' : 'Nuevo Turno Fijo'}</DialogTitle>
-                        <DialogDescription>
-                            {editingItem ? 'Modifica los detalles del turno.' : 'Añade una nueva reserva recurrente.'}
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Turno Fijo</DialogTitle></DialogHeader>
                     <div className="grid gap-4 py-4">
-                        {conflictInfo && (
-                            <div className="bg-yellow-100 border-l-4 border-yellow-500 p-3 text-yellow-700 text-xs flex items-start gap-2">
-                                <AlertTriangle className="h-4 w-4 shrink-0" />
-                                <div>
-                                    <p className="font-bold">Aviso de superposición</p>
-                                    <p>Este horario ya está ocupado por un turno {conflictInfo.type} ({conflictInfo.name}).</p>
-                                </div>
-                            </div>
-                        )}
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="clientName" className="text-right">Cliente</Label>
-                            <Input id="clientName" name="clientName" value={formData.clientName} onChange={handleInputChange} className="col-span-3" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="phoneNumber" className="text-right">Teléfono</Label>
-                            <Input id="phoneNumber" name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} className="col-span-3" />
-                        </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="courtId" className="text-right">Cancha</Label>
-                            <Select onValueChange={(val) => handleSelectChange('courtId', val)} value={formData.courtId}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Selecciona una cancha" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sortedCourts.map((court: any) => (
-                                        <SelectItem key={court.id} value={court.id}>{`${court.courtType} - Cancha ${court.courtNumber}`}</SelectItem>
-                                    ))}
-                                </SelectContent>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Cliente</Label><Input value={formData.clientName} onChange={(e) => setFormData({...formData, clientName: e.target.value})} className="col-span-3" /></div>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Cancha</Label>
+                            <Select onValueChange={(val) => setFormData({...formData, courtId: val})} value={formData.courtId}>
+                                <SelectTrigger className="col-span-3"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                                <SelectContent>{sortedCourts.map(c => <SelectItem key={c.id} value={c.id}>{c.courtType} C.{c.courtNumber}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="dayOfWeek" className="text-right">Día</Label>
-                             <Select onValueChange={(val) => handleSelectChange('dayOfWeek', Number(val))} value={String(formData.dayOfWeek)}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Selecciona un día" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {weekDays.map(day => (
-                                        <SelectItem key={day.value} value={String(day.value)} disabled={day.value === 0}>{day.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Día</Label>
+                             <Select onValueChange={(val) => setFormData({...formData, dayOfWeek: Number(val)})} value={String(formData.dayOfWeek)}>
+                                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                <SelectContent>{weekDays.map(d => <SelectItem key={day.value} value={String(d.value)} disabled={d.value === 0}>{d.label}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="time" className="text-right">Hora</Label>
-                            <Select onValueChange={(val) => handleSelectChange('time', val)} value={formData.time}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Selecciona una hora" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableTimes.map(time => (
-                                        <SelectItem key={time} value={time}>{time}</SelectItem>
-                                    ))}
-                                </SelectContent>
+                        <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Hora</Label>
+                            <Select onValueChange={(val) => setFormData({...formData, time: val})} value={formData.time}>
+                                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                <SelectContent>{availableTimes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                        <Button type="submit" onClick={handleSaveChanges} disabled={isSaving}>
-                            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-                        </Button>
-                    </DialogFooter>
+                    <DialogFooter><Button onClick={handleSaveChanges} disabled={isSaving}>Guardar</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { collection, doc, Timestamp, increment } from 'firebase/firestore';
@@ -117,10 +118,7 @@ export default function AdminReservationsCalendarPage() {
             }
 
             deleteDocumentNonBlocking(docRef);
-            toast({
-                title: "Reserva cancelada",
-                description: `El turno ha sido eliminado correctamente.`,
-            });
+            toast({ title: "Reserva cancelada" });
         } catch (error) {
             console.error("Error cancelling reservation:", error);
         }
@@ -152,12 +150,12 @@ export default function AdminReservationsCalendarPage() {
         if (!newCourt) return;
 
         let newCourtIds = [newCourt.id];
-        if (newCourt.courtType === 'Futbol 7') {
-            const f7Num = newCourt.courtNumber;
-            const f5_1 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === (f7Num * 2) - 1);
-            const f5_2 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f7Num * 2);
-            if (f5_1) newCourtIds.push(f5_1.id);
-            if (f5_2) newCourtIds.push(f5_2.id);
+        // Sincronizar bloqueos manuales
+        if (newCourt.courtType === 'Futbol 7' && newCourt.courtNumber === 2) {
+            const f5_3 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === 3);
+            const f5_4 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === 4);
+            if (f5_3) newCourtIds.push(f5_3.id);
+            if (f5_4) newCourtIds.push(f5_4.id);
         }
 
         const currentResDate = safeToDate(selectedReservation.reservationDateTime);
@@ -169,7 +167,7 @@ export default function AdminReservationsCalendarPage() {
                 courtIds: newCourtIds,
                 reservationDateTime: Timestamp.fromDate(newDate)
             });
-            toast({ title: "Turno actualizado", description: "La reserva ha sido modificada correctamente." });
+            toast({ title: "Turno actualizado" });
             setIsEditDialogOpen(false);
             setSelectedReservation(null);
         } catch (error) {
@@ -191,7 +189,7 @@ export default function AdminReservationsCalendarPage() {
         if (!firestore || !selectedCourt || !courts) return;
 
         if (!newResData.clientName && !newResData.userId) {
-            toast({ variant: 'destructive', title: 'Faltan datos', description: 'Por favor selecciona un cliente o ingresa su nombre.' });
+            toast({ variant: 'destructive', title: 'Faltan datos' });
             return;
         }
 
@@ -203,12 +201,11 @@ export default function AdminReservationsCalendarPage() {
         const resDateTime = set(resDay, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
 
         let courtIds = [selectedCourt.id];
-        if (selectedCourt.courtType === 'Futbol 7') {
-            const f7Num = selectedCourt.courtNumber;
-            const f5_1 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === (f7Num * 2) - 1);
-            const f5_2 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === f7Num * 2);
-            if (f5_1) courtIds.push(f5_1.id);
-            if (f5_2) courtIds.push(f5_2.id);
+        if (selectedCourt.courtType === 'Futbol 7' && selectedCourt.courtNumber === 2) {
+            const f5_3 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === 3);
+            const f5_4 = courts.find(c => c.courtType === 'Futbol 5' && c.courtNumber === 4);
+            if (f5_3) courtIds.push(f5_3.id);
+            if (f5_4) courtIds.push(f5_4.id);
         }
 
         const targetUserId = newResData.userId || user!.uid;
@@ -222,7 +219,7 @@ export default function AdminReservationsCalendarPage() {
 
         try {
             await addDocumentNonBlocking(collection(firestore, 'reservations'), resData);
-            toast({ title: 'Reserva creada', description: 'El turno ha sido registrado exitosamente.' });
+            toast({ title: 'Reserva creada' });
             setIsNewResDialogOpen(false);
         } catch (error) {
             console.error("Error creating reservation:", error);
@@ -244,40 +241,43 @@ export default function AdminReservationsCalendarPage() {
     
         const usersMap = new Map(allUsers.map(u => [u.id, u]));
         
+        // 1. Buscar Reservas Puntuales con Blidaje contra Nulos
         const regularMatchRaw = reservations.find(res => {
-            if (!res.reservationDateTime) return false;
+            if (!res || !res.reservationDateTime || !res.courtIds) return false;
             const resTime = safeToDate(res.reservationDateTime).getTime();
             if (resTime !== slotDateTime) return false;
 
-            for (const resCourtId of (res.courtIds || [])) {
+            for (const resCourtId of res.courtIds) {
                 if (resCourtId === courtId) return true;
                 const reservedCourt = courts.find(c => c.id === resCourtId);
                 if (!reservedCourt) continue;
 
-                if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                    if (courtToDisplay.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToDisplay.courtNumber === reservedCourt.courtNumber * 2) return true;
+                // Lógica superposición F7 vs F5
+                if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7' && reservedCourt.courtNumber === 2) {
+                    if (courtToDisplay.courtNumber === 3 || courtToDisplay.courtNumber === 4) return true;
                 }
-                if (courtToDisplay.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
-                    if (reservedCourt.courtNumber === (courtToDisplay.courtNumber * 2) - 1 || reservedCourt.courtNumber === courtToDisplay.courtNumber * 2) return true;
+                if (courtToDisplay.courtType === 'Futbol 7' && courtToDisplay.courtNumber === 2 && reservedCourt.courtType === 'Futbol 5') {
+                    if (reservedCourt.courtNumber === 3 || reservedCourt.courtNumber === 4) return true;
                 }
             }
             return false;
         });
 
+        // 2. Buscar Turnos Fijos
         let fixedMatch: FullReservation | undefined;
         if (fixedReservations) {
             const dayOfWeek = slotDate.getDay();
             const matchingFixed = fixedReservations.find(fr => {
-                if (!fr.isActive || fr.dayOfWeek !== dayOfWeek || fr.time !== hour) return false;
+                if (!fr || !fr.isActive || fr.dayOfWeek !== dayOfWeek || fr.time !== hour || !fr.courtId) return false;
                 const fixedCourt = courts.find(c => c.id === fr.courtId);
                 if (!fixedCourt) return false;
 
                 if (fixedCourt.id === courtId) return true;
-                if (courtToDisplay.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
-                    if (courtToDisplay.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToDisplay.courtNumber === fixedCourt.courtNumber * 2) return true;
+                if (courtToDisplay.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7' && fixedCourt.courtNumber === 2) {
+                    if (courtToDisplay.courtNumber === 3 || courtToDisplay.courtNumber === 4) return true;
                 }
-                if (courtToDisplay.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
-                    if (fixedCourt.courtNumber === (courtToDisplay.courtNumber * 2) - 1 || fixedCourt.courtNumber === courtToDisplay.courtNumber * 2) return true;
+                if (courtToDisplay.courtType === 'Futbol 7' && courtToDisplay.courtNumber === 2 && fixedCourt.courtType === 'Futbol 5') {
+                    if (fixedCourt.courtNumber === 3 || fixedCourt.courtNumber === 4) return true;
                 }
                 return false;
             });
@@ -291,7 +291,7 @@ export default function AdminReservationsCalendarPage() {
                     durationMinutes: 60,
                     user: {
                         id: 'fixed-user',
-                        firstName: matchingFixed.clientName,
+                        firstName: matchingFixed.clientName || 'Sin Nombre',
                         lastName: '(Turno Fijo)',
                         email: 'N/A',
                         phoneNumber: matchingFixed.phoneNumber || 'N/A',
@@ -307,7 +307,7 @@ export default function AdminReservationsCalendarPage() {
             return {
                 ...regularMatchRaw,
                 user: usersMap.get(regularMatchRaw.userId) || null,
-                court: courts.find(c => c.id === regularMatchRaw.courtIds[0]) || null,
+                court: courts.find(c => c.id === (regularMatchRaw.courtIds ? regularMatchRaw.courtIds[0] : '')) || null,
                 isFixed: false,
                 hasConflict: true
             };
@@ -326,12 +326,9 @@ export default function AdminReservationsCalendarPage() {
     };
     
     const sortedCourtsForSelection = useMemo(() => courts?.filter(c => {
-        if (c.courtType === 'Futbol 5') {
-            return c.courtNumber === 3 || c.courtNumber === 4;
-        }
-        if (c.courtType === 'Futbol 7') {
-            return c.courtNumber === 1 || c.courtNumber === 2;
-        }
+        // RESTRICCIÓN: Solo F5 3/4 y F7 1/2
+        if (c.courtType === 'Futbol 5') return c.courtNumber === 3 || c.courtNumber === 4;
+        if (c.courtType === 'Futbol 7') return c.courtNumber === 1 || c.courtNumber === 2;
         return false;
     }).sort((a, b) => {
         if (a.courtType < b.courtType) return -1;
@@ -359,12 +356,12 @@ export default function AdminReservationsCalendarPage() {
                     <CardHeader>
                         <CardTitle>Seleccionar Cancha</CardTitle>
                         <CardDescription>
-                            Elige una cancha para ver su calendario de reservas. (F5 Canchas 1 y 2 están ocultas).
+                            Elige una cancha para ver su calendario. (F5 1 y 2 están deshabilitadas).
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">
                          <div>
-                            <h3 className="text-2xl font-bold mb-4">Canchas de Fútbol 5</h3>
+                            <h3 className="text-2xl font-bold mb-4">Fútbol 5</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {futbol5Courts.map(court => (
                                     <Button key={court.id} variant="outline" className="h-20 text-lg" onClick={() => setSelectedCourt(court)}>
@@ -374,7 +371,7 @@ export default function AdminReservationsCalendarPage() {
                             </div>
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold mb-4">Canchas de Fútbol 7</h3>
+                            <h3 className="text-2xl font-bold mb-4">Fútbol 7</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {futbol7Courts.map(court => (
                                     <Button key={court.id} variant="outline" className="h-20 text-lg" onClick={() => setSelectedCourt(court)}>
@@ -400,7 +397,7 @@ export default function AdminReservationsCalendarPage() {
                         <div>
                             <CardTitle>Calendario de Reservas</CardTitle>
                             <CardDescription>
-                                {`Mostrando reservas para ${selectedCourt.courtType} - Cancha ${selectedCourt.courtNumber}`}
+                                {`${selectedCourt.courtType} - Cancha ${selectedCourt.courtNumber}`}
                             </CardDescription>
                         </div>
                     </div>
@@ -485,13 +482,11 @@ export default function AdminReservationsCalendarPage() {
                 </CardContent>
             </Card>
 
+            {/* Diálogo Nueva Reserva */}
             <Dialog open={isNewResDialogOpen} onOpenChange={setIsNewResDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Registrar Reserva Manual</DialogTitle>
-                        <DialogDescription>
-                            Asienta un turno recibido por WhatsApp u otro medio.
-                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -501,7 +496,7 @@ export default function AdminReservationsCalendarPage() {
                             </div>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="clientName" className="text-right">Nombre Cliente</Label>
+                            <Label htmlFor="clientName" className="text-right">Nombre</Label>
                             <Input 
                                 id="clientName" 
                                 value={newResData.clientName} 
@@ -515,11 +510,11 @@ export default function AdminReservationsCalendarPage() {
                             <Label className="text-right">O elegir usuario</Label>
                             <Select onValueChange={(val) => setNewResData(prev => ({...prev, userId: val}))} value={newResData.userId}>
                                 <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Seleccionar usuario registrado" />
+                                    <SelectValue placeholder="Registrado..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {allUsers?.map(u => (
-                                        <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</SelectItem>
+                                        <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -527,79 +522,61 @@ export default function AdminReservationsCalendarPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsNewResDialogOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleCreateReservation}>Confirmar Turno</Button>
+                        <Button onClick={handleCreateReservation}>Confirmar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
+            {/* Detalles Reserva */}
             <Dialog open={!!selectedReservation} onOpenChange={(isOpen) => { if (!isOpen) setSelectedReservation(null) }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Detalles de la Reserva</DialogTitle>
-                        <DialogDescription>
-                            Información completa de la reserva y el cliente.
-                        </DialogDescription>
+                        <DialogTitle>Detalles</DialogTitle>
                     </DialogHeader>
                     {selectedReservation && (
                         <div className="space-y-3 text-sm">
                              {selectedReservation.hasConflict && (
                                 <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 text-yellow-700 mb-4">
-                                    <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4"/> ATENCIÓN: Superposición detectada</p>
-                                    <p>Existe un turno fijo y una reserva puntual ocupando este mismo horario. Por favor, verifica con los clientes.</p>
+                                    <p className="font-bold">Superposición detectada</p>
+                                    <p>Conflicto entre turno fijo y puntual.</p>
                                 </div>
                              )}
-                             
-                             {(selectedReservation.user?.cancellationCount || 0) > 0 && (
-                                <div className="bg-red-100 border-l-4 border-red-500 p-4 text-red-700 mb-4 flex items-start gap-3">
-                                    <History className="h-5 w-5 shrink-0" />
-                                    <div>
-                                        <p className="font-bold">Observación del Cliente</p>
-                                        <p>Este cliente ha cancelado turnos <strong>{selectedReservation.user?.cancellationCount}</strong> veces anteriormente.</p>
-                                    </div>
-                                </div>
-                             )}
-
                              <div>
                                 <h4 className="font-semibold text-muted-foreground">Cliente</h4>
                                 <p className="text-base">{selectedReservation.user?.firstName} {selectedReservation.user?.lastName}</p>
                             </div>
                             <div>
-                                <h4 className="font-semibold text-muted-foreground">Email</h4>
-                                <p>{selectedReservation.user?.email}</p>
-                            </div>
-                            <div>
                                 <h4 className="font-semibold text-muted-foreground">Teléfono</h4>
                                 <p>{selectedReservation.user?.phoneNumber}</p>
                             </div>
-                            <Separator className="my-4" />
+                            <Separator />
                             <div>
-                                <h4 className="font-semibold text-muted-foreground">Cancha Reservada</h4>
+                                <h4 className="font-semibold text-muted-foreground">Cancha</h4>
                                 <p>{selectedReservation.court?.courtType} {selectedReservation.court?.courtNumber}</p>
                             </div>
                             <div>
-                                <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
-                                <p>{selectedReservation.reservationDateTime ? format(safeToDate(selectedReservation.reservationDateTime), "EEEE d 'de' LLLL 'a las' HH:mm 'hs'", { locale: es }) : 'Fecha no disponible'}</p>
+                                <h4 className="font-semibold text-muted-foreground">Horario</h4>
+                                <p>{selectedReservation.reservationDateTime ? format(safeToDate(selectedReservation.reservationDateTime), "EEEE d HH:mm 'hs'", { locale: es }) : 'N/A'}</p>
                             </div>
-                             {selectedReservation.isFixed && <p className="text-center font-bold text-secondary-foreground bg-[#800000] p-2 rounded-md text-white">Este es un turno fijo semanal.</p>}
+                             {selectedReservation.isFixed && <p className="text-center font-bold bg-[#800000] p-2 rounded-md text-white">TURNO FIJO SEMANAL</p>}
                         </div>
                     )}
-                    <DialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
+                    <DialogFooter className="sm:justify-between gap-2">
                         <div className="flex gap-2 w-full sm:w-auto">
                             <Button
                                 variant="destructive"
                                 onClick={() => setIsCancelAlertOpen(true)}
-                                disabled={!selectedReservation}
-                                className="flex-1 sm:flex-none"
+                                className="flex-1"
                             >
-                                Cancelar Turno
+                                Cancelar
                             </Button>
                             {!selectedReservation?.isFixed && (
                                 <Button
                                     variant="outline"
                                     onClick={handleOpenEdit}
-                                    className="flex-1 sm:flex-none"
+                                    className="flex-1"
                                 >
-                                    <Edit className="mr-2 h-4 w-4" /> Modificar Turno
+                                    Modificar
                                 </Button>
                             )}
                         </div>
@@ -608,77 +585,19 @@ export default function AdminReservationsCalendarPage() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Modificar Reserva</DialogTitle>
-                        <DialogDescription>
-                            Cambia la cancha o el horario de esta reserva puntual.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <label className="text-right text-sm font-medium">Cancha</label>
-                            <Select 
-                                value={editFormData.courtId} 
-                                onValueChange={(val) => setEditFormData(prev => ({...prev, courtId: val}))}
-                            >
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Selecciona cancha" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sortedCourtsForSelection.map(c => (
-                                        <SelectItem key={c.id} value={c.id}>
-                                            {c.courtType} - Cancha {c.courtNumber}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <label className="text-right text-sm font-medium">Hora</label>
-                            <Select 
-                                value={editFormData.time} 
-                                onValueChange={(val) => setEditFormData(prev => ({...prev, time: val}))}
-                            >
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Selecciona hora" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {hours.map(h => (
-                                        <SelectItem key={h} value={h}>{h}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleUpdateReservation}>Guardar Cambios</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
+            {/* Alerta de Cancelación */}
             <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>¿Estás realmente seguro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {selectedReservation?.isFixed 
-                                ? "Esta acción eliminará el TURNO FIJO de forma permanente. Todas las futuras reservas para este turno se cancelarán."
-                                : "Esta acción cancelará la reserva permanentemente y se sumará al historial de cancelaciones del cliente."
-                            }
-                        </AlertDialogDescription>
+                        <AlertDialogTitle>¿Confirmar eliminación?</AlertDialogTitle>
+                        <AlertDialogDescription>Esta acción es permanente.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Volver</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleCancelReservation}>
-                            Confirmar Cancelación
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={handleCancelReservation}>Confirmar</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
         </div>
     );
 }
