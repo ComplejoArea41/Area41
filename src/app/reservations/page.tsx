@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { addDays, format, startOfDay, isBefore, set, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
-import { cn } from '@/lib/utils';
+import { cn, safeToDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -84,9 +84,8 @@ export default function ReservationPage() {
   const courtsForType = useMemo(() => {
     if (!allCourts) return [];
     return allCourts
-      .filter(c => c.courtType === selectedCourtType) // FILTRO CRUCIAL: Solo el tipo seleccionado
+      .filter(c => c.courtType === selectedCourtType)
       .filter(c => {
-        // Solo mostramos F5 canchas 3 y 4, y F7 canchas 1 y 2
         if (c.courtType === 'Futbol 5') {
             return c.courtNumber === 3 || c.courtNumber === 4;
         }
@@ -128,7 +127,6 @@ export default function ReservationPage() {
     const courtToCheck = allCourts.find(c => c.id === courtId);
     if (!courtToCheck) return { isBlocked: false, isFixed: false };
   
-    // Lógica de Bloqueo por Turnos FIJOS
     if (fixedReservations) {
       const dayOfWeek = checkDate.getDay();
       for (const fixedRes of fixedReservations) {
@@ -139,11 +137,9 @@ export default function ReservationPage() {
         
         let isBlockedByFixed = false;
         if (fixedCourt.id === courtId) isBlockedByFixed = true;
-        // Si la reservada es F7 y yo miro F5
         else if (courtToCheck.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
           if (courtToCheck.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === fixedCourt.courtNumber * 2) isBlockedByFixed = true;
         } 
-        // Si la reservada es F5 y yo miro F7
         else if (courtToCheck.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
           if (fixedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || fixedCourt.courtNumber === (courtToCheck.courtNumber * 2)) isBlockedByFixed = true;
         }
@@ -151,24 +147,21 @@ export default function ReservationPage() {
       }
     }
   
-    // Lógica de Bloqueo por Reservas PUNTUALES
     if (reservations) {
       for (const reservation of reservations) {
         if (!reservation.reservationDateTime) continue;
-        const resDateTime = (reservation.reservationDateTime as any).toDate().getTime();
+        const resDateTime = safeToDate(reservation.reservationDateTime).getTime();
 
         if (resDateTime === slotDateTime) {
-            for (const reservedCourtId of reservation.courtIds) {
+            for (const reservedCourtId of (reservation.courtIds || [])) {
                 const reservedCourt = allCourts.find(c => c.id === reservedCourtId);
                 if (!reservedCourt) continue;
 
                 let blocksThisSlot = false;
                 if (reservedCourtId === courtId) blocksThisSlot = true;
-                // Si la reservada es F7 y yo miro F5
                 else if (courtToCheck.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
                     if (courtToCheck.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToCheck.courtNumber === reservedCourt.courtNumber * 2) blocksThisSlot = true;
                 } 
-                // Si la reservada es F5 y yo miro F7
                 else if (courtToCheck.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
                     if (reservedCourt.courtNumber === (courtToCheck.courtNumber * 2) - 1 || reservedCourt.courtNumber === (courtToCheck.courtNumber * 2)) blocksThisSlot = true;
                 }

@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { collection, doc, Timestamp, increment, addDoc } from 'firebase/firestore';
+import { collection, doc, Timestamp, increment } from 'firebase/firestore';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,10 +29,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChevronLeft, ChevronRight, ArrowLeft, Goal, AlertTriangle, History, Edit, Plus } from 'lucide-react';
 import type { Reservation, User, Court, FixedReservation } from "@/lib/types";
-import { format, startOfWeek, addDays, subDays, set } from 'date-fns';
+import { format, startOfWeek, addDays, subDays, set, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, safeToDate } from '@/lib/utils';
 
 type FullReservation = Reservation & {
     user: User | null;
@@ -41,7 +41,11 @@ type FullReservation = Reservation & {
     hasConflict?: boolean;
 };
 
-const hours = Array.from({ length: 18 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+const hours = [
+    '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
+    '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00',
+    '00:00', '01:00', '02:00'
+];
 
 export default function AdminReservationsCalendarPage() {
     const { user, isUserLoading } = useUser();
@@ -54,7 +58,6 @@ export default function AdminReservationsCalendarPage() {
     const [selectedReservation, setSelectedReservation] = useState<FullReservation | null>(null);
     const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
     
-    // New Reservation State
     const [isNewResDialogOpen, setIsNewResDialogOpen] = useState(false);
     const [newResData, setNewResData] = useState({
         day: new Date(),
@@ -63,7 +66,6 @@ export default function AdminReservationsCalendarPage() {
         userId: '',
     });
 
-    // Edit states
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editFormData, setEditFormData] = useState({
         courtId: '',
@@ -121,11 +123,6 @@ export default function AdminReservationsCalendarPage() {
             });
         } catch (error) {
             console.error("Error cancelling reservation:", error);
-            toast({
-                variant: "destructive",
-                title: "Error al cancelar",
-                description: "No se pudo eliminar la reserva.",
-            });
         }
         
         setIsCancelAlertOpen(false);
@@ -133,20 +130,18 @@ export default function AdminReservationsCalendarPage() {
     };
 
     const handleOpenEdit = () => {
-        if (!selectedReservation) return;
+        if (!selectedReservation || !selectedReservation.reservationDateTime) return;
         setEditFormData({
             courtId: selectedReservation.court?.id || '',
-            time: format((selectedReservation.reservationDateTime as any).toDate(), 'HH:mm'),
+            time: format(safeToDate(selectedReservation.reservationDateTime), 'HH:mm'),
         });
         setIsEditDialogOpen(true);
     };
 
     const handleUpdateReservation = async () => {
-        if (!selectedReservation || !firestore || !courts) return;
+        if (!selectedReservation || !firestore || !courts || !selectedReservation.reservationDateTime) return;
 
-        const isFixed = selectedReservation.isFixed;
-        
-        if (isFixed) {
+        if (selectedReservation.isFixed) {
             toast({ title: "Edición de turno fijo", description: "Para editar un turno fijo, por favor dirígete a la sección de 'Turnos Fijos'." });
             router.push('/admin/fixed-reservations');
             return;
@@ -165,7 +160,7 @@ export default function AdminReservationsCalendarPage() {
             if (f5_2) newCourtIds.push(f5_2.id);
         }
 
-        const currentResDate = (selectedReservation.reservationDateTime as any).toDate();
+        const currentResDate = safeToDate(selectedReservation.reservationDateTime);
         const [hour, min] = editFormData.time.split(':').map(Number);
         const newDate = set(currentResDate, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
 
@@ -179,7 +174,6 @@ export default function AdminReservationsCalendarPage() {
             setSelectedReservation(null);
         } catch (error) {
             console.error("Error updating reservation:", error);
-            toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar la reserva." });
         }
     };
 
@@ -202,7 +196,11 @@ export default function AdminReservationsCalendarPage() {
         }
 
         const [hour, min] = newResData.hour.split(':').map(Number);
-        const resDateTime = set(newResData.day, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
+        let resDay = newResData.day;
+        if (hour >= 0 && hour < 8) {
+            resDay = addDays(resDay, 1);
+        }
+        const resDateTime = set(resDay, { hours: hour, minutes: min, seconds: 0, milliseconds: 0 });
 
         let courtIds = [selectedCourt.id];
         if (selectedCourt.courtType === 'Futbol 7') {
@@ -228,129 +226,106 @@ export default function AdminReservationsCalendarPage() {
             setIsNewResDialogOpen(false);
         } catch (error) {
             console.error("Error creating reservation:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo crear la reserva.' });
         }
     };
     
     const getReservationForSlot = (day: Date, hour: string, courtId: string): FullReservation | undefined => {
-        if (!courts) return undefined;
+        if (!courts || !reservations || !allUsers) return undefined;
         
         const [hourNum] = hour.split(':').map(Number);
-        const slotDateTime = new Date(day);
-        slotDateTime.setHours(hourNum, 0, 0, 0);
+        let slotDate = new Date(day);
+        if (hourNum >= 0 && hourNum < 8) {
+            slotDate = addDays(slotDate, 1);
+        }
+        const slotDateTime = set(slotDate, { hours: hourNum, minutes: 0, seconds: 0, milliseconds: 0 }).getTime();
 
         const courtToDisplay = courts.find(c => c.id === courtId);
         if (!courtToDisplay) return undefined;
     
-        let regularMatch: FullReservation | undefined;
+        const usersMap = new Map(allUsers.map(u => [u.id, u]));
+        
+        const regularMatchRaw = reservations.find(res => {
+            if (!res.reservationDateTime) return false;
+            const resTime = safeToDate(res.reservationDateTime).getTime();
+            if (resTime !== slotDateTime) return false;
+
+            for (const resCourtId of (res.courtIds || [])) {
+                if (resCourtId === courtId) return true;
+                const reservedCourt = courts.find(c => c.id === resCourtId);
+                if (!reservedCourt) continue;
+
+                if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
+                    if (courtToDisplay.courtNumber === (reservedCourt.courtNumber * 2) - 1 || courtToDisplay.courtNumber === reservedCourt.courtNumber * 2) return true;
+                }
+                if (courtToDisplay.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
+                    if (reservedCourt.courtNumber === (courtToDisplay.courtNumber * 2) - 1 || reservedCourt.courtNumber === courtToDisplay.courtNumber * 2) return true;
+                }
+            }
+            return false;
+        });
+
         let fixedMatch: FullReservation | undefined;
-
-        if (reservations && allUsers) {
-            const usersMap = new Map(allUsers.map(u => [u.id, u]));
-            const reservationsInSlot = reservations.filter(res => {
-                const resDateTime = (res.reservationDateTime as any).toDate();
-                return resDateTime.getTime() === slotDateTime.getTime();
-            });
-    
-            for (const reservation of reservationsInSlot) {
-                let blockingCourt: Court | null = null;
-                for (const reservedCourtId of reservation.courtIds) {
-                     const reservedCourt = courts.find(c => c.id === reservedCourtId);
-                     if (!reservedCourt) continue;
-
-                     if (reservedCourtId === courtId) {
-                        blockingCourt = reservedCourt;
-                        break;
-                     }
-        
-                    if (courtToDisplay.courtType === 'Futbol 5' && reservedCourt.courtType === 'Futbol 7') {
-                        const f7Number = reservedCourt.courtNumber;
-                        const f5Equivalent1 = (f7Number * 2) - 1;
-                        const f5Equivalent2 = f7Number * 2;
-                        if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) {
-                            blockingCourt = reservedCourt;
-                            break;
-                        }
-                    }
-                    
-                    if (courtToDisplay.courtType === 'Futbol 7' && reservedCourt.courtType === 'Futbol 5') {
-                         const f7TargetNumber = courtToDisplay.courtNumber;
-                         const f5Equivalent1 = (f7TargetNumber * 2) - 1;
-                         const f5Equivalent2 = f7TargetNumber * 2;
-                         if (reservedCourt.courtNumber === f5Equivalent1 || reservedCourt.courtNumber === f5Equivalent2) {
-                            blockingCourt = reservedCourt;
-                            break;
-                         }
-                    }
-                }
-        
-                if (blockingCourt) {
-                    regularMatch = {
-                        ...reservation,
-                        user: usersMap.get(reservation.userId) || null,
-                        court: blockingCourt,
-                        isFixed: false,
-                    };
-                    break;
-                }
-            }
-        }
-
         if (fixedReservations) {
-            const dayOfWeek = day.getDay();
-            const matchingFixedReservations = fixedReservations.filter(fr => fr.isActive && fr.dayOfWeek === dayOfWeek && fr.time === hour);
-            
-            for (const fixedRes of matchingFixedReservations) {
-                let blockingCourt: Court | null = null;
-                const fixedCourt = courts.find(c => c.id === fixedRes.courtId);
-                if (!fixedCourt) continue;
+            const dayOfWeek = slotDate.getDay();
+            const matchingFixed = fixedReservations.find(fr => {
+                if (!fr.isActive || fr.dayOfWeek !== dayOfWeek || fr.time !== hour) return false;
+                const fixedCourt = courts.find(c => c.id === fr.courtId);
+                if (!fixedCourt) return false;
 
-                if (fixedCourt.id === courtId) {
-                    blockingCourt = fixedCourt;
-                } else if (courtToDisplay.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
-                    const f7Number = fixedCourt.courtNumber;
-                    const f5Equivalent1 = (f7Number * 2) - 1;
-                    const f5Equivalent2 = f7Number * 2;
-                    if (courtToDisplay.courtNumber === f5Equivalent1 || courtToDisplay.courtNumber === f5Equivalent2) blockingCourt = fixedCourt;
-                } else if (courtToDisplay.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
-                    const f7TargetNumber = courtToDisplay.courtNumber;
-                    const f5Equivalent1 = (f7TargetNumber * 2) - 1;
-                    const f5Equivalent2 = f7TargetNumber * 2;
-                    if (fixedCourt.courtNumber === f5Equivalent1 || fixedCourt.courtNumber === f5Equivalent2) blockingCourt = fixedCourt;
+                if (fixedCourt.id === courtId) return true;
+                if (courtToDisplay.courtType === 'Futbol 5' && fixedCourt.courtType === 'Futbol 7') {
+                    if (courtToDisplay.courtNumber === (fixedCourt.courtNumber * 2) - 1 || courtToDisplay.courtNumber === fixedCourt.courtNumber * 2) return true;
                 }
+                if (courtToDisplay.courtType === 'Futbol 7' && fixedCourt.courtType === 'Futbol 5') {
+                    if (fixedCourt.courtNumber === (courtToDisplay.courtNumber * 2) - 1 || fixedCourt.courtNumber === courtToDisplay.courtNumber * 2) return true;
+                }
+                return false;
+            });
 
-                if (blockingCourt) {
-                    fixedMatch = {
-                        id: fixedRes.id,
-                        userId: 'fixed-user',
-                        courtIds: [fixedRes.courtId],
-                        reservationDateTime: Timestamp.fromDate(slotDateTime) as any,
-                        durationMinutes: 60,
-                        user: {
-                            id: 'fixed-user',
-                            firstName: fixedRes.clientName,
-                            lastName: '(Turno Fijo)',
-                            email: 'N/A',
-                            phoneNumber: fixedRes.phoneNumber || 'N/A',
-                            cancellationCount: 0
-                        },
-                        court: blockingCourt,
-                        isFixed: true
-                    }
-                    break;
-                }
+            if (matchingFixed) {
+                fixedMatch = {
+                    id: matchingFixed.id,
+                    userId: 'fixed-user',
+                    courtIds: [matchingFixed.courtId],
+                    reservationDateTime: Timestamp.fromMillis(slotDateTime) as any,
+                    durationMinutes: 60,
+                    user: {
+                        id: 'fixed-user',
+                        firstName: matchingFixed.clientName,
+                        lastName: '(Turno Fijo)',
+                        email: 'N/A',
+                        phoneNumber: matchingFixed.phoneNumber || 'N/A',
+                        cancellationCount: 0
+                    },
+                    court: courts.find(c => c.id === matchingFixed.courtId) || null,
+                    isFixed: true
+                };
             }
         }
-    
-        if (regularMatch && fixedMatch) {
-            return { ...regularMatch, hasConflict: true };
+
+        if (regularMatchRaw && fixedMatch) {
+            return {
+                ...regularMatchRaw,
+                user: usersMap.get(regularMatchRaw.userId) || null,
+                court: courts.find(c => c.id === regularMatchRaw.courtIds[0]) || null,
+                isFixed: false,
+                hasConflict: true
+            };
         }
 
-        return regularMatch || fixedMatch;
+        if (regularMatchRaw) {
+            return {
+                ...regularMatchRaw,
+                user: usersMap.get(regularMatchRaw.userId) || null,
+                court: courts.find(c => c.id === (regularMatchRaw.courtIds ? regularMatchRaw.courtIds[0] : '')) || null,
+                isFixed: false
+            };
+        }
+
+        return fixedMatch;
     };
     
-    const sortedCourts = useMemo(() => courts?.filter(c => {
-        // En el admin también filtramos estrictamente las canchas permitidas
+    const sortedCourtsForSelection = useMemo(() => courts?.filter(c => {
         if (c.courtType === 'Futbol 5') {
             return c.courtNumber === 3 || c.courtNumber === 4;
         }
@@ -375,8 +350,8 @@ export default function AdminReservationsCalendarPage() {
     }
     
     if (!selectedCourt) {
-        const futbol5Courts = sortedCourts.filter(c => c.courtType === 'Futbol 5');
-        const futbol7Courts = sortedCourts.filter(c => c.courtType === 'Futbol 7');
+        const futbol5Courts = sortedCourtsForSelection.filter(c => c.courtType === 'Futbol 5');
+        const futbol7Courts = sortedCourtsForSelection.filter(c => c.courtType === 'Futbol 7');
 
         return (
             <div className="flex flex-1 flex-col items-center justify-start gap-4 p-4 md:gap-8 md:p-8">
@@ -510,7 +485,6 @@ export default function AdminReservationsCalendarPage() {
                 </CardContent>
             </Card>
 
-            {/* Nueva Reserva Dialog */}
             <Dialog open={isNewResDialogOpen} onOpenChange={setIsNewResDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
@@ -604,7 +578,7 @@ export default function AdminReservationsCalendarPage() {
                             </div>
                             <div>
                                 <h4 className="font-semibold text-muted-foreground">Fecha y Hora</h4>
-                                <p>{format((selectedReservation.reservationDateTime as any).toDate(), "EEEE d 'de' LLLL 'a las' HH:mm 'hs'", { locale: es })}</p>
+                                <p>{selectedReservation.reservationDateTime ? format(safeToDate(selectedReservation.reservationDateTime), "EEEE d 'de' LLLL 'a las' HH:mm 'hs'", { locale: es }) : 'Fecha no disponible'}</p>
                             </div>
                              {selectedReservation.isFixed && <p className="text-center font-bold text-secondary-foreground bg-[#800000] p-2 rounded-md text-white">Este es un turno fijo semanal.</p>}
                         </div>
@@ -653,7 +627,7 @@ export default function AdminReservationsCalendarPage() {
                                     <SelectValue placeholder="Selecciona cancha" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {sortedCourts.map(c => (
+                                    {sortedCourtsForSelection.map(c => (
                                         <SelectItem key={c.id} value={c.id}>
                                             {c.courtType} - Cancha {c.courtNumber}
                                         </SelectItem>

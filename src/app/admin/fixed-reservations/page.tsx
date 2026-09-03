@@ -39,7 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { FixedReservation, Court, Reservation } from "@/lib/types";
 import { Trash2, Edit, PlusCircle, CalendarClock, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, safeToDate } from "@/lib/utils";
 
 type FormData = Omit<FixedReservation, 'id'>;
 
@@ -103,7 +103,7 @@ export default function AdminFixedReservationsPage() {
         return [...courts].sort((a: any, b: any) => {
             if (a.courtType < b.courtType) return -1;
             if (a.courtType > b.courtType) return 1;
-            return (a.courtNumber || 0) - (b.courtNumber || 0);
+            return (a.courtNumber || 0) - (a.courtNumber || 0);
         });
     }, [courts]);
     
@@ -167,13 +167,14 @@ export default function AdminFixedReservationsPage() {
         });
 
         const standardConflict = allReservations?.find(res => {
-            const resDate = (res.reservationDateTime as any).toDate();
+            if (!res.reservationDateTime) return false;
+            const resDate = safeToDate(res.reservationDateTime);
             if (resDate < new Date()) return false;
             if (resDate.getDay() !== formData.dayOfWeek) return false;
             const resTime = format(resDate, 'HH:mm');
             if (resTime !== formData.time) return false;
 
-            for (const resCourtId of res.courtIds) {
+            for (const resCourtId of (res.courtIds || [])) {
                 if (resCourtId === formData.courtId) return true;
                 const resCourt = courts.find(c => c.id === resCourtId);
                 if (!resCourt) continue;
