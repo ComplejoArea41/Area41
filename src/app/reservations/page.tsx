@@ -30,7 +30,7 @@ import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, Firestor
 import { useRouter } from 'next/navigation';
 import type { Court, Reservation, FixedReservation, User } from '@/lib/types';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { Loader2, Moon, MessageSquareText } from 'lucide-react';
+import { Loader2, Moon, MessageSquareText, UserPlus, LogIn } from 'lucide-react';
 
 
 export default function ReservationPage() {
@@ -62,14 +62,17 @@ export default function ReservationPage() {
   const courtsCollectionRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
   const { data: allCourts, isLoading: areCourtsLoading } = useCollection<Court>(courtsCollectionRef);
 
-  const fixedReservationsRef = useMemoFirebase(() => query(collection(firestore, 'fixed_reservations'), where('isActive', '==', true)), [firestore]);
+  const fixedReservationsRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'fixed_reservations'), where('isActive', '==', true));
+  }, [firestore, user]);
   const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
   
   const usersCollectionRef = useMemoFirebase(() => (userProfile?.isAdmin ? collection(firestore, 'users') : null), [userProfile?.isAdmin, firestore]);
   const { data: allUsers } = useCollection<User>(usersCollectionRef);
   
   const reservationsQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedDate) return null;
+    if (!firestore || !selectedDate || !user) return null;
     const start = startOfDay(selectedDate);
     const end = addDays(start, 2);
     return query(
@@ -77,14 +80,9 @@ export default function ReservationPage() {
       where('reservationDateTime', '>=', Timestamp.fromDate(start)),
       where('reservationDateTime', '<', Timestamp.fromDate(end))
     );
-  }, [firestore, selectedDate]);
+  }, [firestore, selectedDate, user]);
   
   const { data: reservations, isLoading: areReservationsLoading, error } = useCollection<Reservation>(reservationsQuery);
-
-  useEffect(() => {
-    if (isUserLoading) return;
-    if (!user) router.push('/login');
-  }, [user, isUserLoading, router]);
 
   const courtsForType = useMemo(() => {
     if (!allCourts) return [];
@@ -365,14 +363,87 @@ export default function ReservationPage() {
     setIsDialogOpen(false);
   }
   
-  const isLoadingPage = isUserLoading || isProfileLoading || areCourtsLoading || areFixedReservationsLoading;
+  if (isUserLoading) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center dark bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+        <p className="text-primary-foreground">Cargando disponibilidad...</p>
+      </div>
+    );
+  }
 
-  if (isLoadingPage || (user && !userProfile)) {
-    return (<div className="flex min-h-screen items-center justify-center dark bg-background"><p className="text-primary-foreground">Cargando disponibilidad...</p></div>);
+  if (!user) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-4 md:p-8 min-h-[75vh]">
+        <Card className="bg-card/90 backdrop-blur-md w-full max-w-md border border-primary/30 shadow-2xl text-center">
+          <CardHeader className="pb-4">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary border border-primary/40 shadow-inner">
+              <UserPlus className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold tracking-tight">
+              ¡Crea tu cuenta para reservar!
+            </CardTitle>
+            <CardDescription className="text-sm mt-2 text-muted-foreground leading-relaxed">
+              Para poder ver los turnos disponibles y reservar tu cancha en Area41, necesitás tener una cuenta. Te llevará solo unos segundos registrarte.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 pb-6">
+            <Button 
+              size="lg"
+              className="w-full py-6 text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all transform hover:scale-[1.02]" 
+              onClick={() => router.push('/login?mode=signup&redirect=/reservations')}
+            >
+              <UserPlus className="h-5 w-5 mr-2" />
+              Crear Mi Cuenta
+            </Button>
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="w-full border-white/20 hover:bg-white/10 text-white font-medium" 
+              onClick={() => router.push('/login?redirect=/reservations')}
+            >
+              <LogIn className="h-5 w-5 mr-2" />
+              Ya tengo cuenta - Iniciar Sesión
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="w-full text-xs text-muted-foreground hover:text-white mt-2" 
+              onClick={() => router.push('/')}
+            >
+              Volver al Inicio
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const isLoadingPage = isProfileLoading || areCourtsLoading || areFixedReservationsLoading;
+
+  if (isLoadingPage || !userProfile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center dark bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+        <p className="text-primary-foreground">Cargando disponibilidad...</p>
+      </div>
+    );
   }
   
   if (error) {
-    return (<div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8"><Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl"><CardHeader><CardTitle>Error de Permisos</CardTitle><CardDescription>No hemos podido cargar la disponibilidad. Contacta al administrador.</CardDescription></CardHeader><CardContent><p className="text-destructive">{error.message}</p></CardContent></Card></div>)
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:gap-8 md:p-8">
+        <Card className="bg-card/80 backdrop-blur-sm w-full max-w-4xl">
+          <CardHeader>
+            <CardTitle>Error al cargar reservas</CardTitle>
+            <CardDescription>No hemos podido cargar la disponibilidad. Inténtalo de nuevo más tarde.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-destructive">{error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

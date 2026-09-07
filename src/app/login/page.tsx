@@ -39,10 +39,20 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'signup') {
+        setIsSigningUp(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/');
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const destination = params?.get('redirect') || '/reservations';
+      router.push(destination);
     }
   }, [user, isUserLoading, router]);
 
@@ -73,13 +83,16 @@ export default function LoginPage() {
         const userDocRef = doc(firestore, 'users', newUser.uid);
         await setDoc(userDocRef, userProfileData);
 
-        toast({ title: "Registro exitoso", description: "¡Bienvenido! Serás redirigido." });
+        toast({ title: "Registro exitoso", description: "¡Bienvenido! Serás redirigido a las reservas." });
 
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: "Inicio de sesión exitoso" });
       }
-      router.push('/');
+      
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const destination = params?.get('redirect') || '/reservations';
+      router.push(destination);
     } catch (error: any) {
       console.error("Authentication error:", error);
       toast({
