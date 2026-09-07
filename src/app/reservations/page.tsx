@@ -65,6 +65,9 @@ export default function ReservationPage() {
   const fixedReservationsRef = useMemoFirebase(() => query(collection(firestore, 'fixed_reservations'), where('isActive', '==', true)), [firestore]);
   const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
   
+  const usersCollectionRef = useMemoFirebase(() => (userProfile?.isAdmin ? collection(firestore, 'users') : null), [userProfile?.isAdmin, firestore]);
+  const { data: allUsers } = useCollection<User>(usersCollectionRef);
+  
   const reservationsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedDate) return null;
     const start = startOfDay(selectedDate);
@@ -116,7 +119,7 @@ export default function ReservationPage() {
     return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
   }, []);
 
-  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean; reservedCourtType?: string } => {
+  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean; reservedCourtType?: string; clientName?: string } => {
     if (!allCourts || !forDate) return { isBlocked: false, isFixed: false };
   
     const [hour, minute] = time.split(':').map(Number);
@@ -153,7 +156,14 @@ export default function ReservationPage() {
           if (courtToCheck.courtNumber === 1 || courtToCheck.courtNumber === 2) isBlockedByFixed = true;
         }
 
-        if (isBlockedByFixed) return { isBlocked: true, isFixed: true, reservedCourtType: fixedCourt.courtType };
+        if (isBlockedByFixed) {
+          return { 
+            isBlocked: true, 
+            isFixed: true, 
+            reservedCourtType: fixedCourt.courtType,
+            clientName: fixedRes.clientName || 'Fijo'
+          };
+        }
       }
     }
   
@@ -182,14 +192,29 @@ export default function ReservationPage() {
                     if (courtToCheck.courtNumber === 1 || courtToCheck.courtNumber === 2) blocksThisSlot = true;
                 }
 
-                if (blocksThisSlot) return { isBlocked: true, isFixed: false, reservedCourtType: reservedCourt.courtType };
+                if (blocksThisSlot) {
+                    const userDoc = allUsers?.find(u => u.id === reservation.userId);
+                    let name = reservation.customerName;
+                    if (!name && userDoc) {
+                      name = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+                    }
+                    if (!name && reservation.userId === user?.uid && userProfile) {
+                      name = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim();
+                    }
+                    return { 
+                      isBlocked: true, 
+                      isFixed: false, 
+                      reservedCourtType: reservedCourt.courtType,
+                      clientName: name || 'Reservado'
+                    };
+                }
             }
         }
       }
     }
     
     return { isBlocked: false, isFixed: false };
-  }, [reservations, allCourts, fixedReservations]);
+  }, [reservations, allCourts, fixedReservations, allUsers, user, userProfile]);
 
   const handleTimeSelect = (time: string) => {
     if (!user) {
@@ -276,8 +301,16 @@ export default function ReservationPage() {
     const [hour, minute] = time.split(':').map(Number);
     const reservationFullDate = set(date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
   
+    const courtDescription = `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}`;
+    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Cliente';
+    const phone = userProfile.phoneNumber || 'No especificado';
+    const totalCost = courtToReserve.price;
+    const cancellations = userProfile.cancellationCount || 0;
+
     const reservationData = {
       userId: user.uid,
+      customerName: fullName,
+      customerPhone: phone,
       courtIds: courtIdsToReserve,
       reservationDateTime: Timestamp.fromDate(reservationFullDate),
       durationMinutes: 60,
@@ -300,12 +333,6 @@ export default function ReservationPage() {
       return;
     }
   
-    const courtDescription = `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}`;
-    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
-    const phone = userProfile.phoneNumber || 'No especificado';
-    const totalCost = courtToReserve.price;
-    const cancellations = userProfile.cancellationCount || 0;
-
     // Disparar notificación automática del servidor al WhatsApp del complejo
     fetch('/api/notify-reservation', {
       method: 'POST',
@@ -459,7 +486,7 @@ export default function ReservationPage() {
                         const timeDate = set(dateForThisTime, { hours: hour, minutes: 0, seconds: 0, milliseconds: 0 });
                         const isPast = isBefore(timeDate, new Date());
                         
-                        const { isBlocked, isFixed, reservedCourtType } = isSlotBlocked(time, selectedCourtId, selectedDate!);
+                        const { isBlocked, isFixed, reservedCourtType, clientName } = isSlotBlocked(time, selectedCourtId, selectedDate!);
                         
                         if (isBlocked) {
                             const typeSuffix = reservedCourtType === 'Futbol 7' ? '7' : '5';
@@ -469,10 +496,16 @@ export default function ReservationPage() {
                                         key={time}
                                         variant="secondary"
                                         disabled
-                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100 flex flex-col items-center justify-center p-0 h-10"
-                                        aria-label="Fijo"
+                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100 flex flex-col items-center justify-center p-1 h-auto min-h-[50px] leading-tight"
+                                        aria-label={`Fijo ${typeSuffix} - ${clientName || 'Fijo'}`}
                                     >
-                                        <span className="text-[10px] leading-none">Fijo {typeSuffix}</span>
+                                        <span className="text-xs font-bold">{time}</span>
+                                        <span className="text-[10px] uppercase tracking-wider font-semibold opacity-90">Fijo {typeSuffix}</span>
+                                        {clientName && (
+                                            <span className="text-[9px] font-medium text-amber-200 truncate max-w-full px-0.5">
+                                                {clientName}
+                                            </span>
+                                        )}
                                     </Button>
                                 );
                             } else {
@@ -481,10 +514,16 @@ export default function ReservationPage() {
                                     <Button
                                         key={time}
                                         disabled
-                                        className={cn("w-full text-white opacity-100 border-0 flex flex-col items-center justify-center p-0 h-10", bgColor)}
-                                        aria-label="Reservado"
+                                        className={cn("w-full text-white opacity-100 border-0 flex flex-col items-center justify-center p-1 h-auto min-h-[50px] leading-tight", bgColor)}
+                                        aria-label={`Reservado ${typeSuffix} - ${clientName || 'Reservado'}`}
                                     >
-                                        <span className="text-[10px] leading-none">Reservado {typeSuffix}</span>
+                                        <span className="text-xs font-bold">{time}</span>
+                                        <span className="text-[10px] uppercase tracking-wider font-semibold opacity-90">Reservado {typeSuffix}</span>
+                                        {clientName && clientName !== 'Reservado' && (
+                                            <span className="text-[9px] font-medium text-yellow-200 truncate max-w-full px-0.5">
+                                                {clientName}
+                                            </span>
+                                        )}
                                     </Button>
                                 );
                             }
@@ -498,11 +537,15 @@ export default function ReservationPage() {
                                 variant={isConsultationOnly ? 'secondary' : 'outline'}
                                 disabled={isPast}
                                 onClick={() => handleTimeSelect(time)}
-                                className={cn("h-12 flex flex-col items-center justify-center", isConsultationOnly && "border-primary/40")}
+                                className={cn("h-auto min-h-[50px] py-1 flex flex-col items-center justify-center leading-tight", isConsultationOnly && "border-primary/40")}
                                 aria-label={isConsultationOnly ? `Consultar a las ${time}` : `Reservar a las ${time}`}
                             >
-                                <span>{time}</span>
-                                {isConsultationOnly && <span className="text-[8px] opacity-70 font-bold uppercase">Consultar</span>}
+                                <span className="text-xs font-bold">{time}</span>
+                                {isConsultationOnly ? (
+                                    <span className="text-[8px] opacity-70 font-bold uppercase">Consultar</span>
+                                ) : (
+                                    <span className="text-[9px] text-emerald-400 font-medium">Disponible</span>
+                                )}
                             </Button>
                         );
                     })

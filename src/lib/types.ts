@@ -19,6 +19,8 @@ export interface Court {
 export interface Reservation {
   id: string;
   userId: string;
+  customerName?: string;
+  customerPhone?: string;
   courtIds: string[];
   reservationDateTime: any; 
   durationMinutes: number;
