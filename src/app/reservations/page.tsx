@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { addDays, format, startOfDay, isBefore, set, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { collection, query, where, Timestamp, doc, addDoc } from 'firebase/firestore';
@@ -45,6 +45,7 @@ export default function ReservationPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogData, setDialogData] = useState<{time: string, date: Date}>({ time: '', date: new Date()});
   const [isConfirming, setIsConfirming] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     const today = startOfDay(new Date());
@@ -239,13 +240,16 @@ export default function ReservationPage() {
   }
 
   async function confirmReservation() {
+    if (isSubmittingRef.current || isConfirming) return;
     if (!user || !allCourts || !firestore || !selectedCourtId || !userProfile) return;
   
+    isSubmittingRef.current = true;
     setIsConfirming(true);
     const { time, date } = dialogData;
   
     const courtToReserve = allCourts.find(c => c.id === selectedCourtId);
     if (!courtToReserve) {
+        isSubmittingRef.current = false;
         setIsConfirming(false);
         setIsDialogOpen(false);
         return;
@@ -291,6 +295,7 @@ export default function ReservationPage() {
       });
     } catch (e) {
       toast({ title: 'Error en la Reserva', description: 'No se pudo registrar la reserva. Por favor, inténtalo de nuevo.', variant: 'destructive' });
+      isSubmittingRef.current = false;
       setIsConfirming(false);
       return;
     }
@@ -511,7 +516,10 @@ export default function ReservationPage() {
         </CardContent>
       </Card>
       <AlertDialog open={isDialogOpen} onOpenChange={(isOpen) => {
-          if (!isOpen) setIsConfirming(false);
+          if (!isOpen) {
+            isSubmittingRef.current = false;
+            setIsConfirming(false);
+          }
           setIsDialogOpen(isOpen);
         }}>
           <AlertDialogContent>
@@ -543,8 +551,9 @@ export default function ReservationPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Volver</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmReservation}>
+                  <AlertDialogCancel disabled={isConfirming}>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmReservation} disabled={isConfirming}>
+                    {isConfirming && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Entendido, Enviar WhatsApp
                   </AlertDialogAction>
                 </AlertDialogFooter>

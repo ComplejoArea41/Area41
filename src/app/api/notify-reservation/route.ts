@@ -1,9 +1,38 @@
 import { NextResponse } from 'next/server';
 
+// Cache en memoria para evitar duplicados si se presiona doble clic o reintenta la red
+const recentNotifications = new Map<string, number>();
+
+function isDuplicate(key: string): boolean {
+  const now = Date.now();
+  // Limpiar llaves viejas de más de 30 segundos
+  for (const [k, timestamp] of recentNotifications.entries()) {
+    if (now - timestamp > 30000) {
+      recentNotifications.delete(k);
+    }
+  }
+
+  if (recentNotifications.has(key)) {
+    const lastTime = recentNotifications.get(key)!;
+    if (now - lastTime < 15000) {
+      return true;
+    }
+  }
+
+  recentNotifications.set(key, now);
+  return false;
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
     const { court, date, time, total, customerName, customerPhone, cancellations } = data;
+
+    const dedupeKey = `${court}-${date}-${time}-${customerPhone}`;
+    if (isDuplicate(dedupeKey)) {
+      console.log('Aviso duplicado ignorado para:', dedupeKey);
+      return NextResponse.json({ success: true, duplicate: true });
+    }
 
     const message = 
       `🚨 *NUEVA RESERVA EN AREA 41*\n\n` +
