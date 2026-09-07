@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     const apiUrl = process.env.GREEN_API_URL || 'https://7105.api.greenapi.com';
     const idInstance = process.env.GREEN_API_ID_INSTANCE || '710522730649';
-    const apiToken = process.env.GREEN_API_TOKEN_INSTANCE;
+    const apiToken = process.env.GREEN_API_TOKEN_INSTANCE || 'b0cb493a41c740d6b54ed2f4d2be882d190c0c82f4d74a548d';
     const recipientPhone = process.env.WHATSAPP_NOTIFICATION_PHONE || '5492324500029';
 
     if (idInstance && apiToken) {
