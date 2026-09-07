@@ -226,8 +226,8 @@ export default function ReservationPage() {
           `_Este mensaje es una consulta de disponibilidad para el horario de la mañana/tarde._`
         );
       
-        const whatsappUrl = `https://wa.me/2324500029?text=${message}`;
-        window.location.assign(whatsappUrl);
+        const whatsappUrl = `https://wa.me/5492324500029?text=${message}`;
+        window.location.href = whatsappUrl;
         return;
     }
 
@@ -312,8 +312,8 @@ export default function ReservationPage() {
       (cancellations > 0 ? `\n\n⚠️ NOTA: Este cliente tiene ${cancellations} cancelaciones previas.` : "")
     );
   
-    const whatsappUrl = `https://wa.me/2324500029?text=${message}`;
-    window.location.assign(whatsappUrl);
+    const whatsappUrl = `https://wa.me/5492324500029?text=${message}`;
+    window.location.href = whatsappUrl;
   
     setIsDialogOpen(false);
   }
