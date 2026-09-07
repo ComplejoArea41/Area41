@@ -15,24 +15,33 @@ export async function POST(req: Request) {
       `📞 *Teléfono:* ${customerPhone || 'No especificado'}` +
       (cancellations > 0 ? `\n\n⚠️ *Cancelaciones previas:* ${cancellations}` : '');
 
-    const phone = process.env.WHATSAPP_NOTIFICATION_PHONE || '5492324500029';
-    const apiKey = process.env.CALLMEBOT_API_KEY;
+    const apiUrl = process.env.GREEN_API_URL || 'https://7105.api.greenapi.com';
+    const idInstance = process.env.GREEN_API_ID_INSTANCE || '710522730649';
+    const apiToken = process.env.GREEN_API_TOKEN_INSTANCE;
+    const recipientPhone = process.env.WHATSAPP_NOTIFICATION_PHONE || '5492324500029';
 
-    let resultStatus = { sent: false, provider: 'none' };
-
-    // Si está configurado CallMeBot
-    if (apiKey) {
+    if (idInstance && apiToken) {
       try {
-        const encoded = encodeURIComponent(message);
-        const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encoded}&apikey=${apiKey}`;
-        const response = await fetch(url, { method: 'GET' });
-        resultStatus = { sent: response.ok, provider: 'callmebot' };
-      } catch (callMeBotErr) {
-        console.error('Error enviando WhatsApp con CallMeBot:', callMeBotErr);
+        const url = `${apiUrl.replace(/\/$/, '')}/waInstance${idInstance}/sendMessage/${apiToken}`;
+        const chatId = `${recipientPhone.replace(/[^0-9]/g, '')}@c.us`;
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatId: chatId,
+            message: message,
+          }),
+        });
+
+        const resData = await response.json().catch(() => ({}));
+        console.log('Respuesta Green-API:', resData);
+      } catch (greenApiErr) {
+        console.error('Error enviando WhatsApp con Green API:', greenApiErr);
       }
     }
 
-    return NextResponse.json({ success: true, ...resultStatus });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error procesando notificación de reserva:', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
