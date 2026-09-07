@@ -300,6 +300,21 @@ export default function ReservationPage() {
     const phone = userProfile.phoneNumber || 'No especificado';
     const totalCost = courtToReserve.price;
     const cancellations = userProfile.cancellationCount || 0;
+
+    // Disparar notificación automática del servidor al WhatsApp del complejo
+    fetch('/api/notify-reservation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        court: courtDescription,
+        date: format(reservationFullDate, 'dd/MM/yyyy'),
+        time: time,
+        total: totalCost,
+        customerName: fullName,
+        customerPhone: phone,
+        cancellations: cancellations,
+      }),
+    }).catch(err => console.error('Error enviando notificación automática:', err));
   
     const message = encodeURIComponent(
       `¡Hola! Quiero confirmar mi reserva:\n\n` +
