@@ -248,7 +248,7 @@ export default function AdminFixedReservationsPage() {
                         <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Día</Label>
                              <Select onValueChange={(val) => setFormData({...formData, dayOfWeek: Number(val)})} value={String(formData.dayOfWeek)}>
                                 <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                                <SelectContent>{weekDays.map(d => <SelectItem key={day.value} value={String(d.value)} disabled={d.value === 0}>{d.label}</SelectItem>)}</SelectContent>
+                                <SelectContent>{weekDays.map(d => <SelectItem key={d.value} value={String(d.value)} disabled={d.value === 0}>{d.label}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Hora</Label>
