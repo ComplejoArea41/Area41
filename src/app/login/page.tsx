@@ -21,6 +21,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 
 export default function LoginPage() {
@@ -69,24 +70,40 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       if (isSigningUp) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const newUser = userCredential.user;
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              phone_number: phoneNumber,
+            }
+          }
+        });
 
-        // Now create the user profile in Firestore
-        const userProfileData = {
-          firstName,
-          lastName,
-          phoneNumber,
-          email: newUser.email,
-          isAdmin: false, // Default to not admin
-        };
-        const userDocRef = doc(firestore, 'users', newUser.uid);
-        await setDoc(userDocRef, userProfileData);
+        if (error) throw error;
+
+        const userId = data.user?.id;
+        if (userId) {
+          await supabase.from('users').upsert({
+            id: userId,
+            first_name: firstName,
+            last_name: lastName,
+            phone_number: phoneNumber,
+            email: email,
+            is_admin: false,
+          });
+        }
 
         toast({ title: "Registro exitoso", description: "¡Bienvenido! Serás redirigido a las reservas." });
-
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
         toast({ title: "Inicio de sesión exitoso" });
       }
       
@@ -95,10 +112,24 @@ export default function LoginPage() {
       router.push(destination);
     } catch (error: any) {
       console.error("Authentication error:", error);
+      let description = error?.message || "No se pudo iniciar sesión o registrarse.";
+
+      if (description.includes("Invalid login credentials")) {
+        description = "Correo o contraseña incorrectos. Si aún no tienes cuenta, toca en '¿No tienes una cuenta? Regístrate'.";
+      } else if (description.includes("User already registered") || description.includes("already registered")) {
+        description = "Este correo electrónico ya está registrado. Por favor inicia sesión.";
+      } else if (description.includes("Password should be at least")) {
+        description = "La contraseña debe tener al menos 6 caracteres.";
+      } else if (description.includes("valid email")) {
+        description = "El formato del correo electrónico ingresado no es válido.";
+      } else if (description.includes("Email not confirmed")) {
+        description = "Debes confirmar tu correo electrónico antes de ingresar, o avísanos para autorizar tu cuenta.";
+      }
+
       toast({
         variant: "destructive",
         title: "Error de autenticación",
-        description: error.message || "No se pudo iniciar sesión o registrarse.",
+        description,
       });
     } finally {
       setIsLoading(false);
@@ -117,7 +148,14 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background dark p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center flex flex-col items-center">
+          <div className="relative mb-2">
+            <img 
+              src="/logo-escudo.jpg" 
+              alt="Escudo Área 41" 
+              className="h-20 w-20 rounded-xl object-cover ring-2 ring-primary/60 shadow-lg mx-auto" 
+            />
+          </div>
           <CardTitle className="text-2xl">
             Bienvenidos a Area 41
           </CardTitle>

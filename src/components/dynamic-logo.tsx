@@ -17,27 +17,23 @@ export function DynamicLogo() {
   const { data: activeLogoImages, isLoading } = useCollection<LogoImage>(activeLogoQuery);
 
   const { logoUrl, logoDescription } = useMemo(() => {
-    if (!firestore || isLoading) {
-      return { logoUrl: null, logoDescription: null };
-    }
-
     if (activeLogoImages && activeLogoImages.length > 0) {
       return { logoUrl: activeLogoImages[0].imageUrl, logoDescription: activeLogoImages[0].name };
     }
     
-    return { logoUrl: null, logoDescription: null };
+    // Logo por defecto: Escudo oficial Área 41
+    return { logoUrl: '/logo-escudo.jpg', logoDescription: 'Escudo Área 41' };
 
   }, [activeLogoImages, isLoading, firestore]);
 
-  if (!logoUrl) {
-    return <div className="h-32 w-32" />;
-  }
-
   return (
-    <img 
-        src={logoUrl}
-        alt={logoDescription!}
-        className="h-32 w-32 object-contain"
-    />
+    <div className="relative group inline-block">
+      <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/40 to-emerald-500/30 opacity-70 blur-xl group-hover:opacity-100 transition duration-500" />
+      <img 
+        src={logoUrl || '/logo-escudo.jpg'}
+        alt={logoDescription || 'Escudo Área 41'}
+        className="relative h-36 w-36 md:h-44 md:w-44 rounded-2xl object-cover ring-2 ring-primary/60 shadow-2xl transition-all duration-300 transform group-hover:scale-105"
+      />
+    </div>
   );
 }

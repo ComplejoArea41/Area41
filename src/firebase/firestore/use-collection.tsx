@@ -51,8 +51,11 @@ export interface InternalQuery extends Query<DocumentData> {
  * The Firestore CollectionReference or Query. Waits if null/undefined.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
+import { supabase } from '@/lib/supabase';
+import { extractTableAndId, toCamelCase } from '@/lib/supabase-adapter';
+
 export function useCollection<T = any>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
+  memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean}) | null | undefined,
 ): UseCollectionResult<T> {
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
@@ -69,46 +72,61 @@ export function useCollection<T = any>(
       return;
     }
 
+    const { table } = extractTableAndId(memoizedTargetRefOrQuery);
+    if (!table) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
     setIsLoading(true);
-    setError(null);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
+    const fetchCollection = async () => {
+      try {
+        const { data: rows, error: fetchErr } = await supabase
+          .from(table)
+          .select('*');
+
+        if (!isMounted) return;
+
+        if (fetchErr) {
+          console.error(`Error fetching ${table} from Supabase:`, fetchErr);
+          setError(fetchErr as any);
+          setData([]);
+        } else {
+          const mapped = (rows || []).map((r) => toCamelCase(r) as ResultItemType);
+          setData(mapped);
+          setError(null);
         }
-        setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
-
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+      } catch (err: any) {
+        if (isMounted) setError(err);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
-  }
+    fetchCollection();
+
+    // Suscripción Realtime para actualizar la tabla al instante
+    const channel = supabase
+      .channel(`collection_${table}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table },
+        () => {
+          if (isMounted) {
+            fetchCollection();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [memoizedTargetRefOrQuery]);
+
   return { data, isLoading, error };
 }

@@ -22,6 +22,7 @@ import { doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 export default function Header() {
   const { user, isUserLoading } = useUser();
@@ -45,24 +46,14 @@ export default function Header() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
-    } else {
-      // Instrucciones manuales para cuando el navegador no soporta el prompt automático (como iOS Safari)
-      toast({
-        title: "Instalar App / Crear Acceso Directo",
-        description: "En iPhone: toca el botón de 'Compartir' y luego 'Agregar a inicio'. En Android: toca los tres puntos del menú y 'Instalar aplicación'.",
-      });
+  const handleInstallClick = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('open-install-pwa'));
     }
   };
 
   const handleSignOut = () => {
-    signOut(auth).then(() => router.push('/login'));
+    supabase.auth.signOut().then(() => router.push('/login'));
   };
 
   const navLinks = [
@@ -76,7 +67,18 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
-      <nav className="flex items-center gap-1 sm:gap-2 text-sm">
+      <div className="flex items-center gap-2 sm:gap-4">
+        <Link href="/" className="flex items-center gap-2 group transition-transform hover:scale-105">
+          <img
+            src="/logo-escudo.jpg"
+            alt="Escudo Área 41"
+            className="h-9 w-9 rounded-lg object-cover ring-1 ring-primary/40 shadow-sm group-hover:ring-primary transition-all"
+          />
+          <span className="hidden sm:inline-block font-extrabold text-sm sm:text-base tracking-wider text-foreground">
+            ÁREA <span className="text-primary">41</span>
+          </span>
+        </Link>
+        <nav className="flex items-center gap-1 sm:gap-2 text-sm">
         {navLinks.map((link) => (
           <Button
             key={link.href}
@@ -113,6 +115,7 @@ export default function Header() {
             </Button>
         </div>
       </nav>
+      </div>
       
       <div className="flex items-center gap-2">
         {isUserLoading || isProfileLoading ? (

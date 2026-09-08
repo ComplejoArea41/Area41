@@ -3,6 +3,7 @@
 import React, { useMemo, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Header from "./header";
+import { InstallPwaDialog } from "./install-pwa-dialog";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import type { BackgroundImage } from "@/lib/types";
@@ -67,6 +68,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </footer>
           )}
         </div>
+        <InstallPwaDialog />
       </div>
     </div>
   );

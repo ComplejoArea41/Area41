@@ -38,6 +38,9 @@ export interface UseDocResult<T> {
  * The Firestore DocumentReference. Waits if null/undefined.
  * @returns {UseDocResult<T>} Object with data, isLoading, error.
  */
+import { supabase } from '@/lib/supabase';
+import { extractTableAndId, toCamelCase } from '@/lib/supabase-adapter';
+
 export function useDoc<T = any>(
   memoizedDocRef: DocumentReference<DocumentData> | null | undefined,
 ): UseDocResult<T> {
@@ -55,39 +58,66 @@ export function useDoc<T = any>(
       return;
     }
 
+    const { table, id } = extractTableAndId(memoizedDocRef);
+    if (!table || !id) {
+      setData(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
     setIsLoading(true);
-    setError(null);
-    // Optional: setData(null); // Clear previous data instantly
 
-    const unsubscribe = onSnapshot(
-      memoizedDocRef,
-      (snapshot: DocumentSnapshot<DocumentData>) => {
-        if (snapshot.exists()) {
-          setData({ ...(snapshot.data() as T), id: snapshot.id });
-        } else {
-          // Document does not exist
+    const fetchDoc = async () => {
+      try {
+        const { data: row, error: fetchErr } = await supabase
+          .from(table)
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (fetchErr) {
+          setError(fetchErr as any);
           setData(null);
+        } else if (row) {
+          setData(toCamelCase(row) as any);
+          setError(null);
+        } else {
+          setData(null);
+          setError(null);
         }
-        setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: memoizedDocRef.path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+      } catch (err: any) {
+        if (isMounted) setError(err);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
+    fetchDoc();
+
+    const channel = supabase
+      .channel(`doc_${table}_${id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
+        (payload) => {
+          if (!isMounted) return;
+          if (payload.eventType === 'DELETE') {
+            setData(null);
+          } else {
+            setData(toCamelCase(payload.new) as any);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [memoizedDocRef]);
 
   return { data, isLoading, error };
 }

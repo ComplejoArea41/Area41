@@ -6,6 +6,7 @@ import { Firestore } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { supabase } from '@/lib/supabase';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -72,37 +73,66 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
-  // Effect to subscribe to Firebase auth state changes
+  // Escuchar estado de autenticación desde Supabase
   useEffect(() => {
-    if (!auth) { // If no Auth service instance, cannot determine user state
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
-      return;
-    }
+    let isMounted = true;
 
-    setUserAuthState({ user: null, isUserLoading: true, userError: null }); // Reset on auth instance change
-
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (firebaseUser) => { // Auth state determined
-        setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
-      },
-      (error) => { // Auth listener error
-        console.error("FirebaseProvider: onAuthStateChanged error:", error);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!isMounted) return;
+      if (error) {
         setUserAuthState({ user: null, isUserLoading: false, userError: error });
+        return;
       }
-    );
-    return () => unsubscribe(); // Cleanup
-  }, [auth]); // Depends on the auth instance
+      if (session?.user) {
+        setUserAuthState({
+          user: {
+            uid: session.user.id,
+            id: session.user.id,
+            email: session.user.email,
+            emailVerified: true,
+            ...session.user.user_metadata,
+          } as any,
+          isUserLoading: false,
+          userError: null,
+        });
+      } else {
+        setUserAuthState({ user: null, isUserLoading: false, userError: null });
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        setUserAuthState({
+          user: {
+            uid: session.user.id,
+            id: session.user.id,
+            email: session.user.email,
+            emailVerified: true,
+            ...session.user.user_metadata,
+          } as any,
+          isUserLoading: false,
+          userError: null,
+        });
+      } else {
+        setUserAuthState({ user: null, isUserLoading: false, userError: null });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {
-    const servicesAvailable = !!(firebaseApp && firestore && auth && storage);
     return {
-      areServicesAvailable: servicesAvailable,
-      firebaseApp: servicesAvailable ? firebaseApp : null,
-      firestore: servicesAvailable ? firestore : null,
-      auth: servicesAvailable ? auth : null,
-      storage: servicesAvailable ? storage : null,
+      areServicesAvailable: true,
+      firebaseApp: firebaseApp || ({} as any),
+      firestore: firestore || ({} as any),
+      auth: auth || ({} as any),
+      storage: storage || ({} as any),
       user: userAuthState.user,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,

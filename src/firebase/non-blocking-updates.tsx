@@ -13,74 +13,63 @@ import {
 import { errorEmitter } from '@/firebase/error-emitter';
 import {FirestorePermissionError} from '@/firebase/errors';
 
-/**
- * Initiates a setDoc operation for a document reference.
- * Does NOT await the write operation internally.
- */
-export function setDocumentNonBlocking(docRef: DocumentReference, data: any, options?: SetOptions) {
-  setDoc(docRef, data, options || {}).catch(error => {
-    const permissionError = new FirestorePermissionError({
-        path: docRef.path,
-        operation: (options as any)?.merge ? 'update' : 'create',
-        requestResourceData: data,
-    });
-    errorEmitter.emit('permission-error', permissionError);
-    // Also re-throw so any Promise.allSettled can see the failure
-    throw error;
-  })
-  // Execution continues immediately
-}
+import { supabase } from '@/lib/supabase';
+import { extractTableAndId, toSnakeCase } from '@/lib/supabase-adapter';
 
+export function setDocumentNonBlocking(docRef: any, data: any, options?: any) {
+  const { table, id } = extractTableAndId(docRef);
+  if (!table) return;
 
-/**
- * Initiates an addDoc operation for a collection reference.
- * Does NOT await the write operation internally.
- * Returns the Promise for the new doc ref, but typically not awaited by caller.
- */
-export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
-  const promise = addDoc(colRef, data).catch(error => {
-    const permissionError = new FirestorePermissionError({
-      path: colRef.path,
-      operation: 'create',
-      requestResourceData: data,
-    });
-    errorEmitter.emit('permission-error', permissionError);
-    throw error;
+  const payload = toSnakeCase(data);
+  if (id) payload.id = id;
+
+  const promise = supabase.from(table).upsert(payload).then(({ error }) => {
+    if (error) {
+      console.error(`Error en setDoc (${table}):`, error);
+      throw error;
+    }
   });
   return promise;
 }
 
+export function addDocumentNonBlocking(colRef: any, data: any) {
+  const { table } = extractTableAndId(colRef);
+  if (!table) return Promise.resolve({ id: '' } as any);
 
-/**
- * Initiates an updateDoc operation for a document reference.
- * Does NOT await the write operation internally.
- */
-export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) {
-  updateDoc(docRef, data)
-    .catch(error => {
-      const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'update',
-          requestResourceData: data,
-      });
-      errorEmitter.emit('permission-error', permissionError);
+  const payload = toSnakeCase(data);
+  const promise = supabase.from(table).insert(payload).select().single().then(({ data: created, error }) => {
+    if (error) {
+      console.error(`Error en addDoc (${table}):`, error);
       throw error;
-    });
+    }
+    return { id: created?.id || '' };
+  });
+  return promise;
 }
 
+export function updateDocumentNonBlocking(docRef: any, data: any) {
+  const { table, id } = extractTableAndId(docRef);
+  if (!table || !id) return;
 
-/**
- * Initiates a deleteDoc operation for a document reference.
- * Does NOT await the write operation internally.
- */
-export function deleteDocumentNonBlocking(docRef: DocumentReference) {
-  deleteDoc(docRef)
-    .catch(error => {
-        const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw error;
-    });
+  const payload = toSnakeCase(data);
+  const promise = supabase.from(table).update(payload).eq('id', id).then(({ error }) => {
+    if (error) {
+      console.error(`Error en updateDoc (${table}):`, error);
+      throw error;
+    }
+  });
+  return promise;
+}
+
+export function deleteDocumentNonBlocking(docRef: any) {
+  const { table, id } = extractTableAndId(docRef);
+  if (!table || !id) return;
+
+  const promise = supabase.from(table).delete().eq('id', id).then(({ error }) => {
+    if (error) {
+      console.error(`Error en deleteDoc (${table}):`, error);
+      throw error;
+    }
+  });
+  return promise;
 }

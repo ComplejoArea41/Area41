@@ -30,7 +30,10 @@ import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase, Firestor
 import { useRouter } from 'next/navigation';
 import type { Court, Reservation, FixedReservation, User } from '@/lib/types';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { Loader2, Moon, MessageSquareText, UserPlus, LogIn } from 'lucide-react';
+import { Loader2, Moon, MessageSquareText, UserPlus, LogIn, Shield } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase';
 
 
 export default function ReservationPage() {
@@ -46,6 +49,8 @@ export default function ReservationPage() {
   const [dialogData, setDialogData] = useState<{time: string, date: Date}>({ time: '', date: new Date()});
   const [isConfirming, setIsConfirming] = useState(false);
   const isSubmittingRef = useRef(false);
+  const [adminClientName, setAdminClientName] = useState('');
+  const [adminClientPhone, setAdminClientPhone] = useState('');
 
   useEffect(() => {
     const today = startOfDay(new Date());
@@ -235,7 +240,8 @@ export default function ReservationPage() {
       return;
     }
 
-    if (hour >= 8 && hour < 16) {
+    // Si es horario de consulta (8 a 16 hs) Y el usuario NO es admin, redirige a WhatsApp
+    if (hour >= 8 && hour < 16 && !userProfile?.isAdmin) {
         const courtToReserve = allCourts?.find(c => c.id === selectedCourtId);
         const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`;
         const phone = userProfile.phoneNumber || 'No especificado';
@@ -255,6 +261,8 @@ export default function ReservationPage() {
         return;
     }
 
+    setAdminClientName('');
+    setAdminClientPhone('');
     setDialogData({
       time: time,
       date: reservationDate,
@@ -300,66 +308,79 @@ export default function ReservationPage() {
     const reservationFullDate = set(date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
   
     const courtDescription = `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}`;
-    const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Cliente';
-    const phone = userProfile.phoneNumber || 'No especificado';
+    const isAdminBooking = Boolean(userProfile.isAdmin);
+
+    const fullName = isAdminBooking && adminClientName.trim()
+      ? adminClientName.trim()
+      : `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Cliente';
+
+    const phone = isAdminBooking && adminClientPhone.trim()
+      ? adminClientPhone.trim()
+      : userProfile.phoneNumber || 'No especificado';
+
     const totalCost = courtToReserve.price;
     const cancellations = userProfile.cancellationCount || 0;
 
     const reservationData = {
-      userId: user.uid,
-      customerName: fullName,
-      customerPhone: phone,
-      courtIds: courtIdsToReserve,
-      reservationDateTime: Timestamp.fromDate(reservationFullDate),
-      durationMinutes: 60,
+      user_id: user.uid,
+      customer_name: fullName,
+      customer_phone: phone,
+      court_ids: courtIdsToReserve,
+      reservation_date_time: reservationFullDate.toISOString(),
+      duration_minutes: 60,
+      date: format(reservationFullDate, 'yyyy-MM-dd'),
+      time: dialogData.time,
     };
   
     try {
-      await addDoc(reservationsCollection, reservationData).catch(error => {
-        const permissionError = new FirestorePermissionError({
-          path: reservationsCollection.path,
-          operation: 'create',
-          requestResourceData: reservationData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw error;
-      });
+      const { error: insertErr } = await supabase.from('reservations').insert(reservationData);
+      if (insertErr) throw insertErr;
     } catch (e) {
+      console.error('Error guardando reserva en Supabase:', e);
       toast({ title: 'Error en la Reserva', description: 'No se pudo registrar la reserva. Por favor, inténtalo de nuevo.', variant: 'destructive' });
       isSubmittingRef.current = false;
       setIsConfirming(false);
       return;
     }
   
-    // Disparar notificación automática del servidor al WhatsApp del complejo
-    fetch('/api/notify-reservation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        court: courtDescription,
-        date: format(reservationFullDate, 'dd/MM/yyyy'),
-        time: time,
-        total: totalCost,
-        customerName: fullName,
-        customerPhone: phone,
-        cancellations: cancellations,
-      }),
-    }).catch(err => console.error('Error enviando notificación automática:', err));
+    if (!isAdminBooking) {
+      // Disparar notificación automática del servidor al WhatsApp del complejo
+      fetch('/api/notify-reservation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          court: courtDescription,
+          date: format(reservationFullDate, 'dd/MM/yyyy'),
+          time: time,
+          total: totalCost,
+          customerName: fullName,
+          customerPhone: phone,
+          cancellations: cancellations,
+        }),
+      }).catch(err => console.error('Error enviando notificación automática:', err));
+    
+      const message = encodeURIComponent(
+        `¡Hola! Quiero confirmar mi reserva:\n\n` +
+        `*Cancha:* ${courtDescription}\n` +
+        `*Fecha:* ${format(reservationFullDate, 'dd/MM/yyyy')}\n` +
+        `*Horario:* ${time}\n` +
+        `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
+        `*Nombre:* ${fullName}\n` +
+        `*Teléfono:* ${phone}` +
+        (cancellations > 0 ? `\n\n⚠️ NOTA: Este cliente tiene ${cancellations} cancelaciones previas.` : "")
+      );
+    
+      const whatsappUrl = `https://wa.me/5492324500029?text=${message}`;
+      window.location.href = whatsappUrl;
+    } else {
+      toast({
+        title: '¡Turno Reservado!',
+        description: `La cancha quedó reservada para "${fullName}" a las ${time} hs.`,
+      });
+    }
   
-    const message = encodeURIComponent(
-      `¡Hola! Quiero confirmar mi reserva:\n\n` +
-      `*Cancha:* ${courtDescription}\n` +
-      `*Fecha:* ${format(reservationFullDate, 'dd/MM/yyyy')}\n` +
-      `*Horario:* ${time}\n` +
-      `*Total a Pagar:* $${totalCost.toLocaleString('es-AR')}\n\n` +
-      `*Nombre:* ${fullName}\n` +
-      `*Teléfono:* ${phone}` +
-      (cancellations > 0 ? `\n\n⚠️ NOTA: Este cliente tiene ${cancellations} cancelaciones previas.` : "")
-    );
-  
-    const whatsappUrl = `https://wa.me/5492324500029?text=${message}`;
-    window.location.href = whatsappUrl;
-  
+    isSubmittingRef.current = false;
+    setIsConfirming(false);
     setIsDialogOpen(false);
   }
   
@@ -567,31 +588,31 @@ export default function ReservationPage() {
                                         key={time}
                                         variant="secondary"
                                         disabled
-                                        className="bg-[#800000] hover:bg-[#800000]/90 text-white w-full opacity-100 flex flex-col items-center justify-center p-1 h-auto min-h-[50px] leading-tight"
+                                        className="bg-[#800000] text-white w-full disabled:opacity-100 flex flex-col items-center justify-center p-1 h-auto min-h-[52px] leading-tight shadow-sm"
                                         aria-label={`Fijo ${typeSuffix} - ${clientName || 'Fijo'}`}
                                     >
-                                        <span className="text-xs font-bold">{time}</span>
-                                        <span className="text-[10px] uppercase tracking-wider font-semibold opacity-90">Fijo {typeSuffix}</span>
+                                        <span className="text-xs font-bold text-white">{time}</span>
+                                        <span className="text-[10px] uppercase tracking-wider font-semibold text-white/90">Fijo {typeSuffix}</span>
                                         {clientName && (
-                                            <span className="text-[9px] font-medium text-amber-200 truncate max-w-full px-0.5">
+                                            <span className="text-[9.5px] font-bold text-amber-300 truncate max-w-full px-1">
                                                 {clientName}
                                             </span>
                                         )}
                                     </Button>
                                 );
                             } else {
-                                const bgColor = reservedCourtType === 'Futbol 5' ? 'bg-red-600' : 'bg-orange-500';
+                                const bgColor = reservedCourtType === 'Futbol 5' ? 'bg-red-600' : 'bg-orange-600';
                                 return (
                                     <Button
                                         key={time}
                                         disabled
-                                        className={cn("w-full text-white opacity-100 border-0 flex flex-col items-center justify-center p-1 h-auto min-h-[50px] leading-tight", bgColor)}
+                                        className={cn("w-full text-white disabled:opacity-100 border-0 flex flex-col items-center justify-center p-1 h-auto min-h-[52px] leading-tight shadow-sm", bgColor)}
                                         aria-label={`Reservado ${typeSuffix} - ${clientName || 'Reservado'}`}
                                     >
-                                        <span className="text-xs font-bold">{time}</span>
-                                        <span className="text-[10px] uppercase tracking-wider font-semibold opacity-90">Reservado {typeSuffix}</span>
+                                        <span className="text-xs font-bold text-white">{time}</span>
+                                        <span className="text-[10px] uppercase tracking-wider font-semibold text-white/95">Reservado {typeSuffix}</span>
                                         {clientName && clientName !== 'Reservado' && (
-                                            <span className="text-[9px] font-medium text-yellow-200 truncate max-w-full px-0.5">
+                                            <span className="text-[9.5px] font-bold text-yellow-200 truncate max-w-full px-1">
                                                 {clientName}
                                             </span>
                                         )}
@@ -645,6 +666,52 @@ export default function ReservationPage() {
                   Espera un momento, te estamos redirigiendo a WhatsApp para que confirmes tu turno.
                 </p>
               </div>
+            ) : userProfile?.isAdmin ? (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-primary" />
+                    Reservar Turno (Modo Administrador)
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-4 pt-2 text-left">
+                    <div className="bg-muted/60 p-3 rounded-lg border border-border text-sm space-y-1 text-foreground">
+                      <p><strong>Cancha:</strong> {allCourts?.find(c => c.id === selectedCourtId)?.courtType} - Cancha {allCourts?.find(c => c.id === selectedCourtId)?.courtNumber}</p>
+                      <p><strong>Fecha y Hora:</strong> {dialogData.date ? format(dialogData.date, "dd/MM/yyyy") : ''} a las {dialogData.time} hs</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="adminClientName" className="text-xs font-semibold text-foreground">
+                        Nombre del Cliente o Equipo (aparecerá en el casillero):
+                      </Label>
+                      <Input
+                        id="adminClientName"
+                        placeholder="Ej: Gabino, Torneo Masculino, Lucas..."
+                        value={adminClientName}
+                        onChange={(e) => setAdminClientName(e.target.value)}
+                        className="w-full bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="adminClientPhone" className="text-xs font-semibold text-foreground">
+                        Teléfono del Cliente (opcional):
+                      </Label>
+                      <Input
+                        id="adminClientPhone"
+                        placeholder="Ej: 2324-555555"
+                        value={adminClientPhone}
+                        onChange={(e) => setAdminClientPhone(e.target.value)}
+                        className="w-full bg-background"
+                      />
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="mt-4">
+                  <AlertDialogCancel disabled={isConfirming}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmReservation} disabled={isConfirming} className="font-bold bg-primary text-primary-foreground hover:bg-primary/90">
+                    {isConfirming && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Confirmar y Bloquear Turno
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
             ) : (
               <>
                 <AlertDialogHeader>
