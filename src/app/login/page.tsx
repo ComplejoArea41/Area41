@@ -86,7 +86,8 @@ export default function LoginPage() {
 
         const userId = data.user?.id;
         if (userId) {
-          const isAdmin = email.toLowerCase().includes('complejoarea41') || email.toLowerCase().includes('admin') || email.toLowerCase().includes('area41');
+          const lowerEmail = email.toLowerCase();
+          const isAdmin = lowerEmail === 'matias@vascohogar.com' || lowerEmail.includes('vascohogar') || lowerEmail.includes('complejoarea41') || lowerEmail.includes('admin') || lowerEmail.includes('area41');
           await supabase.from('users').upsert({
             id: userId,
             first_name: firstName,
@@ -108,7 +109,9 @@ export default function LoginPage() {
 
         // Asegurar que exista el perfil en public.users
         if (data.user) {
-          const isAdmin = email.toLowerCase().includes('complejoarea41') || email.toLowerCase().includes('admin') || email.toLowerCase().includes('area41');
+          const lowerEmail = (data.user.email || email).toLowerCase();
+          const { data: existingProfile } = await supabase.from('users').select('is_admin').eq('id', data.user.id).maybeSingle();
+          const isAdmin = existingProfile?.is_admin || lowerEmail === 'matias@vascohogar.com' || lowerEmail.includes('vascohogar') || lowerEmail.includes('complejoarea41') || lowerEmail.includes('admin') || lowerEmail.includes('area41');
           const meta = data.user.user_metadata || {};
           await supabase.from('users').upsert({
             id: data.user.id,
