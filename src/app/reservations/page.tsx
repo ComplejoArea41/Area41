@@ -246,25 +246,13 @@ export default function ReservationPage() {
       reservationDate = addDays(selectedDate!, 1);
     }
 
-    // Si es Domingo y NO es admin, enviar consulta directa de Cumpleaños por WhatsApp
+    // Los domingos solo puede reservar el administrador
     if (reservationDate.getDay() === 0 && !userProfile?.isAdmin) {
-      const courtToReserve = allCourts?.find(c => c.id === selectedCourtId);
-      const courtDesc = courtToReserve ? `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}` : 'Cancha';
-      const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Cliente';
-      const phone = userProfile.phoneNumber || 'No especificado';
-      
-      const message = encodeURIComponent(
-        `¡Hola Area 41! Quisiera consultar disponibilidad y precios para festejar un CUMPLEAÑOS / EVENTO el domingo:\n\n` +
-        `*Cancha:* ${courtDesc}\n` +
-        `*Fecha:* ${format(reservationDate, 'dd/MM/yyyy')}\n` +
-        `*Horario:* ${time} hs\n\n` +
-        `*Nombre:* ${fullName}\n` +
-        `*Teléfono:* ${phone}\n\n` +
-        `_Consulta enviada desde la app para Cumpleaños._`
-      );
-    
-      const whatsappUrl = `https://wa.me/5492324500029?text=${message}`;
-      window.open(whatsappUrl, '_blank');
+      toast({
+        title: "Domingo Exclusivo Eventos",
+        description: "Los domingos el complejo está destinado exclusivamente a eventos y cumpleaños privados organizados por la administración.",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -567,18 +555,15 @@ export default function ReservationPage() {
                           <Button
                             variant={isSelected ? 'default' : 'outline'}
                             className={cn(
-                              "flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center transition-all",
-                              isSunday && !isSelected && "border-purple-500/50 bg-purple-500/10 text-purple-200 hover:border-purple-400 hover:bg-purple-500/20",
-                              isSunday && isSelected && "bg-gradient-to-br from-purple-700 to-indigo-700 text-white border-purple-400 shadow-md ring-2 ring-purple-400"
+                              "flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center",
+                              isSunday && !userProfile?.isAdmin && "opacity-60 bg-muted/20"
                             )}
                             onClick={() => setSelectedDate(day)}
                             disabled={isBefore(day, startOfDay(new Date()))}
                           >
                             <span className="text-xs font-medium ">{dayLabel}</span>
                             <span className="text-2xl font-bold">{format(day, 'd')}</span>
-                            <span className={cn("text-[9.5px] font-bold", isSunday ? "text-purple-300" : "text-xs font-medium")}>
-                              {isSunday ? '🎂 CUMPLES' : monthLabel}
-                            </span>
+                            <span className="text-xs font-medium">{monthLabel}</span>
                           </Button>
                         </div>
                       </CarouselItem>
@@ -595,38 +580,24 @@ export default function ReservationPage() {
                       <span className="text-2xl">🎂</span>
                       <div>
                         <p className="text-sm font-bold text-white">Domingos de Cumpleaños (Modo Administrador)</p>
-                        <p className="text-xs text-purple-300">Selecciona los turnos abajo para agendar cumpleaños y eventos en color violeta.</p>
+                        <p className="text-xs text-purple-300">Como administrador, puedes seleccionar los horarios abajo para agendar cumpleaños y eventos en color violeta.</p>
                       </div>
                     </div>
                     <span className="text-[11px] font-bold px-2.5 py-1 bg-purple-600 text-white rounded-full shrink-0">Admin</span>
                   </div>
                 ) : (
-                  <div className="mt-4 p-4 bg-purple-950/40 border border-purple-500/40 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-purple-200 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🎉</span>
-                      <div>
-                        <p className="text-sm font-bold text-white">¡Los Domingos son de Cumpleaños y Eventos en Area 41!</p>
-                        <p className="text-xs text-purple-300">Consulta los turnos disponibles abajo o contáctanos por WhatsApp para reservar tu festejo.</p>
-                      </div>
-                    </div>
-                    <Button 
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shrink-0 shadow-md"
-                      onClick={() => {
-                        const msg = encodeURIComponent(`¡Hola Area 41! Quisiera consultar para festejar un CUMPLEAÑOS el domingo ${format(selectedDate, "dd/MM/yyyy")}.`);
-                        window.open(`https://wa.me/5492324500029?text=${msg}`, '_blank');
-                      }}
-                    >
-                      <MessageSquareText className="h-4 w-4 mr-1.5" />
-                      Consultar Cumpleaños
-                    </Button>
+                  <div className="mt-4 p-4 bg-muted/20 border border-border rounded-lg flex items-center gap-3 text-muted-foreground">
+                    <Moon className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <p className="text-sm">
+                      Los domingos las instalaciones están destinadas exclusivamente a cumpleaños y eventos privados coordinados por la administración.
+                    </p>
                   </div>
                 )
               )}
             </div>
           )}
 
-          {selectedCourtId && selectedDate && (
+          {selectedCourtId && selectedDate && (selectedDate.getDay() !== 0 || userProfile?.isAdmin) && (
             <div>
                 <h3 className="mb-4 text-lg font-semibold">4. Elige el horario</h3>
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
@@ -709,25 +680,6 @@ export default function ReservationPage() {
                                     </Button>
                                 );
                             }
-                        }
-
-                        const isSunday = selectedDate?.getDay() === 0;
-                        if (isSunday && !userProfile?.isAdmin) {
-                            return (
-                                <Button 
-                                    key={time} 
-                                    variant="outline"
-                                    disabled={isPast}
-                                    onClick={() => handleTimeSelect(time)}
-                                    className="h-auto min-h-[50px] py-1 flex flex-col items-center justify-center leading-tight border-purple-500/40 hover:bg-purple-950/40 hover:border-purple-400 text-purple-200"
-                                    aria-label={`Consultar Cumpleaños a las ${time}`}
-                                >
-                                    <span className="text-xs font-bold">{time}</span>
-                                    <span className="text-[8.5px] text-purple-300 font-bold uppercase flex items-center gap-0.5">
-                                        <span>🎂</span> Consultar
-                                    </span>
-                                </Button>
-                            );
                         }
 
                         const isConsultationOnly = hour >= 8 && hour < 16;

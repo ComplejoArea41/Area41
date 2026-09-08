@@ -587,23 +587,28 @@ export default function AdminReservationsCalendarPage() {
                                 </div>
                              )}
                              <div>
-                                <h4 className="font-semibold text-muted-foreground">Cliente</h4>
-                                <p className="text-base">{selectedReservation.user?.firstName} {selectedReservation.user?.lastName}</p>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-muted-foreground">Teléfono</h4>
-                                <p>{selectedReservation.user?.phoneNumber}</p>
-                            </div>
-                            <Separator />
-                            <div>
-                                <h4 className="font-semibold text-muted-foreground">Cancha</h4>
-                                <p>{selectedReservation.court?.courtType} {selectedReservation.court?.courtNumber}</p>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-muted-foreground">Horario</h4>
-                                <p>{selectedReservation.reservationDateTime ? format(safeToDate(selectedReservation.reservationDateTime), "EEEE d HH:mm 'hs'", { locale: es }) : 'N/A'}</p>
-                            </div>
+                                 <h4 className="font-semibold text-muted-foreground">Cliente / Festejo</h4>
+                                 <p className="text-base">{selectedReservation.customerName || `${selectedReservation.user?.firstName || ''} ${selectedReservation.user?.lastName || ''}`.trim() || 'Cliente'}</p>
+                             </div>
+                             <div>
+                                 <h4 className="font-semibold text-muted-foreground">Teléfono</h4>
+                                 <p>{selectedReservation.customerPhone || selectedReservation.user?.phoneNumber || 'No especificado'}</p>
+                             </div>
+                             <Separator />
+                             <div>
+                                 <h4 className="font-semibold text-muted-foreground">Cancha</h4>
+                                 <p>{selectedReservation.court?.courtType} {selectedReservation.court?.courtNumber}</p>
+                             </div>
+                             <div>
+                                 <h4 className="font-semibold text-muted-foreground">Horario</h4>
+                                 <p>{selectedReservation.reservationDateTime ? format(safeToDate(selectedReservation.reservationDateTime), "EEEE d HH:mm 'hs'", { locale: es }) : 'N/A'}</p>
+                             </div>
                              {selectedReservation.isFixed && <p className="text-center font-bold bg-[#800000] p-2 rounded-md text-white">TURNO FIJO SEMANAL</p>}
+                             {Boolean(selectedReservation.customerName?.includes('🎂') || selectedReservation.customerName?.toUpperCase().includes('CUMPLE')) && (
+                                 <p className="text-center font-bold bg-gradient-to-r from-purple-700 to-indigo-600 p-2 rounded-md text-white flex items-center justify-center gap-1.5 shadow-sm">
+                                     <span>🎂</span> CUMPLEAÑOS / EVENTO ESPECIAL
+                                 </p>
+                             )}
                         </div>
                     )}
                     <DialogFooter className="sm:justify-between gap-2">
