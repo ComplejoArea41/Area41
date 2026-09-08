@@ -51,6 +51,7 @@ export default function ReservationPage() {
   const isSubmittingRef = useRef(false);
   const [adminClientName, setAdminClientName] = useState('');
   const [adminClientPhone, setAdminClientPhone] = useState('');
+  const [bookingType, setBookingType] = useState<'futbol' | 'cumpleanos'>('futbol');
 
   useEffect(() => {
     const today = startOfDay(new Date());
@@ -122,7 +123,7 @@ export default function ReservationPage() {
     return Array.from({ length: 14 }, (_, i) => addDays(new Date(), i));
   }, []);
 
-  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean; reservedCourtType?: string; clientName?: string } => {
+  const isSlotBlocked = useCallback((time: string, courtId: string, forDate: Date): { isBlocked: boolean; isFixed: boolean; isBirthday?: boolean; reservedCourtType?: string; clientName?: string } => {
     if (!allCourts || !forDate) return { isBlocked: false, isFixed: false };
   
     const [hour, minute] = time.split(':').map(Number);
@@ -204,11 +205,21 @@ export default function ReservationPage() {
                     if (!name && reservation.userId === user?.uid && userProfile) {
                       name = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim();
                     }
+
+                    const isBirthday = Boolean(
+                      (reservation as any).reservationType === 'cumpleanos' ||
+                      (reservation as any).reservation_type === 'cumpleanos' ||
+                      reservation.customerName?.includes('🎂') ||
+                      reservation.customerName?.toUpperCase().includes('CUMPLEAÑOS') ||
+                      reservation.customerName?.toUpperCase().includes('CUMPLE')
+                    );
+
                     return { 
                       isBlocked: true, 
                       isFixed: false, 
+                      isBirthday,
                       reservedCourtType: reservedCourt.courtType,
-                      clientName: name || 'Reservado'
+                      clientName: name || (isBirthday ? 'Cumpleaños' : 'Reservado')
                     };
                 }
             }
@@ -235,8 +246,25 @@ export default function ReservationPage() {
       reservationDate = addDays(selectedDate!, 1);
     }
 
-    if (reservationDate.getDay() === 0) {
-      toast({ title: 'Domingo Cerrado', description: 'Los domingos el complejo permanece cerrado por descanso.', variant: 'destructive' });
+    // Si es Domingo y NO es admin, enviar consulta directa de Cumpleaños por WhatsApp
+    if (reservationDate.getDay() === 0 && !userProfile?.isAdmin) {
+      const courtToReserve = allCourts?.find(c => c.id === selectedCourtId);
+      const courtDesc = courtToReserve ? `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}` : 'Cancha';
+      const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Cliente';
+      const phone = userProfile.phoneNumber || 'No especificado';
+      
+      const message = encodeURIComponent(
+        `¡Hola Area 41! Quisiera consultar disponibilidad y precios para festejar un CUMPLEAÑOS / EVENTO el domingo:\n\n` +
+        `*Cancha:* ${courtDesc}\n` +
+        `*Fecha:* ${format(reservationDate, 'dd/MM/yyyy')}\n` +
+        `*Horario:* ${time} hs\n\n` +
+        `*Nombre:* ${fullName}\n` +
+        `*Teléfono:* ${phone}\n\n` +
+        `_Consulta enviada desde la app para Cumpleaños._`
+      );
+    
+      const whatsappUrl = `https://wa.me/5492324500029?text=${message}`;
+      window.open(whatsappUrl, '_blank');
       return;
     }
 
@@ -261,6 +289,7 @@ export default function ReservationPage() {
         return;
     }
 
+    setBookingType(reservationDate.getDay() === 0 ? 'cumpleanos' : 'futbol');
     setAdminClientName('');
     setAdminClientPhone('');
     setDialogData({
@@ -309,10 +338,15 @@ export default function ReservationPage() {
   
     const courtDescription = `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}`;
     const isAdminBooking = Boolean(userProfile?.isAdmin);
+    const isBirthday = bookingType === 'cumpleanos';
 
-    const fullName = isAdminBooking && adminClientName.trim()
-      ? adminClientName.trim()
-      : `${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim() || 'Cliente';
+    let fullName = 'Cliente';
+    if (isAdminBooking) {
+      const rawName = adminClientName.trim() || (isBirthday ? 'Cumpleaños' : 'Cliente');
+      fullName = isBirthday ? (rawName.startsWith('🎂') ? rawName : `🎂 ${rawName}`) : rawName;
+    } else {
+      fullName = `${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim() || 'Cliente';
+    }
 
     const phone = isAdminBooking && adminClientPhone.trim()
       ? adminClientPhone.trim()
@@ -533,15 +567,18 @@ export default function ReservationPage() {
                           <Button
                             variant={isSelected ? 'default' : 'outline'}
                             className={cn(
-                              "flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center",
-                              isSunday && "opacity-50 cursor-not-allowed bg-muted/20"
+                              "flex h-20 w-full flex-col items-center justify-center gap-1 p-1 text-center transition-all",
+                              isSunday && !isSelected && "border-purple-500/50 bg-purple-500/10 text-purple-200 hover:border-purple-400 hover:bg-purple-500/20",
+                              isSunday && isSelected && "bg-gradient-to-br from-purple-700 to-indigo-700 text-white border-purple-400 shadow-md ring-2 ring-purple-400"
                             )}
-                            onClick={() => !isSunday && setSelectedDate(day)}
-                            disabled={isBefore(day, startOfDay(new Date())) || isSunday}
+                            onClick={() => setSelectedDate(day)}
+                            disabled={isBefore(day, startOfDay(new Date()))}
                           >
                             <span className="text-xs font-medium ">{dayLabel}</span>
                             <span className="text-2xl font-bold">{format(day, 'd')}</span>
-                            <span className="text-xs font-medium ">{monthLabel}</span>
+                            <span className={cn("text-[9.5px] font-bold", isSunday ? "text-purple-300" : "text-xs font-medium")}>
+                              {isSunday ? '🎂 CUMPLES' : monthLabel}
+                            </span>
                           </Button>
                         </div>
                       </CarouselItem>
@@ -552,15 +589,44 @@ export default function ReservationPage() {
                 <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 hidden sm:flex" />
               </Carousel>
               {selectedDate?.getDay() === 0 && (
-                <div className="mt-4 p-4 bg-muted/20 rounded-lg flex items-center gap-3 text-muted-foreground border border-dashed">
-                  <Moon className="h-5 w-5" />
-                  <p className="text-sm">El complejo permanece cerrado los domingos por descanso.</p>
-                </div>
+                userProfile?.isAdmin ? (
+                  <div className="mt-4 p-4 bg-purple-950/40 border border-purple-500/50 rounded-lg flex items-center justify-between gap-3 text-purple-200 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🎂</span>
+                      <div>
+                        <p className="text-sm font-bold text-white">Domingos de Cumpleaños (Modo Administrador)</p>
+                        <p className="text-xs text-purple-300">Selecciona los turnos abajo para agendar cumpleaños y eventos en color violeta.</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-1 bg-purple-600 text-white rounded-full shrink-0">Admin</span>
+                  </div>
+                ) : (
+                  <div className="mt-4 p-4 bg-purple-950/40 border border-purple-500/40 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-purple-200 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🎉</span>
+                      <div>
+                        <p className="text-sm font-bold text-white">¡Los Domingos son de Cumpleaños y Eventos en Area 41!</p>
+                        <p className="text-xs text-purple-300">Consulta los turnos disponibles abajo o contáctanos por WhatsApp para reservar tu festejo.</p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shrink-0 shadow-md"
+                      onClick={() => {
+                        const msg = encodeURIComponent(`¡Hola Area 41! Quisiera consultar para festejar un CUMPLEAÑOS el domingo ${format(selectedDate, "dd/MM/yyyy")}.`);
+                        window.open(`https://wa.me/5492324500029?text=${msg}`, '_blank');
+                      }}
+                    >
+                      <MessageSquareText className="h-4 w-4 mr-1.5" />
+                      Consultar Cumpleaños
+                    </Button>
+                  </div>
+                )
               )}
             </div>
           )}
 
-          {selectedCourtId && selectedDate && selectedDate.getDay() !== 0 && (
+          {selectedCourtId && selectedDate && (
             <div>
                 <h3 className="mb-4 text-lg font-semibold">4. Elige el horario</h3>
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
@@ -578,10 +644,34 @@ export default function ReservationPage() {
                         const timeDate = set(dateForThisTime, { hours: hour, minutes: 0, seconds: 0, milliseconds: 0 });
                         const isPast = isBefore(timeDate, new Date());
                         
-                        const { isBlocked, isFixed, reservedCourtType, clientName } = isSlotBlocked(time, selectedCourtId, selectedDate!);
+                        const { isBlocked, isFixed, isBirthday, reservedCourtType, clientName } = isSlotBlocked(time, selectedCourtId, selectedDate!);
                         
                         if (isBlocked) {
                             const typeSuffix = reservedCourtType === 'Futbol 7' ? '7' : '5';
+                            if (isBirthday) {
+                                const cleanName = (clientName || 'Cumpleaños').replace(/^🎂\s*(Cumpleaños:?|Cumple:?)?\s*/i, '').trim() || clientName;
+                                return (
+                                    <Button
+                                        key={time}
+                                        disabled
+                                        className="w-full text-white disabled:opacity-100 border-0 flex flex-col items-center justify-center p-1 h-auto min-h-[52px] leading-tight shadow-md bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-600 ring-2 ring-purple-400/60"
+                                        aria-label={`Cumpleaños - ${cleanName}`}
+                                    >
+                                        <span className="text-xs font-bold text-white flex items-center gap-1">
+                                            <span>🎂</span> {time}
+                                        </span>
+                                        <span className="text-[10px] uppercase tracking-wider font-extrabold text-purple-200">
+                                            Cumpleaños
+                                        </span>
+                                        {cleanName && cleanName !== 'Cumpleaños' && (
+                                            <span className="text-[9.5px] font-bold text-yellow-300 truncate max-w-full px-1">
+                                                {cleanName}
+                                            </span>
+                                        )}
+                                    </Button>
+                                );
+                            }
+
                             if (isFixed) {
                                 return (
                                     <Button
@@ -619,6 +709,25 @@ export default function ReservationPage() {
                                     </Button>
                                 );
                             }
+                        }
+
+                        const isSunday = selectedDate?.getDay() === 0;
+                        if (isSunday && !userProfile?.isAdmin) {
+                            return (
+                                <Button 
+                                    key={time} 
+                                    variant="outline"
+                                    disabled={isPast}
+                                    onClick={() => handleTimeSelect(time)}
+                                    className="h-auto min-h-[50px] py-1 flex flex-col items-center justify-center leading-tight border-purple-500/40 hover:bg-purple-950/40 hover:border-purple-400 text-purple-200"
+                                    aria-label={`Consultar Cumpleaños a las ${time}`}
+                                >
+                                    <span className="text-xs font-bold">{time}</span>
+                                    <span className="text-[8.5px] text-purple-300 font-bold uppercase flex items-center gap-0.5">
+                                        <span>🎂</span> Consultar
+                                    </span>
+                                </Button>
+                            );
                         }
 
                         const isConsultationOnly = hour >= 8 && hour < 16;
@@ -678,13 +787,53 @@ export default function ReservationPage() {
                       <p><strong>Cancha:</strong> {allCourts?.find(c => c.id === selectedCourtId)?.courtType} - Cancha {allCourts?.find(c => c.id === selectedCourtId)?.courtNumber}</p>
                       <p><strong>Fecha y Hora:</strong> {dialogData.date ? format(dialogData.date, "dd/MM/yyyy") : ''} a las {dialogData.time} hs</p>
                     </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground">
+                        Tipo de Turno:
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={bookingType === 'futbol' ? 'default' : 'outline'}
+                          className={cn(
+                            "h-9 text-xs font-bold",
+                            bookingType === 'futbol' && "bg-primary text-primary-foreground"
+                          )}
+                          onClick={() => setBookingType('futbol')}
+                        >
+                          ⚽ Fútbol / Partido
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={bookingType === 'cumpleanos' ? 'default' : 'outline'}
+                          className={cn(
+                            "h-9 text-xs font-bold transition-all",
+                            bookingType === 'cumpleanos' 
+                              ? "bg-gradient-to-r from-purple-700 to-indigo-600 text-white border-purple-400 shadow-md ring-1 ring-purple-400" 
+                              : "border-purple-500/40 text-purple-300 hover:bg-purple-950/20"
+                          )}
+                          onClick={() => setBookingType('cumpleanos')}
+                        >
+                          🎂 Cumpleaños / Evento
+                        </Button>
+                      </div>
+                      {bookingType === 'cumpleanos' && (
+                        <p className="text-[11px] text-purple-300 font-medium bg-purple-950/40 p-2 rounded border border-purple-500/30 flex items-center gap-1.5 mt-1">
+                          <span>🎉</span> Este turno se mostrará en <strong>color violeta</strong> con icono 🎂 en el calendario.
+                        </p>
+                      )}
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label htmlFor="adminClientName" className="text-xs font-semibold text-foreground">
-                        Nombre del Cliente o Equipo (aparecerá en el casillero):
+                        {bookingType === 'cumpleanos' ? 'Nombre del Cumpleañero/a o Festejo:' : 'Nombre del Cliente o Equipo:'}
                       </Label>
                       <Input
                         id="adminClientName"
-                        placeholder="Ej: Gabino, Torneo Masculino, Lucas..."
+                        placeholder={bookingType === 'cumpleanos' ? 'Ej: Cumple de Benja, Bautista (10 años)...' : 'Ej: Gabino, Torneo Masculino, Lucas...'}
                         value={adminClientName}
                         onChange={(e) => setAdminClientName(e.target.value)}
                         className="w-full bg-background"

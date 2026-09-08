@@ -65,6 +65,7 @@ export default function AdminReservationsCalendarPage() {
         hour: '',
         clientName: '',
         userId: '',
+        isBirthday: false,
     });
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -78,13 +79,10 @@ export default function AdminReservationsCalendarPage() {
 
     const reservationsRef = useMemoFirebase(() => collection(firestore, 'reservations'), [firestore]);
     const { data: reservations, isLoading: areReservationsLoading } = useCollection<Reservation>(reservationsRef);
-
     const usersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
     const { data: allUsers, isLoading: areUsersLoading } = useCollection<User>(usersRef);
-
     const courtsRef = useMemoFirebase(() => collection(firestore, 'courts'), [firestore]);
     const { data: courts, isLoading: areCourtsLoading } = useCollection<Court>(courtsRef);
-
     const fixedReservationsRef = useMemoFirebase(() => collection(firestore, 'fixed_reservations'), [firestore]);
     const { data: fixedReservations, isLoading: areFixedReservationsLoading } = useCollection<FixedReservation>(fixedReservationsRef);
 
@@ -181,6 +179,7 @@ export default function AdminReservationsCalendarPage() {
             hour,
             clientName: '',
             userId: '',
+            isBirthday: day.getDay() === 0,
         });
         setIsNewResDialogOpen(true);
     };
@@ -209,9 +208,15 @@ export default function AdminReservationsCalendarPage() {
         }
 
         const targetUserId = newResData.userId || user!.uid;
+        const rawName = newResData.clientName.trim() || (newResData.isBirthday ? 'Cumpleaños' : 'Cliente');
+        const formattedName = newResData.isBirthday
+            ? (rawName.startsWith('🎂') ? rawName : `🎂 ${rawName}`)
+            : rawName;
 
-        const resData = {
+        const resData: any = {
             userId: targetUserId,
+            customerName: formattedName,
+            customer_name: formattedName,
             courtIds,
             reservationDateTime: Timestamp.fromDate(resDateTime),
             durationMinutes: 60,
@@ -435,28 +440,40 @@ export default function AdminReservationsCalendarPage() {
                                         const typeSuffix = reservation?.court?.courtType === 'Futbol 7' ? '7' : '5';
                                         const labelPrefix = reservation?.isFixed ? 'Fijo' : 'Reservado';
 
+                                        const isBirthday = Boolean(
+                                            reservation?.customerName?.includes('🎂') ||
+                                            reservation?.customerName?.toUpperCase().includes('CUMPLEAÑOS') ||
+                                            reservation?.customerName?.toUpperCase().includes('CUMPLE')
+                                        );
+
                                         return (
-                                            <div key={`${day.toString()}-${hour}`} className={cn("border-b p-1 h-16 flex items-center justify-center", isSunday && "bg-muted/5")}>
-                                                {isSunday ? (
-                                                    <div className="text-[10px] opacity-20 rotate-[30deg] font-bold select-none">CERRADO</div>
-                                                ) : reservation ? (
+                                            <div key={`${day.toString()}-${hour}`} className={cn("border-b p-1 h-16 flex items-center justify-center", isSunday && "bg-purple-950/10")}>
+                                                {reservation ? (
                                                     <button
                                                         onClick={() => setSelectedReservation(reservation)}
                                                         className={cn(
-                                                            "w-full h-full text-left p-2 rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 flex flex-col justify-center relative",
+                                                            "w-full h-full text-left p-2 rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 flex flex-col justify-center relative shadow-sm",
                                                             reservation.hasConflict 
                                                                 ? "bg-yellow-500 text-black hover:bg-yellow-600 border-2 border-dashed border-red-600" 
-                                                                : (reservation.isFixed 
-                                                                    ? "bg-[#800000] text-white hover:bg-[#800000]/90" 
-                                                                    : (reservation.court?.courtType === 'Futbol 5' 
-                                                                        ? "bg-red-600 text-white hover:bg-red-700" 
-                                                                        : "bg-orange-500 text-white hover:bg-orange-600"))
+                                                                : (isBirthday
+                                                                    ? "bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-600 text-white hover:brightness-110 ring-1 ring-purple-400"
+                                                                    : (reservation.isFixed 
+                                                                        ? "bg-[#800000] text-white hover:bg-[#800000]/90" 
+                                                                        : (reservation.court?.courtType === 'Futbol 5' 
+                                                                            ? "bg-red-600 text-white hover:bg-red-700" 
+                                                                            : "bg-orange-500 text-white hover:bg-orange-600")))
                                                         )}
                                                     >
-                                                        <div className="font-semibold truncate text-[10px] leading-tight">{reservation.user?.firstName}</div>
+                                                        <div className="font-semibold truncate text-[10px] leading-tight">
+                                                            {isBirthday 
+                                                                ? `🎂 ${reservation.customerName?.replace(/^🎂\s*/, '') || 'Cumpleaños'}` 
+                                                                : (reservation.customerName || reservation.user?.firstName || 'Cliente')}
+                                                        </div>
                                                         <div className="text-[9px] font-bold opacity-90">
                                                             {reservation.hasConflict ? (
                                                                 <span className="flex items-center gap-0.5"><AlertTriangle className="h-2 w-2"/> CONFLICTO</span>
+                                                            ) : isBirthday ? (
+                                                                <span className="text-yellow-300 font-black tracking-wider">CUMPLEAÑOS</span>
                                                             ) : (
                                                                 `${labelPrefix} ${typeSuffix}`
                                                             )}
@@ -467,8 +484,8 @@ export default function AdminReservationsCalendarPage() {
                                                         onClick={() => handleOpenCreate(day, hour)}
                                                         className="w-full h-full flex items-center justify-center group"
                                                     >
-                                                        <div className="text-[10px] text-muted-foreground/30 group-hover:text-primary transition-colors flex items-center gap-1">
-                                                            <Plus className="h-3 w-3" /> Libre
+                                                        <div className={cn("text-[10px] transition-colors flex items-center gap-1", isSunday ? "text-purple-400/50 group-hover:text-purple-300 font-semibold" : "text-muted-foreground/30 group-hover:text-primary")}>
+                                                            <Plus className="h-3 w-3" /> {isSunday ? 'Cumple' : 'Libre'}
                                                         </div>
                                                     </button>
                                                 )}
@@ -496,13 +513,41 @@ export default function AdminReservationsCalendarPage() {
                             </div>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="clientName" className="text-right">Nombre</Label>
+                            <Label className="text-right">Tipo</Label>
+                            <div className="col-span-3 grid grid-cols-2 gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={!newResData.isBirthday ? 'default' : 'outline'}
+                                    className="h-8 text-xs font-bold"
+                                    onClick={() => setNewResData(prev => ({ ...prev, isBirthday: false }))}
+                                >
+                                    ⚽ Fútbol
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={newResData.isBirthday ? 'default' : 'outline'}
+                                    className={cn(
+                                        "h-8 text-xs font-bold transition-all",
+                                        newResData.isBirthday && "bg-gradient-to-r from-purple-700 to-indigo-600 text-white border-purple-400 shadow-md ring-1 ring-purple-400"
+                                    )}
+                                    onClick={() => setNewResData(prev => ({ ...prev, isBirthday: true }))}
+                                >
+                                    🎂 Cumpleaños
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="clientName" className="text-right">
+                                {newResData.isBirthday ? 'Cumpleañero' : 'Nombre'}
+                            </Label>
                             <Input 
                                 id="clientName" 
                                 value={newResData.clientName} 
                                 onChange={(e) => setNewResData(prev => ({...prev, clientName: e.target.value}))}
                                 className="col-span-3"
-                                placeholder="Ej: Juan Pérez"
+                                placeholder={newResData.isBirthday ? "Ej: Cumple de Bautista (8 años)" : "Ej: Juan Pérez"}
                             />
                         </div>
                         <Separator />
