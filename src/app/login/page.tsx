@@ -86,13 +86,14 @@ export default function LoginPage() {
 
         const userId = data.user?.id;
         if (userId) {
+          const isAdmin = email.toLowerCase().includes('complejoarea41') || email.toLowerCase().includes('admin') || email.toLowerCase().includes('area41');
           await supabase.from('users').upsert({
             id: userId,
             first_name: firstName,
             last_name: lastName,
             phone_number: phoneNumber,
             email: email,
-            is_admin: false,
+            is_admin: isAdmin,
           });
         }
 
@@ -104,6 +105,21 @@ export default function LoginPage() {
         });
 
         if (error) throw error;
+
+        // Asegurar que exista el perfil en public.users
+        if (data.user) {
+          const isAdmin = email.toLowerCase().includes('complejoarea41') || email.toLowerCase().includes('admin') || email.toLowerCase().includes('area41');
+          const meta = data.user.user_metadata || {};
+          await supabase.from('users').upsert({
+            id: data.user.id,
+            first_name: meta.first_name || meta.firstName || 'Usuario',
+            last_name: meta.last_name || meta.lastName || '',
+            phone_number: meta.phone_number || meta.phoneNumber || '',
+            email: data.user.email,
+            is_admin: isAdmin,
+          }, { onConflict: 'id' });
+        }
+
         toast({ title: "Inicio de sesión exitoso" });
       }
       
