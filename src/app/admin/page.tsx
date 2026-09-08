@@ -12,7 +12,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc, query, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { ShieldAlert, Megaphone, Goal, ImageIcon, Award, Calendar, CalendarClock, Bell, BellOff, Smartphone, Utensils } from "lucide-react";
+import { ShieldAlert, Megaphone, Goal, ImageIcon, Award, Calendar, CalendarClock, Bell, BellOff, Smartphone, Utensils, Cake } from "lucide-react";
 import type { User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -176,6 +176,14 @@ export default function AdminPage() {
                     router={router} 
                 />
                 <AdminNavCard 
+                    title="Cumpleaños" 
+                    desc="Reserva de 2 hs (ambas canchas)" 
+                    icon={<Cake className="h-6 w-6 text-purple-400" />} 
+                    path="/admin/birthdays" 
+                    router={router} 
+                    isHighlighted={true}
+                />
+                <AdminNavCard 
                     title="Turnos Fijos" 
                     desc="Reservas recurrentes" 
                     icon={<CalendarClock className="h-6 w-6" />} 
@@ -223,17 +231,31 @@ export default function AdminPage() {
   );
 }
 
-function AdminNavCard({ title, desc, icon, path, router }: { title: string, desc: string, icon: React.ReactNode, path: string, router: any }) {
+function AdminNavCard({ title, desc, icon, path, router, isHighlighted }: { title: string, desc: string, icon: React.ReactNode, path: string, router: any, isHighlighted?: boolean }) {
     return (
-        <Card className="bg-card/80 backdrop-blur-sm hover:border-primary/50 transition-all cursor-pointer group active:scale-95" onClick={() => router.push(path)}>
+        <Card 
+            className={cn(
+                "bg-card/80 backdrop-blur-sm hover:border-primary/50 transition-all cursor-pointer group active:scale-95",
+                isHighlighted && "border-purple-500/40 hover:border-purple-400 bg-purple-950/15 ring-1 ring-purple-500/20"
+            )} 
+            onClick={() => router.push(path)}
+        >
             <CardHeader className="p-4">
-                <CardTitle className="flex items-center gap-3 text-lg group-hover:text-primary transition-colors">
-                    <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                <CardTitle className={cn(
+                    "flex items-center gap-3 text-lg transition-colors",
+                    isHighlighted ? "group-hover:text-purple-300 text-purple-100" : "group-hover:text-primary"
+                )}>
+                    <div className={cn(
+                        "p-2 rounded-lg transition-all",
+                        isHighlighted 
+                            ? "bg-purple-600/20 text-purple-300 group-hover:bg-purple-600 group-hover:text-white" 
+                            : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                    )}>
                         {icon}
                     </div>
                     {title}
                 </CardTitle>
-                <CardDescription className="text-xs">{desc}</CardDescription>
+                <CardDescription className={cn("text-xs", isHighlighted && "text-purple-300/80")}>{desc}</CardDescription>
             </CardHeader>
         </Card>
     );

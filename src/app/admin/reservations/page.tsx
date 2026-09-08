@@ -34,6 +34,7 @@ import { format, startOfWeek, addDays, subDays, set, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { cn, safeToDate } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 type FullReservation = Reservation & {
     user: User | null;
@@ -107,7 +108,32 @@ export default function AdminReservationsCalendarPage() {
         const collectionName = isFixed ? 'fixed_reservations' : 'reservations';
         const docRef = doc(firestore, collectionName, selectedReservation.id);
 
+        const isBirthday = Boolean(
+            selectedReservation.customerName?.includes('🎂') ||
+            selectedReservation.customerName?.toUpperCase().includes('CUMPLE')
+        );
+
         try {
+            if (isBirthday && !isFixed && reservations) {
+                const resDate = safeToDate(selectedReservation.reservationDateTime);
+                const dateStr = format(resDate, 'yyyy-MM-dd');
+                const targetName = selectedReservation.customerName;
+
+                const matchingResIds = reservations.filter(r => {
+                    if (!r.reservationDateTime || r.customerName !== targetName) return false;
+                    const d = safeToDate(r.reservationDateTime);
+                    return format(d, 'yyyy-MM-dd') === dateStr;
+                }).map(r => r.id);
+
+                if (matchingResIds.length > 0) {
+                    await supabase.from('reservations').delete().in('id', matchingResIds);
+                    toast({ title: "Cumpleaños cancelado", description: "Se liberaron ambas horas y todas las canchas." });
+                    setIsCancelAlertOpen(false);
+                    setSelectedReservation(null);
+                    return;
+                }
+            }
+
             if (!isFixed && selectedReservation.userId && selectedReservation.userId !== 'fixed-user') {
                 const customerProfileRef = doc(firestore, 'users', selectedReservation.userId);
                 updateDocumentNonBlocking(customerProfileRef, {
@@ -212,6 +238,54 @@ export default function AdminReservationsCalendarPage() {
         const formattedName = newResData.isBirthday
             ? (rawName.startsWith('🎂') ? rawName : `🎂 ${rawName}`)
             : rawName;
+
+        if (newResData.isBirthday) {
+            // Cumpleaños: bloquea ambas canchas de 7 y de 5 (complejo completo) por 2 horas consecutivas
+            const allCourtIds = courts.map(c => c.id);
+            const resData1: any = {
+                userId: targetUserId,
+                customerName: formattedName,
+                customer_name: formattedName,
+                courtIds: allCourtIds,
+                court_ids: allCourtIds,
+                reservationDateTime: Timestamp.fromDate(resDateTime),
+                reservation_date_time: resDateTime.toISOString(),
+                durationMinutes: 60,
+                duration_minutes: 60,
+                date: format(resDay, 'yyyy-MM-dd'),
+                time: newResData.hour,
+            };
+
+            const nextHour = hour + 1;
+            const nextResDateTime = set(resDay, { hours: nextHour, minutes: min, seconds: 0, milliseconds: 0 });
+            const nextHourStr = `${String(nextHour).padStart(2, '0')}:00`;
+            const resData2: any = {
+                userId: targetUserId,
+                customerName: formattedName,
+                customer_name: formattedName,
+                courtIds: allCourtIds,
+                court_ids: allCourtIds,
+                reservationDateTime: Timestamp.fromDate(nextResDateTime),
+                reservation_date_time: nextResDateTime.toISOString(),
+                durationMinutes: 60,
+                duration_minutes: 60,
+                date: format(resDay, 'yyyy-MM-dd'),
+                time: nextHourStr,
+            };
+
+            try {
+                await addDocumentNonBlocking(collection(firestore, 'reservations'), resData1);
+                await addDocumentNonBlocking(collection(firestore, 'reservations'), resData2);
+                toast({
+                    title: '🎂 ¡Cumpleaños Registrado!',
+                    description: `Se reservaron 2 horas (${newResData.hour} a ${String(nextHour + 1).padStart(2, '0')}:00 hs) y ambas canchas.`
+                });
+                setIsNewResDialogOpen(false);
+            } catch (error) {
+                console.error("Error creating birthday reservation:", error);
+            }
+            return;
+        }
 
         const resData: any = {
             userId: targetUserId,
@@ -538,6 +612,16 @@ export default function AdminReservationsCalendarPage() {
                                 </Button>
                             </div>
                         </div>
+                        {newResData.isBirthday && (
+                            <div className="col-span-4 p-2.5 bg-purple-950/40 border border-purple-500/40 rounded-lg text-purple-200 text-xs space-y-1">
+                                <p className="font-bold flex items-center gap-1 text-white">
+                                    <span>🎉</span> Festejo de 2 Horas y Ambas Canchas
+                                </p>
+                                <p className="text-[11px] text-purple-300 leading-tight">
+                                    Se reservarán automáticamente <strong>2 horas consecutivas</strong> y se <strong>bloquearán ambas canchas de 7</strong> en el complejo.
+                                </p>
+                            </div>
+                        )}
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="clientName" className="text-right">
                                 {newResData.isBirthday ? 'Cumpleañero' : 'Nombre'}

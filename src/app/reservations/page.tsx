@@ -328,6 +328,11 @@ export default function ReservationPage() {
     const isAdminBooking = Boolean(userProfile?.isAdmin);
     const isBirthday = bookingType === 'cumpleanos';
 
+    // Si es cumpleaños reservado por admin, bloqueamos ambas canchas de 7 y de 5 (complejo completo)
+    if (isAdminBooking && isBirthday) {
+      courtIdsToReserve = allCourts.map(c => c.id);
+    }
+
     let fullName = 'Cliente';
     if (isAdminBooking) {
       const rawName = adminClientName.trim() || (isBirthday ? 'Cumpleaños' : 'Cliente');
@@ -343,19 +348,37 @@ export default function ReservationPage() {
     const totalCost = courtToReserve.price;
     const cancellations = userProfile?.cancellationCount || 0;
 
-    const reservationData = {
-      user_id: user.uid,
-      customer_name: fullName,
-      customer_phone: phone,
-      court_ids: courtIdsToReserve,
-      reservation_date_time: reservationFullDate.toISOString(),
-      duration_minutes: 60,
-      date: format(reservationFullDate, 'yyyy-MM-dd'),
-      time: dialogData.time,
-    };
+    const recordsToInsert = [
+      {
+        user_id: user.uid,
+        customer_name: fullName,
+        customer_phone: phone,
+        court_ids: courtIdsToReserve,
+        reservation_date_time: reservationFullDate.toISOString(),
+        duration_minutes: 60,
+        date: format(reservationFullDate, 'yyyy-MM-dd'),
+        time: dialogData.time,
+      }
+    ];
+
+    // Si es cumpleaños, agregamos la segunda hora consecutiva (+1 hora)
+    if (isAdminBooking && isBirthday) {
+      const nextHour = hour + 1;
+      const nextHourDate = set(date, { hours: nextHour, minutes: minute, seconds: 0, milliseconds: 0 });
+      recordsToInsert.push({
+        user_id: user.uid,
+        customer_name: fullName,
+        customer_phone: phone,
+        court_ids: courtIdsToReserve,
+        reservation_date_time: nextHourDate.toISOString(),
+        duration_minutes: 60,
+        date: format(nextHourDate, 'yyyy-MM-dd'),
+        time: `${String(nextHour).padStart(2, '0')}:00`,
+      });
+    }
   
     try {
-      const { error: insertErr } = await supabase.from('reservations').insert(reservationData);
+      const { error: insertErr } = await supabase.from('reservations').insert(recordsToInsert);
       if (insertErr) throw insertErr;
     } catch (e) {
       console.error('Error guardando reserva en Supabase:', e);
@@ -774,7 +797,7 @@ export default function ReservationPage() {
                       </div>
                       {bookingType === 'cumpleanos' && (
                         <p className="text-[11px] text-purple-300 font-medium bg-purple-950/40 p-2 rounded border border-purple-500/30 flex items-center gap-1.5 mt-1">
-                          <span>🎉</span> Este turno se mostrará en <strong>color violeta</strong> con icono 🎂 en el calendario.
+                          <span>🎉</span> Se reservarán <strong>2 horas consecutivas</strong> y se <strong>bloquearán ambas canchas</strong> en color violeta con icono 🎂.
                         </p>
                       )}
                     </div>
