@@ -109,22 +109,32 @@ export function useCollection<T = any>(
     fetchCollection();
 
     // Suscripción Realtime para actualizar la tabla al instante
-    const channel = supabase
-      .channel(`collection_${table}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        () => {
-          if (isMounted) {
-            fetchCollection();
+    let channel: any = null;
+    try {
+      const channelId = `col_${table}_${Math.random().toString(36).slice(2, 9)}`;
+      channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table },
+          () => {
+            if (isMounted) {
+              fetchCollection();
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    } catch (realtimeErr) {
+      console.warn('Realtime subscription error in useCollection:', realtimeErr);
+    }
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (_) {}
+      }
     };
   }, [memoizedTargetRefOrQuery]);
 

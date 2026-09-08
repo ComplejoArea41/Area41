@@ -97,25 +97,35 @@ export function useDoc<T = any>(
 
     fetchDoc();
 
-    const channel = supabase
-      .channel(`doc_${table}_${id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
-        (payload) => {
-          if (!isMounted) return;
-          if (payload.eventType === 'DELETE') {
-            setData(null);
-          } else {
-            setData(toCamelCase(payload.new) as any);
+    let channel: any = null;
+    try {
+      const channelId = `doc_${table}_${id}_${Math.random().toString(36).slice(2, 9)}`;
+      channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
+          (payload) => {
+            if (!isMounted) return;
+            if (payload.eventType === 'DELETE') {
+              setData(null);
+            } else {
+              setData(toCamelCase(payload.new) as any);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    } catch (realtimeErr) {
+      console.warn('Realtime subscription error in useDoc:', realtimeErr);
+    }
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (_) {}
+      }
     };
   }, [memoizedDocRef]);
 

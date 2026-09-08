@@ -308,18 +308,18 @@ export default function ReservationPage() {
     const reservationFullDate = set(date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
   
     const courtDescription = `${courtToReserve.courtType} - Cancha ${courtToReserve.courtNumber}`;
-    const isAdminBooking = Boolean(userProfile.isAdmin);
+    const isAdminBooking = Boolean(userProfile?.isAdmin);
 
     const fullName = isAdminBooking && adminClientName.trim()
       ? adminClientName.trim()
-      : `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Cliente';
+      : `${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim() || 'Cliente';
 
     const phone = isAdminBooking && adminClientPhone.trim()
       ? adminClientPhone.trim()
-      : userProfile.phoneNumber || 'No especificado';
+      : userProfile?.phoneNumber || 'No especificado';
 
     const totalCost = courtToReserve.price;
-    const cancellations = userProfile.cancellationCount || 0;
+    const cancellations = userProfile?.cancellationCount || 0;
 
     const reservationData = {
       user_id: user.uid,
@@ -442,7 +442,7 @@ export default function ReservationPage() {
 
   const isLoadingPage = isProfileLoading || areCourtsLoading || areFixedReservationsLoading;
 
-  if (isLoadingPage || !userProfile) {
+  if (isLoadingPage) {
     return (
       <div className="flex min-h-screen items-center justify-center dark bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
