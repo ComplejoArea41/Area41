@@ -21,8 +21,9 @@ import {
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
-import { collection, doc, writeBatch, deleteDoc } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -81,7 +82,7 @@ export default function AdminLogoPage() {
         const imageRef = doc(firestore, 'logo_images', image.id);
 
         try {
-            await deleteDoc(imageRef);
+            await deleteDocumentNonBlocking(imageRef);
             if (image.storagePath && storage) {
                 const storageRef = ref(storage, image.storagePath);
                 try {
@@ -98,19 +99,12 @@ export default function AdminLogoPage() {
     };
 
     const handleSetActive = async (activeImage: LogoImage) => {
-        if (!firestore || !logoImages) return;
-        const batch = writeBatch(firestore);
-        logoImages.forEach(img => {
-            const docRef = doc(firestore, 'logo_images', img.id);
-            if (img.id === activeImage.id) {
-                 batch.update(docRef, { isActive: !img.isActive });
-            } else if (img.isActive) {
-                batch.update(docRef, { isActive: false });
-            }
-        });
-
         try {
-            await batch.commit();
+            // Desactivar todos los demás logos en Supabase
+            await supabase.from('logo_images').update({ is_active: false }).neq('id', activeImage.id);
+            // Invertir estado del logo seleccionado
+            await supabase.from('logo_images').update({ is_active: !activeImage.isActive }).eq('id', activeImage.id);
+
             toast({
                 title: 'Logo actualizado',
                 description: `Se ha establecido un nuevo logo.`,

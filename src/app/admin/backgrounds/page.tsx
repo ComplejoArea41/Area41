@@ -21,8 +21,9 @@ import {
   } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useStorage } from "@/firebase";
-import { collection, doc, writeBatch, deleteDoc } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -80,7 +81,7 @@ export default function AdminBackgroundsPage() {
         const imageRef = doc(firestore, 'background_images', image.id);
         
         try {
-            await deleteDoc(imageRef);
+            await deleteDocumentNonBlocking(imageRef);
 
             if (image.storagePath && storage) {
                 const storageRef = ref(storage, image.storagePath);
@@ -99,19 +100,12 @@ export default function AdminBackgroundsPage() {
     };
 
     const handleSetActive = async (activeImage: BackgroundImage) => {
-        if (!firestore || !backgroundImages) return;
-        const batch = writeBatch(firestore);
-        backgroundImages.forEach(img => {
-            const docRef = doc(firestore, 'background_images', img.id);
-            if (img.id === activeImage.id) {
-                batch.update(docRef, { isActive: !img.isActive });
-            } else if (img.isActive) {
-                batch.update(docRef, { isActive: false });
-            }
-        });
-
         try {
-            await batch.commit();
+            // Desactivar todos los demás fondos en Supabase
+            await supabase.from('background_images').update({ is_active: false }).neq('id', activeImage.id);
+            // Invertir estado del fondo seleccionado
+            await supabase.from('background_images').update({ is_active: !activeImage.isActive }).eq('id', activeImage.id);
+
             toast({
                 title: 'Fondo actualizado',
                 description: `Se ha establecido un nuevo fondo de pantalla.`,
