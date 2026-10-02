@@ -128,9 +128,9 @@ export function VideoPlayer({
         setIsLoading(false);
       }
     } else {
-      video.src = src;
-      video.addEventListener('loadeddata', () => {
+      const onLoaded = () => {
         setIsLoading(false);
+        setHasError(false);
         if (autoPlay) {
           video.play().catch(() => {
             video.muted = true;
@@ -138,11 +138,29 @@ export function VideoPlayer({
             video.play().catch(() => setIsPlaying(false));
           });
         }
-      });
-      video.addEventListener('error', () => {
+      };
+
+      const onError = () => {
+        // Ignorar si fue abortado intencionalmente por cambio de src
+        if (video.error && video.error.code === 1) return;
         setHasError(true);
         setIsLoading(false);
-      });
+      };
+
+      video.addEventListener('loadedmetadata', onLoaded);
+      video.addEventListener('canplay', onLoaded);
+      video.addEventListener('loadeddata', onLoaded);
+      video.addEventListener('error', onError);
+
+      video.src = src;
+      video.load();
+
+      return () => {
+        video.removeEventListener('loadedmetadata', onLoaded);
+        video.removeEventListener('canplay', onLoaded);
+        video.removeEventListener('loadeddata', onLoaded);
+        video.removeEventListener('error', onError);
+      };
     }
 
     return () => {
@@ -319,14 +337,26 @@ export function VideoPlayer({
           <p className="text-sm text-zinc-400 max-w-sm mb-4">
             El video está siendo procesado por el DVR o el enlace no es accesible.
           </p>
-          <Button
-            size="sm"
-            onClick={handleReload}
-            variant="outline"
-            className="border-white/20 hover:bg-white/10 text-white gap-2"
-          >
-            <RotateCw className="h-4 w-4" /> Reintentar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleReload}
+              variant="outline"
+              className="border-white/20 hover:bg-white/10 text-white gap-2"
+            >
+              <RotateCw className="h-4 w-4" /> Reintentar
+            </Button>
+            {src && (
+              <a
+                href={src}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-black hover:bg-primary/90 transition-colors"
+              >
+                Abrir directo
+              </a>
+            )}
+          </div>
         </div>
       )}
 
