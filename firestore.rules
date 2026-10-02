@@ -65,5 +65,15 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin();
     }
+
+    match /court_cameras/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /recorded_matches/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

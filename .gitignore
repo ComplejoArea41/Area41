@@ -43,3 +43,8 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# local recordings server binaries & tests
+servidor-canchas-area41/node.exe
+servidor-canchas-area41/node_modules/
+test_*.js

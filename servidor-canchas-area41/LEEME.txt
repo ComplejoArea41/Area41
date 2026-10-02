@@ -1,0 +1,30 @@
+====================================================================
+⚽ COMPLEJO ÁREA 41 - SERVIDOR AUTOMÁTICO DE GRABACIONES
+====================================================================
+
+¡TODO LISTO Y CONFIGURADO!
+
+PASOS PARA USAR:
+----------------
+1. Hacé doble clic en:
+   👉 INICIAR_SERVIDOR.bat
+
+2. Se abrirá la ventana verde del servidor indicando:
+   [OK] Servidor activo y escuchando en el puerto 4141
+   📁 Carpeta de grabaciones: C:\Grabaciones_Area41
+
+3. ¡No cierres esa ventana! Debe quedar abierta para que el sistema
+   detecte los videos de las cámaras automáticamente.
+
+AUTO-ARRANQUE AL ENCENDER LA PC:
+--------------------------------
+Si querés que el servidor arranque solo cada vez que prendas la PC (o si
+se corta la luz y vuelve), hacé doble clic en:
+   👉 CONFIGURAR_INICIO_AUTOMATICO.bat
+
+PANEL DE CONTROL LOCAL:
+-----------------------
+Podés abrir tu navegador (Google Chrome) e ingresar a:
+   👉 http://localhost:4141
+para ver el estado en vivo, cuántos partidos se grabaron y reproducirlos.
+====================================================================

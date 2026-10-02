@@ -1,0 +1,12 @@
+{
+  "name": "servidor-canchas-area41",
+  "version": "1.0.0",
+  "description": "Servidor de subida automática de partidos para Complejo Área 41",
+  "main": "servidor.js",
+  "scripts": {
+    "start": "node servidor.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0"
+  }
+}

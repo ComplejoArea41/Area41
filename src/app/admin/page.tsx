@@ -12,7 +12,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc, query, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { ShieldAlert, Megaphone, Goal, ImageIcon, Award, Calendar, CalendarClock, Bell, BellOff, Smartphone, Utensils, Cake } from "lucide-react";
+import { ShieldAlert, Megaphone, Goal, ImageIcon, Award, Calendar, CalendarClock, Bell, BellOff, Smartphone, Utensils, Cake, Video } from "lucide-react";
 import type { User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -210,6 +210,14 @@ export default function AdminPage() {
                     icon={<Goal className="h-6 w-6" />} 
                     path="/admin/courts" 
                     router={router} 
+                />
+                <AdminNavCard 
+                    title="Cámaras & Partidos" 
+                    desc="Transmisiones y grabaciones" 
+                    icon={<Video className="h-6 w-6 text-red-500" />} 
+                    path="/admin/cameras" 
+                    router={router} 
+                    isHighlighted={true}
                 />
                 <AdminNavCard 
                     title="Fondos" 

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Goal, Megaphone } from 'lucide-react';
+import { Goal, Megaphone, Video } from 'lucide-react';
 import { DynamicLogo } from '@/components/dynamic-logo';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -27,7 +27,7 @@ export default function WelcomePage() {
                 <DynamicLogo />
             </div>
 
-            <div className="flex w-full max-w-md flex-col gap-6 mb-16">
+            <div className="flex w-full max-w-md flex-col gap-4 mb-16">
                 <Button
                   className="h-auto w-full p-0 bg-card/80 hover:bg-card/95 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-primary/20 rounded-lg ring-1 ring-white/10"
                   onClick={() => router.push('/reservations')}
@@ -42,7 +42,26 @@ export default function WelcomePage() {
                     </div>
                   </div>
                 </Button>
-                <p className="text-lg text-primary text-center font-bold tracking-widest uppercase">
+
+                <Button
+                  className="h-auto w-full p-0 bg-card/80 hover:bg-card/95 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-primary/20 rounded-lg ring-1 ring-white/10"
+                  onClick={() => router.push('/matches')}
+                >
+                  <div className="flex flex-row items-center gap-4 p-4 w-full">
+                    <div className="p-4 bg-emerald-600 rounded-full shadow-md shadow-emerald-600/30">
+                        <Video className="h-10 w-10 text-white" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-semibold text-card-foreground">Reviví tu Partido</h3>
+                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">HD</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Mirá tu partido completo y descargá tus jugadas.</p>
+                    </div>
+                  </div>
+                </Button>
+
+                <p className="text-lg text-primary text-center font-bold tracking-widest uppercase mt-2">
                     Complejo Deportivo Area41
                 </p>
             </div>

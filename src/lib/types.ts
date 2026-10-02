@@ -76,3 +76,32 @@ export interface RecentMember {
   email: string;
   avatarId: string;
 }
+
+export interface CourtCamera {
+  id: string;
+  courtId: string;
+  courtName: string;
+  streamUrl: string;
+  streamType?: 'hls' | 'youtube' | 'mp4';
+  isLive: boolean;
+  currentMatchTitle?: string;
+  description?: string;
+  updatedAt?: any;
+}
+
+export interface RecordedMatch {
+  id: string;
+  courtId: string;
+  courtName: string;
+  cameraId?: string; // 'cam-1' | 'cam-2'
+  cameraName?: string; // 'Cámara 1' | 'Cámara 2'
+  date: string;
+  time: string;
+  title: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  durationMinutes?: number;
+  downloadUrl?: string;
+  reservationId?: string;
+  createdAt?: any;
+}
