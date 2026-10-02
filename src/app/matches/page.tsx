@@ -5,7 +5,6 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { RecordedMatch } from '@/lib/types';
 import { VideoPlayer } from '@/components/video-player';
-import { LiveCameraModal } from '@/components/live-camera-modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -29,6 +28,9 @@ import {
   Sun,
   Moon,
   Sunset,
+  CheckCircle2,
+  Hourglass,
+  AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -82,20 +84,43 @@ export default function MatchesPage() {
   // 2. Cámara Selection ('cam-1' or 'cam-2')
   const [selectedCameraId, setSelectedCameraId] = useState<'cam-1' | 'cam-2'>('cam-1');
 
-  // 3. Date Selection (Defaults to Today's date YYYY-MM-DD)
+  // 3. Date Selection (Defaults to Today's date YYYY-MM-DD in local time)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   });
 
-  // Active playing match (null = modal closed)
+  // Current local date & hour calculation
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const [currentHour, setCurrentHour] = useState<number>(() => new Date().getHours());
+
+  // Keep hour updated every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentHour(new Date().getHours());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isToday = selectedDate === todayStr;
+  const isFutureDate = selectedDate > todayStr;
+
+  // Active playing match modal
   const [activePlayingSlot, setActivePlayingSlot] = useState<{
     timeLabel: string;
     videoUrl: string;
     downloadUrl?: string;
   } | null>(null);
-
-  // Modal para ver cámara en vivo en directo
-  const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
 
   // Available cameras for current court
   const currentCameras = useMemo(() => {
@@ -110,15 +135,13 @@ export default function MatchesPage() {
   const changeDateByDays = (days: number) => {
     const current = new Date(selectedDate + 'T12:00:00');
     current.setDate(current.getDate() + days);
-    setSelectedDate(current.toISOString().split('T')[0]);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
   };
 
-  const isToday = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return selectedDate === today;
-  }, [selectedDate]);
-
-  // Format date display for header (e.g., "Miércoles, 30 de Septiembre")
+  // Format date display for header
   const formattedDateTitle = useMemo(() => {
     try {
       const parts = selectedDate.split('-');
@@ -165,6 +188,30 @@ export default function MatchesPage() {
 
   // Handle clicking a specific 1-hour slot
   const handleSelectSlot = (slotLabel: string, hourIndex: number) => {
+    if (isFutureDate) {
+      toast({
+        title: 'Fecha futura',
+        description: 'Esta fecha aún no ha transcurrido. Las grabaciones quedan disponibles 1 hora después de finalizar cada turno.',
+      });
+      return;
+    }
+
+    if (isToday && hourIndex > currentHour) {
+      toast({
+        title: 'Horario aún no jugado',
+        description: 'Este turno aún no se disputó. Podrás revivirlo 1 hora después de finalizado el partido.',
+      });
+      return;
+    }
+
+    if (isToday && hourIndex === currentHour) {
+      toast({
+        title: 'Turno en juego',
+        description: 'El partido de este horario se está jugando o finalizando. La grabación estará lista para ver al término de la hora.',
+      });
+      return;
+    }
+
     const allMatches = [...(dbMatches || []), ...localServerMatches];
     // Check if there is an uploaded match in database or local server for this court, camera, date and slot
     const matchedInDb = allMatches.find((m) => {
@@ -182,7 +229,7 @@ export default function MatchesPage() {
         downloadUrl: matchedInDb.downloadUrl || matchedInDb.videoUrl,
       });
     } else {
-      // Fallback sample video based on hour index so any slot can be previewed immediately
+      // Fallback sample video based on hour index so any past slot can be previewed immediately
       const demoUrl = SAMPLE_VIDEOS[hourIndex % SAMPLE_VIDEOS.length];
       setActivePlayingSlot({
         timeLabel: slotLabel,
@@ -231,19 +278,19 @@ export default function MatchesPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-start gap-6 p-4 md:gap-8 md:p-8 max-w-4xl mx-auto w-full">
       {/* Title */}
-      <div className="text-center space-y-1">
+      <div className="text-center space-y-1.5">
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
           Reviví tu <span className="text-primary">Partido</span>
         </h1>
-        <p className="text-muted-foreground text-sm">
-          Grabación continua 24 hs por DVR. Elegí cancha, cámara, día y horario para ver tu partido.
+        <p className="text-muted-foreground text-sm max-w-lg mx-auto">
+          Mirá el video completo de tu turno grabado por las cámaras. Disponible 1 hora después de finalizar cada partido.
         </p>
       </div>
 
       {/* 1. SELECCIÓN DE CANCHA (CANCHA 1 | CANCHA 2) */}
       <div className="w-full space-y-2">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          1. Cancha
+          1. Elegí la Cancha
         </span>
 
         <div className="grid grid-cols-2 gap-3">
@@ -284,7 +331,7 @@ export default function MatchesPage() {
       {/* 2. SELECCIÓN DE CÁMARA (2 CÁMARAS POR CANCHA) */}
       <div className="w-full space-y-2">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          2. Cámara ({selectedCourtId === 'cancha-1' ? 'Cancha 1' : 'Cancha 2'})
+          2. Ángulo de Cámara ({selectedCourtId === 'cancha-1' ? 'Cancha 1' : 'Cancha 2'})
         </span>
 
         <div className="grid grid-cols-2 gap-3">
@@ -310,25 +357,10 @@ export default function MatchesPage() {
         </div>
       </div>
 
-      {/* BOTÓN TRANSMISIÓN EN DIRECTO / TEST DE CÁMARA */}
-      <div className="w-full">
-        <Button
-          type="button"
-          onClick={() => setIsLiveModalOpen(true)}
-          className="w-full py-4 sm:py-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-red-500/20 border border-red-400/30 transition-all hover:scale-[1.01]"
-        >
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-          </span>
-          🔴 VER CÁMARA EN VIVO AHORA ({selectedCourtId === 'cancha-1' ? 'CANCHA 1' : 'CANCHA 2'} • {activeCameraInfo.shortName})
-        </Button>
-      </div>
-
       {/* 3. CALENDARIO / SELECTOR DE FECHA */}
       <div className="w-full space-y-2">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          3. Calendario (Elegir Fecha)
+          3. Fecha del Partido
         </span>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-card/70 border border-white/10">
@@ -382,7 +414,7 @@ export default function MatchesPage() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                onClick={() => setSelectedDate(todayStr)}
                 className="text-xs font-bold h-9"
               >
                 Ir a Hoy
@@ -392,46 +424,78 @@ export default function MatchesPage() {
         </div>
       </div>
 
-      {/* 4. LAS 24 HORAS DEL DÍA (GRILLA DE HORARIOS ESTILO CALENDARIO) */}
+      {/* 4. TURNOS DE JUEGO (HORARIOS DISPONIBLES) */}
       <div className="w-full space-y-3 pt-2">
         <div className="flex items-center justify-between border-b border-white/10 pb-2">
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <Clock className="h-4 w-4 text-primary" />
-            4. Horarios (24 hs Grabadas)
+            4. Turno de Juego
           </span>
           <span className="text-xs text-muted-foreground">
-            Tocá el horario para ver el partido
+            Tocá el turno para ver tu partido
           </span>
         </div>
 
         {/* 24 Hours Clean Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
           {HOURS_24.map((slot) => {
-            const isEvening = slot.hour >= 18 && slot.hour <= 23;
+            // Determine status
+            const isCompleted = !isFutureDate && (!isToday || slot.hour < currentHour);
+            const isCurrent = isToday && slot.hour === currentHour;
+            const isUpcoming = isFutureDate || (isToday && slot.hour > currentHour);
+
             return (
               <button
                 key={slot.hour}
                 type="button"
                 onClick={() => handleSelectSlot(slot.label, slot.hour)}
                 className={`p-3 rounded-xl border text-left transition-all duration-200 flex items-center justify-between group cursor-pointer select-none ${
-                  isEvening
-                    ? 'bg-card/90 border-white/15 hover:border-primary hover:bg-card shadow-sm'
-                    : 'bg-card/40 border-white/5 hover:border-primary/50 hover:bg-card/70'
+                  isCompleted
+                    ? 'bg-card/90 border-emerald-500/30 hover:border-primary hover:bg-card shadow-sm hover:scale-[1.02]'
+                    : isCurrent
+                    ? 'bg-amber-950/20 border-amber-500/40 hover:border-amber-400/80 hover:bg-amber-950/30'
+                    : 'bg-zinc-900/40 border-white/5 opacity-55 hover:opacity-80'
                 }`}
               >
-                <div className="space-y-0.5">
-                  <div className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                <div className="space-y-1">
+                  <div className={`text-xs sm:text-sm font-bold transition-colors ${
+                    isCompleted
+                      ? 'text-foreground group-hover:text-primary'
+                      : isCurrent
+                      ? 'text-amber-300'
+                      : 'text-zinc-400'
+                  }`}>
                     {slot.label}
                   </div>
-                  <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    {slot.hour >= 6 && slot.hour < 13 && <Sun className="h-3 w-3 text-amber-400" />}
-                    {slot.hour >= 13 && slot.hour < 19 && <Sunset className="h-3 w-3 text-orange-400" />}
-                    {(slot.hour >= 19 || slot.hour < 6) && <Moon className="h-3 w-3 text-blue-400" />}
-                    <span>{slot.hour >= 19 ? 'Turno noche' : 'Turno día'}</span>
+
+                  <div className="text-[10px] flex items-center gap-1">
+                    {isCompleted && (
+                      <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Listo para ver
+                      </span>
+                    )}
+                    {isCurrent && (
+                      <span className="text-amber-400 font-semibold flex items-center gap-0.5">
+                        <Hourglass className="h-3 w-3 animate-pulse" />
+                        En juego / Finalizando
+                      </span>
+                    )}
+                    {isUpcoming && (
+                      <span className="text-zinc-500">
+                        Próximo turno
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                <div className={`p-1.5 rounded-lg transition-all ${
+                  isCompleted
+                    ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
+                    : isCurrent
+                    ? 'bg-amber-500/15 text-amber-400'
+                    : 'bg-zinc-800 text-zinc-500'
+                }`}>
                   <Play className="h-3.5 w-3.5 fill-current" />
                 </div>
               </button>
@@ -440,7 +504,7 @@ export default function MatchesPage() {
         </div>
       </div>
 
-      {/* POPUP / MODAL: SE ABRE AL TOCAR EL HORARIO */}
+      {/* POPUP / MODAL: REPRODUCTOR DEL PARTIDO */}
       <Dialog
         open={!!activePlayingSlot}
         onOpenChange={(isOpen) => {
@@ -460,7 +524,7 @@ export default function MatchesPage() {
                   </span>
                 </div>
                 <DialogTitle className="text-xl sm:text-2xl font-black text-white">
-                  Horario: {activePlayingSlot.timeLabel}
+                  Turno: {activePlayingSlot.timeLabel}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400">
                   {selectedCourtId === 'cancha-1' ? 'Cancha 1' : 'Cancha 2'} • {activeCameraInfo.name}
@@ -473,7 +537,7 @@ export default function MatchesPage() {
                   src={activePlayingSlot.videoUrl}
                   isLive={false}
                   courtName={activeCameraInfo.name}
-                  title={`Horario: ${activePlayingSlot.timeLabel} (${selectedDate})`}
+                  title={`Turno: ${activePlayingSlot.timeLabel} (${selectedDate})`}
                   autoPlay={true}
                 />
               </div>
@@ -481,7 +545,7 @@ export default function MatchesPage() {
               {/* Action buttons */}
               <div className="flex items-center justify-between pt-2">
                 <div className="text-xs text-zinc-400 font-mono">
-                  Grabación 24 hs en alta definición
+                  Grabación completa en alta definición
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -522,14 +586,6 @@ export default function MatchesPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* MODAL TRANSMISIÓN EN DIRECTO DEL DVR DAHUA */}
-      <LiveCameraModal
-        isOpen={isLiveModalOpen}
-        onClose={() => setIsLiveModalOpen(false)}
-        initialCourtId={selectedCourtId}
-        initialCameraId={selectedCameraId}
-      />
     </div>
   );
 }
