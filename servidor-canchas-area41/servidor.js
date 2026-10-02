@@ -1,14 +1,36 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const https = require('https');
+const crypto = require('crypto');
 const os = require('os');
+const { execFile } = require('child_process');
+
+let ffmpegPath = null;
+try {
+  ffmpegPath = require('ffmpeg-static');
+} catch (e) {
+  // Fallback to local node_modules path if needed
+  const localFfmpeg = path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
+  if (fs.existsSync(localFfmpeg)) ffmpegPath = localFfmpeg;
+}
 
 // ============================================================================
 // CONFIGURACIÓN - COMPLEJO DEPORTIVO ÁREA 41
 // ============================================================================
 const PORT = 4141;
 const WATCH_DIR = path.join('C:', 'Grabaciones_Area41');
+
+const DAHUA_HOST = process.env.DAHUA_HOST || '192.168.1.108';
+const DAHUA_USER = process.env.DAHUA_USER || 'admin';
+const DAHUA_PASS = process.env.DAHUA_PASS || 'delfina2029';
+
+// Mapeo Canales Dahua <-> Canchas y Cámaras
+const CHANNEL_MAP = {
+  1: { courtId: 'cancha-1', courtName: 'Cancha 1', cameraId: 'cam-1', cameraName: 'Cámara 1' },
+  2: { courtId: 'cancha-1', courtName: 'Cancha 1', cameraId: 'cam-2', cameraName: 'Cámara 2' },
+  3: { courtId: 'cancha-2', courtName: 'Cancha 2', cameraId: 'cam-1', cameraName: 'Cámara 1' },
+  4: { courtId: 'cancha-2', courtName: 'Cancha 2', cameraId: 'cam-2', cameraName: 'Cámara 2' },
+};
 
 // Crear la carpeta vigilada si no existe
 if (!fs.existsSync(WATCH_DIR)) {
@@ -19,7 +41,6 @@ if (!fs.existsSync(WATCH_DIR)) {
   }
 }
 
-// Obtener la IP local de la computadora (ej: 192.168.1.50)
 function getLocalIp() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -34,8 +55,8 @@ function getLocalIp() {
 
 const LOCAL_IP = getLocalIp();
 
-// Historial de eventos y registro de archivos
-const processedFiles = new Map(); // fileName -> matchInfo
+// Lista de partidos disponibles en memoria
+const readyMatches = new Map(); // id -> match object
 let logHistory = [];
 
 function addLog(msg) {
@@ -43,79 +64,170 @@ function addLog(msg) {
   const logEntry = `[${timestamp}] ${msg}`;
   console.log(logEntry);
   logHistory.unshift(logEntry);
-  if (logHistory.length > 100) logHistory.pop();
+  if (logHistory.length > 80) logHistory.pop();
 }
 
 // ============================================================================
-// PARSEAR NOMBRE DE ARCHIVO DEL DVR DAHUA
-// Cancha 1 / Cancha 2 - Cámara 1 / Cámara 2 - Horarios
+// CLIENTE HTTP CON DIGEST AUTH PARA DVR DAHUA
 // ============================================================================
-function parseFileInfo(fileName, filePath) {
-  const lower = fileName.toLowerCase();
-  let stats = null;
+function dahuaRequest(uri) {
+  return new Promise((resolve, reject) => {
+    const timeout = 6000;
+    const req1 = http.get(`http://${DAHUA_HOST}${uri}`, { timeout }, res1 => {
+      if (res1.statusCode !== 401) {
+        let b = '';
+        res1.on('data', c => b += c);
+        res1.on('end', () => resolve({ status: res1.statusCode, body: b }));
+        return;
+      }
+      const authHeader = res1.headers['www-authenticate'] || '';
+      const realmMatch = authHeader.match(/realm="([^"]+)"/);
+      const nonceMatch = authHeader.match(/nonce="([^"]+)"/);
+      if (!realmMatch || !nonceMatch) return reject(new Error('No digest header'));
+
+      const realm = realmMatch[1];
+      const nonce = nonceMatch[1];
+      const qop = 'auth';
+      const nc = '00000001';
+      const cnonce = crypto.randomBytes(8).toString('hex');
+
+      const ha1 = crypto.createHash('md5').update(`${DAHUA_USER}:${realm}:${DAHUA_PASS}`).digest('hex');
+      const ha2 = crypto.createHash('md5').update(`GET:${uri}`).digest('hex');
+      const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
+
+      const authVal = `Digest username="${DAHUA_USER}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}"`;
+
+      const req2 = http.get(`http://${DAHUA_HOST}${uri}`, { headers: { Authorization: authVal }, timeout }, res2 => {
+        let b = '';
+        res2.on('data', c => b += c);
+        res2.on('end', () => resolve({ status: res2.statusCode, body: b, headers: res2.headers }));
+      });
+      req2.on('error', reject);
+      req2.on('timeout', () => { req2.destroy(); reject(new Error('Timeout Dahua')); });
+    });
+    req1.on('error', reject);
+    req1.on('timeout', () => { req1.destroy(); reject(new Error('Timeout Dahua')); });
+  });
+}
+
+// Descarga un archivo de video desde el DVR Dahua a un archivo temporal
+function downloadFromDahua(uri, outDavPath) {
+  return new Promise((resolve, reject) => {
+    http.get(`http://${DAHUA_HOST}${uri}`, res1 => {
+      if (res1.statusCode !== 401) return reject(new Error(`Expected 401, got ${res1.statusCode}`));
+
+      const authHeader = res1.headers['www-authenticate'] || '';
+      const realmMatch = authHeader.match(/realm="([^"]+)"/);
+      const nonceMatch = authHeader.match(/nonce="([^"]+)"/);
+      if (!realmMatch || !nonceMatch) return reject(new Error('No digest auth header'));
+
+      const realm = realmMatch[1];
+      const nonce = nonceMatch[1];
+      const qop = 'auth';
+      const nc = '00000001';
+      const cnonce = crypto.randomBytes(8).toString('hex');
+
+      const ha1 = crypto.createHash('md5').update(`${DAHUA_USER}:${realm}:${DAHUA_PASS}`).digest('hex');
+      const ha2 = crypto.createHash('md5').update(`GET:${uri}`).digest('hex');
+      const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
+
+      const authVal = `Digest username="${DAHUA_USER}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}"`;
+
+      http.get(`http://${DAHUA_HOST}${uri}`, { headers: { Authorization: authVal } }, res2 => {
+        if (res2.statusCode !== 200) return reject(new Error(`Dahua HTTP status ${res2.statusCode}`));
+        const fileStream = fs.createWriteStream(outDavPath);
+        res2.pipe(fileStream);
+        fileStream.on('finish', () => resolve(true));
+        fileStream.on('error', reject);
+      }).on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+// Convertir DAV a MP4 estándar ultra-rápido (copiando stream de video H.264)
+function remuxDavToMp4(davPath, mp4Path) {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath) return reject(new Error('ffmpeg-static no disponible'));
+    execFile(
+      ffmpegPath,
+      ['-y', '-i', davPath, '-c:v', 'copy', '-c:a', 'aac', mp4Path],
+      (err) => {
+        if (err) return reject(err);
+        resolve(true);
+      }
+    );
+  });
+}
+
+// ============================================================================
+// ESCANEO DE ARCHIVOS LOCALES EN C:\Grabaciones_Area41
+// ============================================================================
+function scanLocalFiles() {
   try {
-    stats = fs.statSync(filePath);
-  } catch (e) {}
+    if (!fs.existsSync(WATCH_DIR)) return;
+    const files = fs.readdirSync(WATCH_DIR);
+    for (const f of files) {
+      if (f.toLowerCase().endsWith('.mp4')) {
+        const fullPath = path.join(WATCH_DIR, f);
+        try {
+          const stats = fs.statSync(fullPath);
+          if (stats.size > 10000) {
+            parseAndRegisterMatch(f, stats.size);
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (e) {
+    console.error('Error scanning local files:', e.message);
+  }
+}
 
-  const fileDate = stats ? new Date(stats.mtime) : new Date();
-  const dateStr = fileDate.toISOString().split('T')[0];
-
+function parseAndRegisterMatch(fileName, sizeBytes) {
+  // ej: cancha1_cam1_2026-10-02_18-00.mp4
+  const lower = fileName.toLowerCase();
   let courtId = 'cancha-1';
   let courtName = 'Cancha 1';
   let cameraId = 'cam-1';
   let cameraName = 'Cámara 1';
-  let startHour = fileDate.getHours();
 
-  // Detectar Cancha y Cámara por nombre del canal Dahua
-  // CH01 = Cancha 1 Cam 1, CH02 = Cancha 1 Cam 2, CH03 = Cancha 2 Cam 1, CH04 = Cancha 2 Cam 2
-  if (lower.includes('ch01') || lower.includes('ch1') || lower.includes('cancha1_cam1') || lower.includes('cancha-1_cam-1')) {
-    courtId = 'cancha-1';
-    courtName = 'Cancha 1';
-    cameraId = 'cam-1';
-    cameraName = 'Cámara 1';
-  } else if (lower.includes('ch02') || lower.includes('ch2') || lower.includes('cancha1_cam2') || lower.includes('cancha-1_cam-2')) {
-    courtId = 'cancha-1';
-    courtName = 'Cancha 1';
-    cameraId = 'cam-2';
-    cameraName = 'Cámara 2';
-  } else if (lower.includes('ch03') || lower.includes('ch3') || lower.includes('cancha2_cam1') || lower.includes('cancha-2_cam-1')) {
+  if (lower.includes('cancha2') || lower.includes('cancha-2') || lower.includes('ch03') || lower.includes('ch04')) {
     courtId = 'cancha-2';
     courtName = 'Cancha 2';
-    cameraId = 'cam-1';
-    cameraName = 'Cámara 1';
-  } else if (lower.includes('ch04') || lower.includes('ch4') || lower.includes('cancha2_cam2') || lower.includes('cancha-2_cam-2')) {
-    courtId = 'cancha-2';
-    courtName = 'Cancha 2';
+  }
+  if (lower.includes('cam2') || lower.includes('cam-2') || lower.includes('ch02') || lower.includes('ch04')) {
     cameraId = 'cam-2';
     cameraName = 'Cámara 2';
   }
 
-  // Detectar fecha en el nombre (ej: 20261001 o 2026-10-01)
-  const dateMatch = fileName.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})/);
-  let finalDate = dateStr;
+  // Detectar fecha
+  let dateStr = new Date().toISOString().split('T')[0];
+  const dateMatch = fileName.match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
   if (dateMatch) {
-    finalDate = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+    dateStr = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
   }
 
-  // Detectar hora de inicio en el nombre del archivo (ej: _200000 o _20-00)
-  const hourMatch = fileName.match(/_(\d{2})\d{4}/) || fileName.match(/_(\d{2})[-_]/) || fileName.match(/[-_](\d{2})h/);
-  if (hourMatch && hourMatch[1]) {
-    const parsed = parseInt(hourMatch[1], 10);
-    if (parsed >= 0 && parsed <= 23) startHour = parsed;
+  // Detectar hora (ej: _18-00 o _180000 o 18h)
+  let startHour = 18;
+  const hourMatch = fileName.match(/_(\d{2})[-_]\d{2}/) || fileName.match(/_(\d{2})\d{4}/);
+  if (hourMatch) {
+    startHour = parseInt(hourMatch[1], 10);
   }
 
   const endHour = (startHour + 1) % 24;
-  const timeStr = `${startHour.toString().padStart(2, '0')}:00 a ${endHour.toString().padStart(2, '0')}:00 hs`;
-  const sizeMb = stats ? (stats.size / (1024 * 1024)).toFixed(1) : '0';
+  const startStr = startHour.toString().padStart(2, '0');
+  const endStr = endHour.toString().padStart(2, '0');
+  const timeStr = `${startStr}:00 a ${endStr}:00 hs`;
 
-  return {
+  const sizeMb = (sizeBytes / (1024 * 1024)).toFixed(1);
+
+  const matchObj = {
     id: fileName,
     fileName,
     courtId,
     courtName,
     cameraId,
     cameraName,
-    date: finalDate,
+    date: dateStr,
     time: timeStr,
     startHour,
     sizeMb: `${sizeMb} MB`,
@@ -124,61 +236,94 @@ function parseFileInfo(fileName, filePath) {
     fullLocalUrl: `http://${LOCAL_IP}:${PORT}/video/${encodeURIComponent(fileName)}`,
     detectedAt: new Date().toISOString(),
   };
+
+  readyMatches.set(fileName, matchObj);
 }
 
 // ============================================================================
-// ESCANEO CONTINUO DE LA CARPETA DE GRABACIONES
+// SINCRONIZACIÓN AUTOMÁTICA CON EL DVR DAHUA
+// Detecta las horas finalizadas hoy y las descarga a MP4
 // ============================================================================
-const fileSizeMap = new Map();
+let isSyncing = false;
 
-function scanWatchDirectory() {
+async function syncWithDahuaDvr() {
+  if (isSyncing) return;
+  isSyncing = true;
+
   try {
-    if (!fs.existsSync(WATCH_DIR)) return;
-    const files = fs.readdirSync(WATCH_DIR);
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    const currentHour = today.getHours();
 
-    for (const f of files) {
-      const lower = f.toLowerCase();
-      if (lower.endsWith('.mp4') || lower.endsWith('.dav') || lower.endsWith('.avi') || lower.endsWith('.mkv')) {
-        const fullPath = path.join(WATCH_DIR, f);
+    // Revisar los canales de las cámaras
+    for (let channel = 1; channel <= 4; channel++) {
+      const camInfo = CHANNEL_MAP[channel];
+      if (!camInfo) continue;
 
-        try {
-          const stats = fs.statSync(fullPath);
+      // Buscar turnos terminados hoy (desde las 00:00 hasta la hora anterior)
+      for (let h = 0; h < currentHour; h++) {
+        const startHourStr = h.toString().padStart(2, '0');
+        const endHourStr = ((h + 1) % 24).toString().padStart(2, '0');
+        const targetFileName = `${camInfo.courtId}_${camInfo.cameraId}_${dateStr}_${startHourStr}-00.mp4`;
+        const targetMp4Path = path.join(WATCH_DIR, targetFileName);
 
-          // Si ya lo tenemos registrado con el mismo tamaño, no hacemos nada
-          if (processedFiles.has(f)) continue;
-
-          // Verificar si el archivo aún se está escribiendo (grabando)
-          const lastSize = fileSizeMap.get(f) || 0;
-          if (stats.size === 0 || stats.size !== lastSize) {
-            fileSizeMap.set(f, stats.size);
-            // El archivo sigue creciendo, esperar al siguiente ciclo
+        // Si ya lo tenemos descargado y listo, registrarlo
+        if (fs.existsSync(targetMp4Path)) {
+          const stats = fs.statSync(targetMp4Path);
+          if (stats.size > 10000) {
+            parseAndRegisterMatch(targetFileName, stats.size);
             continue;
           }
+        }
 
-          // El tamaño se estabilizó: el DVR terminó de guardar el bloque
-          const info = parseFileInfo(f, fullPath);
-          processedFiles.set(f, info);
-          addLog(`✅ Nuevo partido listo: [${info.courtName}] ${info.cameraName} | Horario: ${info.time} (${info.sizeMb})`);
-        } catch (fileErr) {
-          // Archivo bloqueado por escritura momentáneamente
+        // Si no está descargado todavía, pedirlo al DVR Dahua
+        try {
+          addLog(`📥 Descargando grabación de DVR: [${camInfo.courtName} - ${camInfo.cameraName}] Turno ${startHourStr}:00 a ${endHourStr}:00 hs...`);
+          
+          const startParam = `${dateStr}%20${startHourStr}:00:00`;
+          const endParam = `${dateStr}%20${endHourStr}:00:00`;
+          const loadUri = `/cgi-bin/loadfile.cgi?action=startLoad&channel=${channel}&startTime=${startParam}&endTime=${endParam}`;
+
+          const tempDav = path.join(WATCH_DIR, `temp_${camInfo.courtId}_${camInfo.cameraId}_${h}.dav`);
+          await downloadFromDahua(loadUri, tempDav);
+
+          const davStats = fs.statSync(tempDav);
+          if (davStats.size > 100000) {
+            addLog(`🔄 Convirtiendo a MP4 optimizado para web (${(davStats.size / (1024 * 1024)).toFixed(1)} MB)...`);
+            await remuxDavToMp4(tempDav, targetMp4Path);
+            try { fs.unlinkSync(tempDav); } catch (_) {}
+
+            const mp4Stats = fs.statSync(targetMp4Path);
+            parseAndRegisterMatch(targetFileName, mp4Stats.size);
+            addLog(`✅ ¡LISTO! Partido grabado y disponible en la app: [${camInfo.courtName} - ${camInfo.cameraName}] ${startHourStr}:00 hs (${(mp4Stats.size / (1024 * 1024)).toFixed(1)} MB)`);
+          } else {
+            // Archivo vacío o sin movimiento en ese horario
+            try { fs.unlinkSync(tempDav); } catch (_) {}
+          }
+        } catch (downloadErr) {
+          // Si el DVR no tiene video en esa franja horaria o timeout
         }
       }
     }
   } catch (err) {
-    addLog(`⚠️ Error al escanear carpeta: ${err.message}`);
+    addLog(`⚠️ Error al sincronizar con DVR Dahua: ${err.message}`);
+  } finally {
+    isSyncing = false;
   }
 }
 
-// Escanear cada 4 segundos
-setInterval(scanWatchDirectory, 4000);
-// Primer escaneo inmediato
-scanWatchDirectory();
+// Escanear carpeta local cada 5 segundos
+setInterval(scanLocalFiles, 5000);
+scanLocalFiles();
+
+// Sincronizar con DVR Dahua al inicio y cada 3 minutos
+syncWithDahuaDvr();
+setInterval(syncWithDahuaDvr, 180000);
 
 // ============================================================================
 // SERVIDOR WEB Y DE STREAMING DE VIDEO (HTTP RANGE / 206 PARTIAL CONTENT)
 // ============================================================================
 const server = http.createServer((req, res) => {
-  // Habilitar CORS para que la app web pueda pedir datos y reproducir sin restricciones
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
@@ -192,9 +337,9 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = decodeURIComponent(parsedUrl.pathname);
 
-  // 1. API: Listado de todos los partidos detectados en formato JSON
+  // 1. API: Listado de partidos disponibles
   if (pathname === '/api/matches') {
-    const list = Array.from(processedFiles.values());
+    const list = Array.from(readyMatches.values());
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, matches: list, serverIp: LOCAL_IP, port: PORT }));
     return;
@@ -205,8 +350,9 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'online',
+      dahuaHost: DAHUA_HOST,
       watchDir: WATCH_DIR,
-      totalMatches: processedFiles.size,
+      totalMatches: readyMatches.size,
       localIp: LOCAL_IP,
       port: PORT,
       uptimeMinutes: Math.floor(process.uptime() / 60)
@@ -214,7 +360,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. Streaming de Video con soporte de Range (para saltar a cualquier minuto)
+  // 3. Streaming de Video con soporte de Range (seeking fluido)
   if (pathname.startsWith('/video/')) {
     const fileName = path.basename(pathname.replace('/video/', ''));
     const filePath = path.join(WATCH_DIR, fileName);
@@ -230,10 +376,9 @@ const server = http.createServer((req, res) => {
     const range = req.headers.range;
 
     const ext = path.extname(fileName).toLowerCase();
-    const contentType = ext === '.mp4' ? 'video/mp4' : ext === '.mkv' ? 'video/x-matroska' : 'video/octet-stream';
+    const contentType = ext === '.mp4' ? 'video/mp4' : 'video/octet-stream';
 
     if (range) {
-      // Petición parcial (Seek / adelantar / retroceder)
       const parts = range.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
@@ -248,7 +393,6 @@ const server = http.createServer((req, res) => {
       });
       file.pipe(res);
     } else {
-      // Petición completa
       res.writeHead(200, {
         'Content-Length': fileSize,
         'Content-Type': contentType,
@@ -272,7 +416,7 @@ const server = http.createServer((req, res) => {
 
     const stat = fs.statSync(filePath);
     res.writeHead(200, {
-      'Content-Type': 'application/octet-stream',
+      'Content-Type': 'video/mp4',
       'Content-Length': stat.size,
       'Content-Disposition': `attachment; filename="${fileName}"`,
     });
@@ -281,7 +425,7 @@ const server = http.createServer((req, res) => {
   }
 
   // 5. Panel de Control Web y Monitoreo Local
-  const matchesList = Array.from(processedFiles.values());
+  const matchesList = Array.from(readyMatches.values());
 
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(`
@@ -315,48 +459,40 @@ const server = http.createServer((req, res) => {
     .btn-download { background: #27272a; color: #fff; border: 1px solid #3f3f46; margin-left: 6px; }
     .btn-download:hover { background: #3f3f46; }
     .log-box { background: #000; border: 1px solid #1f1f23; border-radius: 10px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #4ade80; max-height: 220px; overflow-y: auto; line-height: 1.6; }
-    .instructions { background: #18181b; border-left: 4px solid #3b82f6; padding: 16px 20px; border-radius: 0 12px 12px 0; margin-bottom: 20px; font-size: 13px; color: #d4d4d8; line-height: 1.6; }
-    .instructions strong { color: #60a5fa; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <div class="title-row">
-        <h1>⚽ Complejo Área 41 - Servidor de Videos</h1>
-        <div class="badge"><div class="pulse"></div> EN LÍNEA Y GRABANDO</div>
+        <h1>⚽ Complejo Área 41 - Servidor Automático</h1>
+        <div class="badge"><div class="pulse"></div> CONECTADO AL DVR (${DAHUA_HOST})</div>
       </div>
       <div class="meta-grid">
         <div class="meta-box">
-          <div class="meta-label">Carpeta vigilada en la PC</div>
+          <div class="meta-label">DVR Dahua</div>
+          <div class="meta-val">http://${DAHUA_HOST}</div>
+        </div>
+        <div class="meta-box">
+          <div class="meta-label">Carpeta en esta PC</div>
           <div class="meta-val">${WATCH_DIR}</div>
         </div>
         <div class="meta-box">
-          <div class="meta-label">Dirección en esta PC</div>
+          <div class="meta-label">Acceso Local</div>
           <div class="meta-val">http://localhost:${PORT}</div>
         </div>
         <div class="meta-box">
-          <div class="meta-label">Acceso Red Local / Wi-Fi</div>
-          <div class="meta-val">http://${LOCAL_IP}:${PORT}</div>
-        </div>
-        <div class="meta-box">
-          <div class="meta-label">Partidos Disponibles</div>
+          <div class="meta-label">Partidos Listos</div>
           <div class="meta-val" style="color: #4ade80; font-size: 18px;">${matchesList.length}</div>
         </div>
       </div>
     </div>
 
-    <div class="instructions">
-      <strong>📌 ¿Cómo llegan las grabaciones acá?</strong><br>
-      Configurá en el DVR Dahua (o SmartPSS) para volcar las grabaciones continuas o por horario en la carpeta compartida <code>${WATCH_DIR}</code>.<br>
-      El sistema detecta automáticamente la cancha (Cancha 1 / Cancha 2), la cámara y la franja horaria para que se vea en la web.
-    </div>
-
     <div class="card">
-      <h2>🎥 Partidos Detectados y Listos (${matchesList.length})</h2>
+      <h2>🎥 Partidos Grabados (${matchesList.length})</h2>
       ${
         matchesList.length === 0
-          ? '<p style="color: #71717a; font-size: 13px; padding: 16px 0;">Esperando que el DVR guarde los primeros archivos de video en C:\\Grabaciones_Area41...</p>'
+          ? '<p style="color: #71717a; font-size: 13px; padding: 16px 0;">Descargando y sincronizando turnos finalizados desde el DVR Dahua...</p>'
           : `<table class="matches-table">
               <thead>
                 <tr>
@@ -390,19 +526,18 @@ const server = http.createServer((req, res) => {
     </div>
 
     <div class="card">
-      <h2>📋 Registro de Actividad en Vivo</h2>
+      <h2>📋 Registro de Sincronización</h2>
       <div class="log-box">
         ${
           logHistory.length > 0
             ? logHistory.map((l) => `<div>${l}</div>`).join('')
-            : '<div>Sistema iniciado correctamente. Esperando videos del DVR...</div>'
+            : '<div>Conectando con el DVR Dahua...</div>'
         }
       </div>
     </div>
   </div>
 
   <script>
-    // Auto-actualizar panel cada 10 segundos
     setTimeout(() => location.reload(), 10000);
   </script>
 </body>
@@ -412,15 +547,13 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('====================================================');
-  console.log('⚽ SISTEMA DE GRABACIÓN AUTOMÁTICA - ÁREA 41');
+  console.log('⚽ SERVIDOR DE GRABACIONES AUTOMÁTICAS - ÁREA 41');
   console.log('====================================================');
-  console.log(`[OK] Servidor activo y escuchando en el puerto ${PORT}`);
-  console.log(`📍 Acceso en esta PC:       http://localhost:${PORT}`);
-  console.log(`📱 Acceso en la red local:  http://${LOCAL_IP}:${PORT}`);
-  console.log(`📁 Carpeta de grabaciones:  ${WATCH_DIR}`);
-  console.log('----------------------------------------------------');
-  console.log('📡 Esperando grabaciones del DVR Dahua...');
-  console.log('[!] Mantén esta ventana abierta para el funcionamiento.');
+  console.log(`[OK] Servidor activo en puerto ${PORT}`);
+  console.log(`📹 Conectado al DVR Dahua:   http://${DAHUA_HOST}`);
+  console.log(`📍 Acceso local:             http://localhost:${PORT}`);
+  console.log(`📱 Acceso red local:         http://${LOCAL_IP}:${PORT}`);
+  console.log(`📁 Carpeta de grabaciones:   ${WATCH_DIR}`);
   console.log('====================================================');
-  addLog('Servidor de videos iniciado correctamente.');
+  addLog(`Servidor iniciado. Conectado a DVR Dahua (${DAHUA_HOST}).`);
 });

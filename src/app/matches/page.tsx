@@ -161,28 +161,38 @@ export default function MatchesPage() {
   // Sincronizar automáticamente con el servidor de grabaciones si está corriendo localmente
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const parseMatches = (data: any, baseHost: string) => {
+        if (data && Array.isArray(data.matches) && data.matches.length > 0) {
+          const mapped: RecordedMatch[] = data.matches.map((m: any) => ({
+            id: m.id,
+            courtId: m.courtId,
+            courtName: m.courtName,
+            cameraId: m.cameraId,
+            cameraName: m.cameraName,
+            date: m.date,
+            time: m.time,
+            title: `Partido ${m.time}`,
+            videoUrl: m.fullLocalUrl || `http://${baseHost}:4141${m.videoUrl}`,
+            downloadUrl: `http://${baseHost}:4141${m.downloadUrl}`,
+            durationMinutes: 60,
+            createdAt: m.detectedAt || new Date().toISOString(),
+          }));
+          setLocalServerMatches(mapped);
+          return true;
+        }
+        return false;
+      };
+
       fetch('http://localhost:4141/api/matches')
         .then((res) => res.json())
-        .then((data) => {
-          if (data && Array.isArray(data.matches)) {
-            const mapped: RecordedMatch[] = data.matches.map((m: any) => ({
-              id: m.id,
-              courtId: m.courtId,
-              courtName: m.courtName,
-              cameraId: m.cameraId,
-              cameraName: m.cameraName,
-              date: m.date,
-              time: m.time,
-              title: `Partido ${m.time}`,
-              videoUrl: m.fullLocalUrl || `http://localhost:4141${m.videoUrl}`,
-              downloadUrl: `http://localhost:4141${m.downloadUrl}`,
-              durationMinutes: 60,
-              createdAt: m.detectedAt || new Date().toISOString(),
-            }));
-            setLocalServerMatches(mapped);
-          }
-        })
-        .catch(() => {});
+        .then((d) => parseMatches(d, 'localhost'))
+        .catch(() => {
+          // Intentar por IP de red local para celulares conectados al Wi-Fi
+          fetch('http://192.168.1.212:4141/api/matches')
+            .then((r) => r.json())
+            .then((d) => parseMatches(d, '192.168.1.212'))
+            .catch(() => {});
+        });
     }
   }, []);
 
@@ -229,12 +239,12 @@ export default function MatchesPage() {
         downloadUrl: matchedInDb.downloadUrl || matchedInDb.videoUrl,
       });
     } else {
-      // Fallback sample video based on hour index so any past slot can be previewed immediately
-      const demoUrl = SAMPLE_VIDEOS[hourIndex % SAMPLE_VIDEOS.length];
+      // Si el servidor local está activo, podemos reproducir el streaming directo del turno
+      const directLocalUrl = `http://localhost:4141/video/${selectedCourtId}_${selectedCameraId}_${selectedDate}_${hourIndex.toString().padStart(2, '0')}-00.mp4`;
       setActivePlayingSlot({
         timeLabel: slotLabel,
-        videoUrl: demoUrl,
-        downloadUrl: demoUrl,
+        videoUrl: directLocalUrl,
+        downloadUrl: directLocalUrl,
       });
     }
   };
