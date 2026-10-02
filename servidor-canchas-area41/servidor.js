@@ -1,15 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
 const os = require('os');
-const { execFile } = require('child_process');
+const { spawn } = require('child_process');
 
 let ffmpegPath = null;
 try {
   ffmpegPath = require('ffmpeg-static');
 } catch (e) {
-  // Fallback to local node_modules path if needed
   const localFfmpeg = path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
   if (fs.existsSync(localFfmpeg)) ffmpegPath = localFfmpeg;
 }
@@ -19,10 +19,14 @@ try {
 // ============================================================================
 const PORT = 4141;
 const WATCH_DIR = path.join('C:', 'Grabaciones_Area41');
+const MAX_STORAGE_GB = 24; // Máximo 24 GB en disco para proteger espacio en C:
 
 const DAHUA_HOST = process.env.DAHUA_HOST || '192.168.1.108';
 const DAHUA_USER = process.env.DAHUA_USER || 'admin';
 const DAHUA_PASS = process.env.DAHUA_PASS || 'delfina2029';
+
+const SUPABASE_URL = 'https://nvnroianmerzznfzaqzo.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oYrYbWYLQPv1Bpr-pH_-iQ_jHXtBkZI';
 
 // Mapeo Canales Dahua <-> Canchas y Cámaras
 const CHANNEL_MAP = {
@@ -32,7 +36,14 @@ const CHANNEL_MAP = {
   4: { courtId: 'cancha-2', courtName: 'Cancha 2', cameraId: 'cam-2', cameraName: 'Cámara 2' },
 };
 
-// Crear la carpeta vigilada si no existe
+function getChannelNumber(courtId, cameraId) {
+  for (const [ch, info] of Object.entries(CHANNEL_MAP)) {
+    if (info.courtId === courtId && info.cameraId === cameraId) return parseInt(ch, 10);
+  }
+  return 1;
+}
+
+// Crear la carpeta de grabaciones si no existe
 if (!fs.existsSync(WATCH_DIR)) {
   try {
     fs.mkdirSync(WATCH_DIR, { recursive: true });
@@ -58,105 +69,137 @@ const LOCAL_IP = getLocalIp();
 // Lista de partidos disponibles en memoria
 const readyMatches = new Map(); // id -> match object
 let logHistory = [];
+let activePublicTunnelUrl = '';
+let activeOnDemandJob = null; // { key, progress, startTime }
 
 function addLog(msg) {
   const timestamp = new Date().toLocaleTimeString('es-AR');
   const logEntry = `[${timestamp}] ${msg}`;
   console.log(logEntry);
   logHistory.unshift(logEntry);
-  if (logHistory.length > 80) logHistory.pop();
+  if (logHistory.length > 100) logHistory.pop();
 }
 
 // ============================================================================
-// CLIENTE HTTP CON DIGEST AUTH PARA DVR DAHUA
+// GESTIÓN DE TÚNEL CLOUDFLARE Y REGISTRO EN SUPABASE
+// Permite que la gente vea los videos desde sus casas (4G/Wi-Fi externo)
 // ============================================================================
-function dahuaRequest(uri) {
-  return new Promise((resolve, reject) => {
-    const timeout = 6000;
-    const req1 = http.get(`http://${DAHUA_HOST}${uri}`, { timeout }, res1 => {
-      if (res1.statusCode !== 401) {
-        let b = '';
-        res1.on('data', c => b += c);
-        res1.on('end', () => resolve({ status: res1.statusCode, body: b }));
-        return;
-      }
-      const authHeader = res1.headers['www-authenticate'] || '';
-      const realmMatch = authHeader.match(/realm="([^"]+)"/);
-      const nonceMatch = authHeader.match(/nonce="([^"]+)"/);
-      if (!realmMatch || !nonceMatch) return reject(new Error('No digest header'));
+async function updateSupabaseTunnelUrl(tunnelUrl) {
+  activePublicTunnelUrl = tunnelUrl;
+  addLog(`🌐 Túnel Cloudflare activo: ${tunnelUrl}`);
 
-      const realm = realmMatch[1];
-      const nonce = nonceMatch[1];
-      const qop = 'auth';
-      const nc = '00000001';
-      const cnonce = crypto.randomBytes(8).toString('hex');
-
-      const ha1 = crypto.createHash('md5').update(`${DAHUA_USER}:${realm}:${DAHUA_PASS}`).digest('hex');
-      const ha2 = crypto.createHash('md5').update(`GET:${uri}`).digest('hex');
-      const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
-
-      const authVal = `Digest username="${DAHUA_USER}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}"`;
-
-      const req2 = http.get(`http://${DAHUA_HOST}${uri}`, { headers: { Authorization: authVal }, timeout }, res2 => {
-        let b = '';
-        res2.on('data', c => b += c);
-        res2.on('end', () => resolve({ status: res2.statusCode, body: b, headers: res2.headers }));
-      });
-      req2.on('error', reject);
-      req2.on('timeout', () => { req2.destroy(); reject(new Error('Timeout Dahua')); });
+  return new Promise((resolve) => {
+    const payload = JSON.stringify({
+      image_url: tunnelUrl,
+      is_active: true,
     });
-    req1.on('error', reject);
-    req1.on('timeout', () => { req1.destroy(); reject(new Error('Timeout Dahua')); });
-  });
-}
 
-// Descarga un archivo de video desde el DVR Dahua a un archivo temporal
-function downloadFromDahua(uri, outDavPath) {
-  return new Promise((resolve, reject) => {
-    http.get(`http://${DAHUA_HOST}${uri}`, res1 => {
-      if (res1.statusCode !== 401) return reject(new Error(`Expected 401, got ${res1.statusCode}`));
-
-      const authHeader = res1.headers['www-authenticate'] || '';
-      const realmMatch = authHeader.match(/realm="([^"]+)"/);
-      const nonceMatch = authHeader.match(/nonce="([^"]+)"/);
-      if (!realmMatch || !nonceMatch) return reject(new Error('No digest auth header'));
-
-      const realm = realmMatch[1];
-      const nonce = nonceMatch[1];
-      const qop = 'auth';
-      const nc = '00000001';
-      const cnonce = crypto.randomBytes(8).toString('hex');
-
-      const ha1 = crypto.createHash('md5').update(`${DAHUA_USER}:${realm}:${DAHUA_PASS}`).digest('hex');
-      const ha2 = crypto.createHash('md5').update(`GET:${uri}`).digest('hex');
-      const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
-
-      const authVal = `Digest username="${DAHUA_USER}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}"`;
-
-      http.get(`http://${DAHUA_HOST}${uri}`, { headers: { Authorization: authVal } }, res2 => {
-        if (res2.statusCode !== 200) return reject(new Error(`Dahua HTTP status ${res2.statusCode}`));
-        const fileStream = fs.createWriteStream(outDavPath);
-        res2.pipe(fileStream);
-        fileStream.on('finish', () => resolve(true));
-        fileStream.on('error', reject);
-      }).on('error', reject);
-    }).on('error', reject);
-  });
-}
-
-// Convertir DAV a MP4 estándar ultra-rápido (copiando stream de video H.264)
-function remuxDavToMp4(davPath, mp4Path) {
-  return new Promise((resolve, reject) => {
-    if (!ffmpegPath) return reject(new Error('ffmpeg-static no disponible'));
-    execFile(
-      ffmpegPath,
-      ['-y', '-i', davPath, '-c:v', 'copy', '-c:a', 'aac', mp4Path],
-      (err) => {
-        if (err) return reject(err);
-        resolve(true);
+    const req = https.request(
+      `${SUPABASE_URL}/rest/v1/background_images?id=eq.recording_server_tunnel`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            addLog(`✅ Supabase actualizado con la URL pública para la app.`);
+            resolve(true);
+          } else {
+            addLog(`⚠️ Error al actualizar Supabase (${res.statusCode}): ${body}`);
+            resolve(false);
+          }
+        });
       }
     );
+
+    req.on('error', (err) => {
+      addLog(`⚠️ Error de red al actualizar Supabase: ${err.message}`);
+      resolve(false);
+    });
+
+    req.write(payload);
+    req.end();
   });
+}
+
+function startCloudflareTunnel() {
+  const cloudflaredExe = path.join(__dirname, 'cloudflared.exe');
+  if (!fs.existsSync(cloudflaredExe)) {
+    addLog('⚠️ No se encontró cloudflared.exe en ' + __dirname);
+    return;
+  }
+
+  addLog('🚀 Iniciando túnel seguro Cloudflare...');
+  const tunnelProcess = spawn(cloudflaredExe, ['tunnel', '--url', `http://localhost:${PORT}`]);
+
+  const handleOutput = (data) => {
+    const str = data.toString();
+    const match = str.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+    if (match && match[0]) {
+      const url = match[0];
+      if (url !== activePublicTunnelUrl) {
+        updateSupabaseTunnelUrl(url);
+      }
+    }
+  };
+
+  tunnelProcess.stdout.on('data', handleOutput);
+  tunnelProcess.stderr.on('data', handleOutput);
+
+  tunnelProcess.on('close', (code) => {
+    addLog(`⚠️ Túnel Cloudflare finalizado (código ${code}). Reiniciando en 5s...`);
+    setTimeout(startCloudflareTunnel, 5000);
+  });
+}
+
+// ============================================================================
+// CONTROL DE ESPACIO EN DISCO (PREVENIR QUE SE LLENE C:)
+// ============================================================================
+function enforceStorageLimit() {
+  try {
+    if (!fs.existsSync(WATCH_DIR)) return;
+    const files = fs.readdirSync(WATCH_DIR);
+    const mp4Files = [];
+    let totalBytes = 0;
+
+    for (const f of files) {
+      if (f.toLowerCase().endsWith('.mp4')) {
+        const full = path.join(WATCH_DIR, f);
+        try {
+          const st = fs.statSync(full);
+          totalBytes += st.size;
+          mp4Files.push({ name: f, path: full, size: st.size, mtime: st.mtimeMs });
+        } catch (_) {}
+      }
+    }
+
+    const maxBytes = MAX_STORAGE_GB * 1024 * 1024 * 1024;
+    if (totalBytes > maxBytes) {
+      // Ordenar los más antiguos primero
+      mp4Files.sort((a, b) => a.mtime - b.mtime);
+      while (totalBytes > maxBytes && mp4Files.length > 0) {
+        const oldest = mp4Files.shift();
+        try {
+          fs.unlinkSync(oldest.path);
+          readyMatches.delete(oldest.name);
+          totalBytes -= oldest.size;
+          addLog(`🧹 Espacio liberado: se eliminó grabación antigua ${oldest.name} (${(oldest.size / (1024 * 1024)).toFixed(1)} MB)`);
+        } catch (e) {
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error al verificar almacenamiento:', err.message);
+  }
 }
 
 // ============================================================================
@@ -183,30 +226,27 @@ function scanLocalFiles() {
 }
 
 function parseAndRegisterMatch(fileName, sizeBytes) {
-  // ej: cancha1_cam1_2026-10-02_18-00.mp4
   const lower = fileName.toLowerCase();
   let courtId = 'cancha-1';
   let courtName = 'Cancha 1';
   let cameraId = 'cam-1';
   let cameraName = 'Cámara 1';
 
-  if (lower.includes('cancha2') || lower.includes('cancha-2') || lower.includes('ch03') || lower.includes('ch04')) {
+  if (lower.includes('cancha-2') || lower.includes('cancha2')) {
     courtId = 'cancha-2';
     courtName = 'Cancha 2';
   }
-  if (lower.includes('cam2') || lower.includes('cam-2') || lower.includes('ch02') || lower.includes('ch04')) {
+  if (lower.includes('cam-2') || lower.includes('cam2')) {
     cameraId = 'cam-2';
     cameraName = 'Cámara 2';
   }
 
-  // Detectar fecha
   let dateStr = new Date().toISOString().split('T')[0];
   const dateMatch = fileName.match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
   if (dateMatch) {
     dateStr = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
   }
 
-  // Detectar hora (ej: _18-00 o _180000 o 18h)
   let startHour = 18;
   const hourMatch = fileName.match(/_(\d{2})[-_]\d{2}/) || fileName.match(/_(\d{2})\d{4}/);
   if (hourMatch) {
@@ -217,7 +257,6 @@ function parseAndRegisterMatch(fileName, sizeBytes) {
   const startStr = startHour.toString().padStart(2, '0');
   const endStr = endHour.toString().padStart(2, '0');
   const timeStr = `${startStr}:00 a ${endStr}:00 hs`;
-
   const sizeMb = (sizeBytes / (1024 * 1024)).toFixed(1);
 
   const matchObj = {
@@ -234,6 +273,7 @@ function parseAndRegisterMatch(fileName, sizeBytes) {
     videoUrl: `/video/${encodeURIComponent(fileName)}`,
     downloadUrl: `/download/${encodeURIComponent(fileName)}`,
     fullLocalUrl: `http://${LOCAL_IP}:${PORT}/video/${encodeURIComponent(fileName)}`,
+    fullOnlineUrl: activePublicTunnelUrl ? `${activePublicTunnelUrl}/video/${encodeURIComponent(fileName)}` : '',
     detectedAt: new Date().toISOString(),
   };
 
@@ -241,89 +281,176 @@ function parseAndRegisterMatch(fileName, sizeBytes) {
 }
 
 // ============================================================================
-// SINCRONIZACIÓN AUTOMÁTICA CON EL DVR DAHUA
-// Detecta las horas finalizadas hoy y las descarga a MP4
+// DESCARGA DIRECTA POR PIPE DE DAHUA A MP4 OPTIMIZADO (FASTSTART)
+// Sin crear archivo .dav temporal: ahorra 50% de disco y es 2x más rápido
 // ============================================================================
-let isSyncing = false;
+function downloadAndRemuxMatch(channel, dateStr, hour) {
+  return new Promise((resolve, reject) => {
+    const camInfo = CHANNEL_MAP[channel];
+    if (!camInfo) return reject(new Error('Canal no válido: ' + channel));
+    if (!ffmpegPath) return reject(new Error('ffmpeg no encontrado'));
 
-async function syncWithDahuaDvr() {
-  if (isSyncing) return;
-  isSyncing = true;
+    const startHourStr = hour.toString().padStart(2, '0');
+    const endHourStr = ((hour + 1) % 24).toString().padStart(2, '0');
+    const targetFileName = `${camInfo.courtId}_${camInfo.cameraId}_${dateStr}_${startHourStr}-00.mp4`;
+    const targetMp4Path = path.join(WATCH_DIR, targetFileName);
+    const tempMp4Path = path.join(WATCH_DIR, `part_${targetFileName}`);
+
+    // Si ya existe y es válido
+    if (fs.existsSync(targetMp4Path)) {
+      const st = fs.statSync(targetMp4Path);
+      if (st.size > 100000) {
+        parseAndRegisterMatch(targetFileName, st.size);
+        return resolve({ fileName: targetFileName, path: targetMp4Path, size: st.size });
+      }
+    }
+
+    enforceStorageLimit();
+
+    const startParam = `${dateStr}%20${startHourStr}:00:00`;
+    const endParam = `${dateStr}%20${endHourStr}:00:00`;
+    const uri = `/cgi-bin/loadfile.cgi?action=startLoad&channel=${channel}&startTime=${startParam}&endTime=${endParam}`;
+
+    http.get(`http://${DAHUA_HOST}${uri}`, (res1) => {
+      if (res1.statusCode !== 401) {
+        return reject(new Error(`Autenticación Dahua falló con código ${res1.statusCode}`));
+      }
+
+      const authHeader = res1.headers['www-authenticate'] || '';
+      const realmMatch = authHeader.match(/realm="([^"]+)"/);
+      const nonceMatch = authHeader.match(/nonce="([^"]+)"/);
+      if (!realmMatch || !nonceMatch) return reject(new Error('No digest header'));
+
+      const realm = realmMatch[1];
+      const nonce = nonceMatch[1];
+      const qop = 'auth';
+      const nc = '00000001';
+      const cnonce = crypto.randomBytes(8).toString('hex');
+
+      const ha1 = crypto.createHash('md5').update(`${DAHUA_USER}:${realm}:${DAHUA_PASS}`).digest('hex');
+      const ha2 = crypto.createHash('md5').update(`GET:${uri}`).digest('hex');
+      const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
+
+      const authVal = `Digest username="${DAHUA_USER}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}"`;
+
+      http.get(`http://${DAHUA_HOST}${uri}`, { headers: { Authorization: authVal } }, (res2) => {
+        if (res2.statusCode !== 200) {
+          return reject(new Error(`Dahua HTTP respondió con ${res2.statusCode}`));
+        }
+
+        addLog(`📥 Extrayendo y optimizando video: [${camInfo.courtName} - ${camInfo.cameraName}] ${dateStr} ${startHourStr}:00 hs`);
+
+        // Lanzar ffmpeg directamente desde stdin (pipe)
+        const ff = spawn(ffmpegPath, [
+          '-y',
+          '-f', 'h264',
+          '-i', 'pipe:0',
+          '-c:v', 'copy',
+          '-c:a', 'aac',
+          '-movflags', '+faststart',
+          tempMp4Path,
+        ]);
+
+        res2.pipe(ff.stdin);
+
+        ff.on('close', (code) => {
+          if (code === 0 && fs.existsSync(tempMp4Path)) {
+            const st = fs.statSync(tempMp4Path);
+            if (st.size > 100000) {
+              try { fs.renameSync(tempMp4Path, targetMp4Path); } catch (_) {}
+              parseAndRegisterMatch(targetFileName, st.size);
+              enforceStorageLimit();
+              addLog(`✅ ¡LISTO PARA VER ONLINE! [${camInfo.courtName} - ${camInfo.cameraName}] ${dateStr} ${startHourStr}:00 hs (${(st.size / (1024 * 1024)).toFixed(1)} MB)`);
+              return resolve({ fileName: targetFileName, path: targetMp4Path, size: st.size });
+            }
+          }
+          try { if (fs.existsSync(tempMp4Path)) fs.unlinkSync(tempMp4Path); } catch (_) {}
+          resolve(null);
+        });
+
+        ff.on('error', (err) => {
+          try { if (fs.existsSync(tempMp4Path)) fs.unlinkSync(tempMp4Path); } catch (_) {}
+          reject(err);
+        });
+      }).on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+// ============================================================================
+// SINCRONIZACIÓN AUTOMÁTICA INTELIGENTE EN SEGUNDO PLANO
+// Prioriza horas pico de HOY y de AYER en orden inverso (más recientes primero)
+// ============================================================================
+let isBackgroundSyncing = false;
+
+async function syncRecentMatches() {
+  if (isBackgroundSyncing || activeOnDemandJob) return;
+  isBackgroundSyncing = true;
 
   try {
-    const today = new Date();
-    const dateStr = today.toISOString().split('T')[0];
-    const currentHour = today.getHours();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
 
-    // Revisar los canales de las cámaras
-    for (let channel = 1; channel <= 4; channel++) {
-      const camInfo = CHANNEL_MAP[channel];
-      if (!camInfo) continue;
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-      // Buscar turnos terminados hoy (desde las 00:00 hasta la hora anterior)
-      for (let h = 0; h < currentHour; h++) {
-        const startHourStr = h.toString().padStart(2, '0');
-        const endHourStr = ((h + 1) % 24).toString().padStart(2, '0');
-        const targetFileName = `${camInfo.courtId}_${camInfo.cameraId}_${dateStr}_${startHourStr}-00.mp4`;
-        const targetMp4Path = path.join(WATCH_DIR, targetFileName);
+    const currentHour = now.getHours();
 
-        // Si ya lo tenemos descargado y listo, registrarlo
-        if (fs.existsSync(targetMp4Path)) {
-          const stats = fs.statSync(targetMp4Path);
-          if (stats.size > 10000) {
-            parseAndRegisterMatch(targetFileName, stats.size);
-            continue;
-          }
-        }
+    // 1. Horas de HOY en orden inverso (de turno anterior hacia atrás)
+    const todayHours = [];
+    for (let h = currentHour - 1; h >= 14; h--) todayHours.push(h);
+    for (let h = 23; h > currentHour; h--) todayHours.push(h);
+    for (let h = 13; h >= 8; h--) todayHours.push(h);
 
-        // Si no está descargado todavía, pedirlo al DVR Dahua
-        try {
-          addLog(`📥 Descargando grabación de DVR: [${camInfo.courtName} - ${camInfo.cameraName}] Turno ${startHourStr}:00 a ${endHourStr}:00 hs...`);
-          
-          const startParam = `${dateStr}%20${startHourStr}:00:00`;
-          const endParam = `${dateStr}%20${endHourStr}:00:00`;
-          const loadUri = `/cgi-bin/loadfile.cgi?action=startLoad&channel=${channel}&startTime=${startParam}&endTime=${endParam}`;
+    // 2. Horas de AYER (las más jugadas: tarde y noche)
+    const yesterdayHours = [23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12];
 
-          const tempDav = path.join(WATCH_DIR, `temp_${camInfo.courtId}_${camInfo.cameraId}_${h}.dav`);
-          await downloadFromDahua(loadUri, tempDav);
+    const tasks = [];
+    for (const h of todayHours) {
+      for (let ch = 1; ch <= 4; ch++) {
+        tasks.push({ channel: ch, date: todayStr, hour: h });
+      }
+    }
+    for (const h of yesterdayHours) {
+      for (let ch = 1; ch <= 4; ch++) {
+        tasks.push({ channel: ch, date: yesterdayStr, hour: h });
+      }
+    }
 
-          const davStats = fs.statSync(tempDav);
-          if (davStats.size > 100000) {
-            addLog(`🔄 Convirtiendo a MP4 optimizado para web (${(davStats.size / (1024 * 1024)).toFixed(1)} MB)...`);
-            await remuxDavToMp4(tempDav, targetMp4Path);
-            try { fs.unlinkSync(tempDav); } catch (_) {}
+    for (const t of tasks) {
+      if (activeOnDemandJob) break; // Si alguien pide un partido en la web, pausar esto
 
-            const mp4Stats = fs.statSync(targetMp4Path);
-            parseAndRegisterMatch(targetFileName, mp4Stats.size);
-            addLog(`✅ ¡LISTO! Partido grabado y disponible en la app: [${camInfo.courtName} - ${camInfo.cameraName}] ${startHourStr}:00 hs (${(mp4Stats.size / (1024 * 1024)).toFixed(1)} MB)`);
-          } else {
-            // Archivo vacío o sin movimiento en ese horario
-            try { fs.unlinkSync(tempDav); } catch (_) {}
-          }
-        } catch (downloadErr) {
-          // Si el DVR no tiene video en esa franja horaria o timeout
-        }
+      const camInfo = CHANNEL_MAP[t.channel];
+      const startHourStr = t.hour.toString().padStart(2, '0');
+      const targetFileName = `${camInfo.courtId}_${camInfo.cameraId}_${t.date}_${startHourStr}-00.mp4`;
+      const targetPath = path.join(WATCH_DIR, targetFileName);
+
+      if (fs.existsSync(targetPath)) continue;
+
+      try {
+        await downloadAndRemuxMatch(t.channel, t.date, t.hour);
+      } catch (err) {
+        // Horario sin grabación o DVR ocupado
       }
     }
   } catch (err) {
-    addLog(`⚠️ Error al sincronizar con DVR Dahua: ${err.message}`);
+    addLog(`⚠️ Error en sincronización de fondo: ${err.message}`);
   } finally {
-    isSyncing = false;
+    isBackgroundSyncing = false;
   }
 }
 
-// Escanear carpeta local cada 5 segundos
-setInterval(scanLocalFiles, 5000);
+// Iniciar escaneo cada 5s y sincronización de fondo cada 2 minutos
 scanLocalFiles();
+setInterval(scanLocalFiles, 5000);
 
-// Sincronizar con DVR Dahua al inicio y cada 3 minutos
-syncWithDahuaDvr();
-setInterval(syncWithDahuaDvr, 180000);
+setTimeout(syncRecentMatches, 3000);
+setInterval(syncRecentMatches, 120000);
 
 // ============================================================================
-// SERVIDOR WEB Y DE STREAMING DE VIDEO (HTTP RANGE / 206 PARTIAL CONTENT)
+// SERVIDOR HTTP CON SOPORTE DE STREAMING Y API
 // ============================================================================
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
@@ -341,33 +468,107 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/matches') {
     const list = Array.from(readyMatches.values());
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, matches: list, serverIp: LOCAL_IP, port: PORT }));
+    res.end(
+      JSON.stringify({
+        ok: true,
+        matches: list,
+        serverIp: LOCAL_IP,
+        port: PORT,
+        tunnelUrl: activePublicTunnelUrl,
+      })
+    );
     return;
   }
 
-  // 2. Healthcheck / Estado
+  // 2. API: Preparación de partido a demanda (On-Demand)
+  // Cuando un usuario toca un turno que aún no se terminó de convertir
+  if (pathname === '/api/prepare-match') {
+    const courtId = parsedUrl.searchParams.get('courtId') || 'cancha-1';
+    const cameraId = parsedUrl.searchParams.get('cameraId') || 'cam-1';
+    const date = parsedUrl.searchParams.get('date') || new Date().toISOString().split('T')[0];
+    const hour = parseInt(parsedUrl.searchParams.get('hour') || '18', 10);
+
+    const channel = getChannelNumber(courtId, cameraId);
+    const startHourStr = hour.toString().padStart(2, '0');
+    const targetFileName = `${courtId}_${cameraId}_${date}_${startHourStr}-00.mp4`;
+    const targetPath = path.join(WATCH_DIR, targetFileName);
+
+    // Si ya existe
+    if (fs.existsSync(targetPath)) {
+      const match = readyMatches.get(targetFileName);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ready: true, match }));
+      return;
+    }
+
+    // Si ya se está descargando ahora mismo
+    const jobKey = `${channel}_${date}_${hour}`;
+    if (activeOnDemandJob && activeOnDemandJob.key === jobKey) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          ready: false,
+          status: 'downloading',
+          message: 'Extrayendo video de alta calidad del DVR... Por favor esperá unos segundos.',
+        })
+      );
+      return;
+    }
+
+    // Iniciar preparación con máxima prioridad
+    activeOnDemandJob = { key: jobKey, startTime: Date.now() };
+    addLog(`⚡ Solicitud inmediata del usuario: preparando ${targetFileName}...`);
+
+    downloadAndRemuxMatch(channel, date, hour)
+      .then((resMatch) => {
+        activeOnDemandJob = null;
+        if (resMatch) {
+          addLog(`🎉 Partido solicitado listo para reproducir: ${targetFileName}`);
+        }
+      })
+      .catch((err) => {
+        activeOnDemandJob = null;
+        addLog(`❌ Error procesando solicitud inmediata: ${err.message}`);
+      });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        ready: false,
+        status: 'started',
+        message: 'Iniciando descarga y optimización del partido desde el DVR.',
+      })
+    );
+    return;
+  }
+
+  // 3. Healthcheck / Estado
   if (pathname === '/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'online',
-      dahuaHost: DAHUA_HOST,
-      watchDir: WATCH_DIR,
-      totalMatches: readyMatches.size,
-      localIp: LOCAL_IP,
-      port: PORT,
-      uptimeMinutes: Math.floor(process.uptime() / 60)
-    }));
+    res.end(
+      JSON.stringify({
+        status: 'online',
+        dahuaHost: DAHUA_HOST,
+        tunnelUrl: activePublicTunnelUrl,
+        totalMatches: readyMatches.size,
+        localIp: LOCAL_IP,
+        port: PORT,
+        activeJob: activeOnDemandJob ? activeOnDemandJob.key : null,
+      })
+    );
     return;
   }
 
-  // 3. Streaming de Video con soporte de Range (seeking fluido)
+  // 4. Streaming de Video con soporte de Range (Seeking en el navegador)
   if (pathname.startsWith('/video/')) {
     const fileName = path.basename(pathname.replace('/video/', ''));
     const filePath = path.join(WATCH_DIR, fileName);
 
     if (!fs.existsSync(filePath)) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Video no encontrado');
+      res.end('Video no encontrado o en procesamiento');
       return;
     }
 
@@ -403,7 +604,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 4. Descarga directa de video
+  // 5. Descarga directa de archivo
   if (pathname.startsWith('/download/')) {
     const fileName = path.basename(pathname.replace('/download/', ''));
     const filePath = path.join(WATCH_DIR, fileName);
@@ -424,122 +625,79 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5. Panel de Control Web y Monitoreo Local
+  // 6. Panel de Control HTML
   const matchesList = Array.from(readyMatches.values());
-
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(`
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Área 41 - Servidor de Grabaciones</title>
+  <title>Área 41 - Servidor Automático de Grabaciones</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0a0a0c; color: #f4f4f5; padding: 24px; }
     .container { max-width: 960px; margin: 0 auto; }
-    .header { background: linear-gradient(135deg, #18181b 0%, #09090b 100%); border: 1px solid #27272a; border-radius: 16px; padding: 28px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    .title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-    h1 { font-size: 24px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .header { background: linear-gradient(135deg, #18181b 0%, #09090b 100%); border: 1px solid #27272a; border-radius: 16px; padding: 28px; margin-bottom: 24px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; }
     .pulse { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; }
     .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px; }
     .meta-box { background: #121215; border: 1px solid #27272a; border-radius: 12px; padding: 14px 18px; }
-    .meta-label { font-size: 11px; text-transform: uppercase; color: #a1a1aa; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .meta-label { font-size: 11px; text-transform: uppercase; color: #a1a1aa; margin-bottom: 4px; }
     .meta-val { font-size: 14px; font-weight: 600; color: #fff; word-break: break-all; }
     .card { background: #121215; border: 1px solid #27272a; border-radius: 16px; padding: 24px; margin-bottom: 24px; }
-    h2 { font-size: 17px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: #fafafa; }
     .matches-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .matches-table th { text-align: left; padding: 10px 14px; font-size: 12px; color: #a1a1aa; border-bottom: 1px solid #27272a; }
     .matches-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #1c1c20; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all 0.2s; }
+    .btn { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; }
     .btn-play { background: #22c55e; color: #000; font-weight: 700; }
-    .btn-play:hover { background: #16a34a; }
     .btn-download { background: #27272a; color: #fff; border: 1px solid #3f3f46; margin-left: 6px; }
-    .btn-download:hover { background: #3f3f46; }
-    .log-box { background: #000; border: 1px solid #1f1f23; border-radius: 10px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #4ade80; max-height: 220px; overflow-y: auto; line-height: 1.6; }
+    .log-box { background: #000; border: 1px solid #1f1f23; border-radius: 10px; padding: 16px; font-family: monospace; font-size: 12px; color: #4ade80; max-height: 220px; overflow-y: auto; line-height: 1.6; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="title-row">
-        <h1>⚽ Complejo Área 41 - Servidor Automático</h1>
-        <div class="badge"><div class="pulse"></div> CONECTADO AL DVR (${DAHUA_HOST})</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h1>⚽ Servidor de Grabaciones Área 41</h1>
+        <div class="badge"><div class="pulse"></div> DVR ONLINE</div>
       </div>
       <div class="meta-grid">
-        <div class="meta-box">
-          <div class="meta-label">DVR Dahua</div>
-          <div class="meta-val">http://${DAHUA_HOST}</div>
-        </div>
-        <div class="meta-box">
-          <div class="meta-label">Carpeta en esta PC</div>
-          <div class="meta-val">${WATCH_DIR}</div>
-        </div>
-        <div class="meta-box">
-          <div class="meta-label">Acceso Local</div>
-          <div class="meta-val">http://localhost:${PORT}</div>
-        </div>
-        <div class="meta-box">
-          <div class="meta-label">Partidos Listos</div>
-          <div class="meta-val" style="color: #4ade80; font-size: 18px;">${matchesList.length}</div>
-        </div>
+        <div class="meta-box"><div class="meta-label">Acceso Online (Túnel Cloudflare)</div><div class="meta-val" style="color:#4ade80;">${activePublicTunnelUrl || 'Iniciando túnel...'}</div></div>
+        <div class="meta-box"><div class="meta-label">DVR Dahua</div><div class="meta-val">http://${DAHUA_HOST}</div></div>
+        <div class="meta-box"><div class="meta-label">Acceso Local</div><div class="meta-val">http://localhost:${PORT}</div></div>
+        <div class="meta-box"><div class="meta-label">Partidos Listos</div><div class="meta-val" style="color:#4ade80; font-size:18px;">${matchesList.length}</div></div>
       </div>
     </div>
-
     <div class="card">
-      <h2>🎥 Partidos Grabados (${matchesList.length})</h2>
-      ${
-        matchesList.length === 0
-          ? '<p style="color: #71717a; font-size: 13px; padding: 16px 0;">Descargando y sincronizando turnos finalizados desde el DVR Dahua...</p>'
-          : `<table class="matches-table">
-              <thead>
-                <tr>
-                  <th>Cancha</th>
-                  <th>Cámara</th>
-                  <th>Fecha</th>
-                  <th>Horario</th>
-                  <th>Tamaño</th>
-                  <th>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${matchesList
-                  .map(
-                    (m) => `<tr>
-                    <td><strong>${m.courtName}</strong></td>
-                    <td>${m.cameraName}</td>
-                    <td>${m.date}</td>
-                    <td><span style="color: #4ade80; font-weight: 600;">${m.time}</span></td>
-                    <td>${m.sizeMb}</td>
-                    <td>
-                      <a href="${m.videoUrl}" target="_blank" class="btn btn-play">▶ Ver</a>
-                      <a href="${m.downloadUrl}" class="btn btn-download">⬇ Descargar</a>
-                    </td>
-                  </tr>`
-                  )
-                  .join('')}
-              </tbody>
-            </table>`
-      }
+      <h2>🎥 Partidos Disponibles (${matchesList.length})</h2>
+      <table class="matches-table">
+        <thead><tr><th>Cancha</th><th>Cámara</th><th>Fecha</th><th>Horario</th><th>Tamaño</th><th>Acción</th></tr></thead>
+        <tbody>
+          ${matchesList
+            .map(
+              (m) => `<tr>
+              <td><strong>${m.courtName}</strong></td>
+              <td>${m.cameraName}</td>
+              <td>${m.date}</td>
+              <td><span style="color:#4ade80; font-weight:600;">${m.time}</span></td>
+              <td>${m.sizeMb}</td>
+              <td>
+                <a href="${m.videoUrl}" target="_blank" class="btn btn-play">▶ Ver</a>
+                <a href="${m.downloadUrl}" class="btn btn-download">⬇ Descargar</a>
+              </td>
+            </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
     </div>
-
     <div class="card">
-      <h2>📋 Registro de Sincronización</h2>
-      <div class="log-box">
-        ${
-          logHistory.length > 0
-            ? logHistory.map((l) => `<div>${l}</div>`).join('')
-            : '<div>Conectando con el DVR Dahua...</div>'
-        }
-      </div>
+      <h2>📋 Registro en Tiempo Real</h2>
+      <div class="log-box">${logHistory.map((l) => `<div>${l}</div>`).join('')}</div>
     </div>
   </div>
-
-  <script>
-    setTimeout(() => location.reload(), 10000);
-  </script>
+  <script>setTimeout(() => location.reload(), 10000);</script>
 </body>
 </html>
   `);
@@ -556,4 +714,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📁 Carpeta de grabaciones:   ${WATCH_DIR}`);
   console.log('====================================================');
   addLog(`Servidor iniciado. Conectado a DVR Dahua (${DAHUA_HOST}).`);
+
+  // Iniciar túnel de Cloudflare automático
+  startCloudflareTunnel();
 });

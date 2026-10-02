@@ -46,6 +46,8 @@ firestore-debug.log
 
 # local recordings server binaries & tests
 servidor-canchas-area41/node.exe
+servidor-canchas-area41/cloudflared.exe
 servidor-canchas-area41/node_modules/
+servidor-canchas-area41/*.mp4
 test_*.js
 SUBIR_CAMBIOS_A_GITHUB.bat

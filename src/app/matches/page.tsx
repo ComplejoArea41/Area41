@@ -33,6 +33,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 // 4 cameras in total: 2 for Cancha 1, 2 for Cancha 2
 const CAMERAS_BY_COURT: Record<
@@ -157,51 +158,144 @@ export default function MatchesPage() {
   }, [selectedDate]);
 
   const [localServerMatches, setLocalServerMatches] = useState<RecordedMatch[]>([]);
+  const [serverBaseUrl, setServerBaseUrl] = useState<string>('');
+  const [preparingSlot, setPreparingSlot] = useState<{
+    courtId: string;
+    cameraId: string;
+    date: string;
+    hour: number;
+    label: string;
+    message: string;
+  } | null>(null);
 
-  // Sincronizar automáticamente con el servidor de grabaciones si está corriendo localmente
+  // Sincronizar partidos online vía túnel público de Cloudflare y base de datos
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const parseMatches = (data: any, baseHost: string) => {
-        if (data && Array.isArray(data.matches) && data.matches.length > 0) {
-          const mapped: RecordedMatch[] = data.matches.map((m: any) => ({
-            id: m.id,
-            courtId: m.courtId,
-            courtName: m.courtName,
-            cameraId: m.cameraId,
-            cameraName: m.cameraName,
-            date: m.date,
-            time: m.time,
-            title: `Partido ${m.time}`,
-            videoUrl: m.fullLocalUrl || `http://${baseHost}:4141${m.videoUrl}`,
-            downloadUrl: `http://${baseHost}:4141${m.downloadUrl}`,
-            durationMinutes: 60,
-            createdAt: m.detectedAt || new Date().toISOString(),
-          }));
-          setLocalServerMatches(mapped);
-          return true;
+      const loadMatches = async () => {
+        try {
+          // 1. Obtener la URL pública del túnel Cloudflare desde Supabase
+          const { data: tunnelRow } = await supabase
+            .from('background_images')
+            .select('image_url')
+            .eq('id', 'recording_server_tunnel')
+            .single();
+
+          const publicTunnel = tunnelRow?.image_url;
+
+          // 2. Intentar túnel público primero (para ver online desde cualquier casa o celular)
+          const candidates: string[] = [];
+          if (publicTunnel) candidates.push(`${publicTunnel}/api/matches`);
+          candidates.push('http://localhost:4141/api/matches');
+          candidates.push('http://192.168.1.212:4141/api/matches');
+
+          for (const url of candidates) {
+            try {
+              const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+              const data = await res.json();
+              if (data && Array.isArray(data.matches)) {
+                // Determinar el host base público para los links de video y descarga
+                let base = '';
+                if (publicTunnel) {
+                  base = publicTunnel;
+                } else if (url.startsWith('http')) {
+                  base = new URL(url).origin;
+                }
+                setServerBaseUrl(base);
+
+                const mapped: RecordedMatch[] = data.matches.map((m: any) => {
+                  let vUrl = m.videoUrl || '';
+                  let dUrl = m.downloadUrl || m.videoUrl || '';
+                  if (!vUrl.startsWith('http')) {
+                    vUrl = `${base}${vUrl}`;
+                  }
+                  if (!dUrl.startsWith('http')) {
+                    dUrl = `${base}${dUrl}`;
+                  }
+                  return {
+                    id: m.id,
+                    courtId: m.courtId,
+                    courtName: m.courtName,
+                    cameraId: m.cameraId,
+                    cameraName: m.cameraName,
+                    date: m.date,
+                    time: m.time,
+                    title: `Partido ${m.time}`,
+                    videoUrl: vUrl,
+                    downloadUrl: dUrl,
+                    durationMinutes: 60,
+                    createdAt: m.detectedAt || new Date().toISOString(),
+                  };
+                });
+                setLocalServerMatches(mapped);
+                break;
+              }
+            } catch (_) {}
+          }
+        } catch (e) {
+          console.error('Error cargando partidos online:', e);
         }
-        return false;
       };
 
-      fetch('http://localhost:4141/api/matches')
-        .then((res) => res.json())
-        .then((d) => parseMatches(d, 'localhost'))
-        .catch(() => {
-          // Intentar por IP de red local para celulares conectados al Wi-Fi
-          fetch('http://192.168.1.212:4141/api/matches')
-            .then((r) => r.json())
-            .then((d) => parseMatches(d, '192.168.1.212'))
-            .catch(() => {});
-        });
+      loadMatches();
+      const interval = setInterval(loadMatches, 15000);
+      return () => clearInterval(interval);
     }
   }, []);
+
+  // Polling para preparación a demanda si el usuario tocó un turno que se está procesando
+  useEffect(() => {
+    if (!preparingSlot || !serverBaseUrl) return;
+
+    let isMounted = true;
+    const pollInterval = setInterval(async () => {
+      try {
+        const queryUrl = `${serverBaseUrl}/api/prepare-match?courtId=${preparingSlot.courtId}&cameraId=${preparingSlot.cameraId}&date=${preparingSlot.date}&hour=${preparingSlot.hour}`;
+        const res = await fetch(queryUrl);
+        const data = await res.json();
+
+        if (!isMounted) return;
+
+        if (data.ready && data.match) {
+          let vUrl = data.match.videoUrl;
+          let dUrl = data.match.downloadUrl || vUrl;
+          if (!vUrl.startsWith('http')) vUrl = `${serverBaseUrl}${vUrl}`;
+          if (!dUrl.startsWith('http')) dUrl = `${serverBaseUrl}${dUrl}`;
+
+          toast({
+            title: '¡Video preparado!',
+            description: `El partido de ${preparingSlot.label} ya está listo para reproducir.`,
+          });
+
+          setActivePlayingSlot({
+            timeLabel: preparingSlot.label,
+            videoUrl: vUrl,
+            downloadUrl: dUrl,
+          });
+          setPreparingSlot(null);
+        } else if (data.message) {
+          setPreparingSlot((prev) => (prev ? { ...prev, message: data.message } : null));
+        }
+      } catch (err) {
+        // Reintentando
+      }
+    }, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
+  }, [preparingSlot, serverBaseUrl, toast]);
+
+  const allMatches = useMemo(() => {
+    return [...(dbMatches || []), ...localServerMatches];
+  }, [dbMatches, localServerMatches]);
 
   // Handle clicking a specific 1-hour slot
   const handleSelectSlot = (slotLabel: string, hourIndex: number) => {
     if (isFutureDate) {
       toast({
         title: 'Fecha futura',
-        description: 'Esta fecha aún no ha transcurrido. Las grabaciones quedan disponibles 1 hora después de finalizar cada turno.',
+        description: 'Esta fecha aún no ha transcurrido. Las grabaciones quedan disponibles luego de disputarse cada partido.',
       });
       return;
     }
@@ -209,7 +303,7 @@ export default function MatchesPage() {
     if (isToday && hourIndex > currentHour) {
       toast({
         title: 'Horario aún no jugado',
-        description: 'Este turno aún no se disputó. Podrás revivirlo 1 hora después de finalizado el partido.',
+        description: 'Este turno aún no se disputó. Podrás revivirlo luego de finalizado el partido.',
       });
       return;
     }
@@ -222,8 +316,7 @@ export default function MatchesPage() {
       return;
     }
 
-    const allMatches = [...(dbMatches || []), ...localServerMatches];
-    // Check if there is an uploaded match in database or local server for this court, camera, date and slot
+    // Buscar si ya está el video disponible para esta cancha, cámara, fecha y turno
     const matchedInDb = allMatches.find((m) => {
       const matchCourt = m.courtId === selectedCourtId;
       const matchCam = (m.cameraId || 'cam-1') === selectedCameraId;
@@ -238,13 +331,43 @@ export default function MatchesPage() {
         videoUrl: matchedInDb.videoUrl,
         downloadUrl: matchedInDb.downloadUrl || matchedInDb.videoUrl,
       });
+      return;
+    }
+
+    // Si aún no está en cache, iniciar preparación a demanda desde el DVR
+    if (serverBaseUrl) {
+      setPreparingSlot({
+        courtId: selectedCourtId,
+        cameraId: selectedCameraId,
+        date: selectedDate,
+        hour: hourIndex,
+        label: slotLabel,
+        message: 'Descargando grabación en alta resolución desde el DVR Dahua...',
+      });
+
+      fetch(
+        `${serverBaseUrl}/api/prepare-match?courtId=${selectedCourtId}&cameraId=${selectedCameraId}&date=${selectedDate}&hour=${hourIndex}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ready && data.match) {
+            let vUrl = data.match.videoUrl;
+            let dUrl = data.match.downloadUrl || vUrl;
+            if (!vUrl.startsWith('http')) vUrl = `${serverBaseUrl}${vUrl}`;
+            if (!dUrl.startsWith('http')) dUrl = `${serverBaseUrl}${dUrl}`;
+            setPreparingSlot(null);
+            setActivePlayingSlot({
+              timeLabel: slotLabel,
+              videoUrl: vUrl,
+              downloadUrl: dUrl,
+            });
+          }
+        })
+        .catch(() => {});
     } else {
-      // Si el servidor local está activo, podemos reproducir el streaming directo del turno
-      const directLocalUrl = `http://localhost:4141/video/${selectedCourtId}_${selectedCameraId}_${selectedDate}_${hourIndex.toString().padStart(2, '0')}-00.mp4`;
-      setActivePlayingSlot({
-        timeLabel: slotLabel,
-        videoUrl: directLocalUrl,
-        downloadUrl: directLocalUrl,
+      toast({
+        title: 'Grabación en procesamiento',
+        description: `El video de ${slotLabel} se está descargando del DVR. Conectando con el servidor...`,
       });
     }
   };
@@ -449,7 +572,22 @@ export default function MatchesPage() {
         {/* 24 Hours Clean Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
           {HOURS_24.map((slot) => {
-            // Determine status
+            // Determine real video availability from all matches (local server + db)
+            const matchForSlot = allMatches.find((m) => {
+              const matchCourt = m.courtId === selectedCourtId;
+              const matchCam = (m.cameraId || 'cam-1') === selectedCameraId;
+              const matchDate = m.date === selectedDate || (isToday && m.date?.toLowerCase() === 'hoy');
+              const matchTime = m.time?.includes(slot.label) || m.time?.includes(slot.startStr);
+              return matchCourt && matchCam && matchDate && matchTime;
+            });
+            const hasVideo = !!matchForSlot && !!matchForSlot.videoUrl;
+            const isBeingPrepared =
+              preparingSlot &&
+              preparingSlot.courtId === selectedCourtId &&
+              preparingSlot.cameraId === selectedCameraId &&
+              preparingSlot.date === selectedDate &&
+              preparingSlot.hour === slot.hour;
+
             const isCompleted = !isFutureDate && (!isToday || slot.hour < currentHour);
             const isCurrent = isToday && slot.hour === currentHour;
             const isUpcoming = isFutureDate || (isToday && slot.hour > currentHour);
@@ -460,8 +598,12 @@ export default function MatchesPage() {
                 type="button"
                 onClick={() => handleSelectSlot(slot.label, slot.hour)}
                 className={`p-3 rounded-xl border text-left transition-all duration-200 flex items-center justify-between group cursor-pointer select-none ${
-                  isCompleted
-                    ? 'bg-card/90 border-emerald-500/30 hover:border-primary hover:bg-card shadow-sm hover:scale-[1.02]'
+                  hasVideo
+                    ? 'bg-emerald-950/20 border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-950/30 shadow-md shadow-emerald-950/20 hover:scale-[1.02]'
+                    : isBeingPrepared
+                    ? 'bg-amber-950/30 border-amber-500/60 shadow-md animate-pulse'
+                    : isCompleted
+                    ? 'bg-card/70 border-white/10 hover:border-primary/50 hover:bg-card shadow-sm hover:scale-[1.01]'
                     : isCurrent
                     ? 'bg-amber-950/20 border-amber-500/40 hover:border-amber-400/80 hover:bg-amber-950/30'
                     : 'bg-zinc-900/40 border-white/5 opacity-55 hover:opacity-80'
@@ -469,7 +611,11 @@ export default function MatchesPage() {
               >
                 <div className="space-y-1">
                   <div className={`text-xs sm:text-sm font-bold transition-colors ${
-                    isCompleted
+                    hasVideo
+                      ? 'text-white group-hover:text-emerald-300'
+                      : isBeingPrepared
+                      ? 'text-amber-300'
+                      : isCompleted
                       ? 'text-foreground group-hover:text-primary'
                       : isCurrent
                       ? 'text-amber-300'
@@ -479,19 +625,27 @@ export default function MatchesPage() {
                   </div>
 
                   <div className="text-[10px] flex items-center gap-1">
-                    {isCompleted && (
-                      <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Listo para ver
+                    {hasVideo ? (
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                        Listo para ver (HD)
                       </span>
-                    )}
-                    {isCurrent && (
-                      <span className="text-amber-400 font-semibold flex items-center gap-0.5">
+                    ) : isBeingPrepared ? (
+                      <span className="text-amber-400 font-semibold flex items-center gap-1">
+                        <Hourglass className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                        Descargando del DVR...
+                      </span>
+                    ) : isCompleted ? (
+                      <span className="text-primary font-medium flex items-center gap-1">
+                        <Play className="h-3 w-3 fill-primary text-primary" />
+                        Ver partido (Optimizar HD)
+                      </span>
+                    ) : isCurrent ? (
+                      <span className="text-amber-400 font-semibold flex items-center gap-1">
                         <Hourglass className="h-3 w-3 animate-pulse" />
                         En juego / Finalizando
                       </span>
-                    )}
-                    {isUpcoming && (
+                    ) : (
                       <span className="text-zinc-500">
                         Próximo turno
                       </span>
@@ -500,7 +654,11 @@ export default function MatchesPage() {
                 </div>
 
                 <div className={`p-1.5 rounded-lg transition-all ${
-                  isCompleted
+                  hasVideo
+                    ? 'bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black shadow-sm'
+                    : isBeingPrepared
+                    ? 'bg-amber-500/20 text-amber-400'
+                    : isCompleted
                     ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
                     : isCurrent
                     ? 'bg-amber-500/15 text-amber-400'
@@ -513,6 +671,48 @@ export default function MatchesPage() {
           })}
         </div>
       </div>
+
+      {/* POPUP / MODAL: EXTRACCIÓN Y OPTIMIZACIÓN A DEMANDA */}
+      <Dialog
+        open={!!preparingSlot}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPreparingSlot(null);
+        }}
+      >
+        <DialogContent className="max-w-md w-[92vw] p-6 bg-zinc-950 border-white/15 text-foreground text-center space-y-4">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/30">
+            <Hourglass className="h-7 w-7 animate-spin" />
+          </div>
+
+          <div className="space-y-1.5">
+            <DialogTitle className="text-lg sm:text-xl font-black text-white">
+              Optimizando Grabación HD
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              Turno {preparingSlot?.label} • {selectedCourtId === 'cancha-1' ? 'Cancha 1' : 'Cancha 2'}
+            </DialogDescription>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs text-zinc-300 leading-relaxed">
+            {preparingSlot?.message || 'Extrayendo el video desde el DVR Dahua y adaptándolo para streaming online.'}
+          </div>
+
+          <p className="text-[11px] text-zinc-500">
+            Podés esperar aquí o cerrar esta ventana; el video comenzará automáticamente cuando esté listo.
+          </p>
+
+          <div className="flex justify-center pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPreparingSlot(null)}
+              className="text-xs border-white/15 hover:bg-white/10"
+            >
+              Continuar en segundo plano
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* POPUP / MODAL: REPRODUCTOR DEL PARTIDO */}
       <Dialog
