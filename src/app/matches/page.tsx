@@ -122,6 +122,7 @@ export default function MatchesPage() {
     videoUrl: string;
     downloadUrl?: string;
     fileName?: string;
+    hour: number;
   } | null>(null);
 
   // Estados para recorte y descarga de jugadas de 30 segundos (goles)
@@ -209,30 +210,39 @@ export default function MatchesPage() {
                 }
                 setServerBaseUrl(base);
 
-                const mapped: RecordedMatch[] = data.matches.map((m: any) => {
-                  let vUrl = m.videoUrl || '';
-                  let dUrl = m.downloadUrl || m.videoUrl || '';
-                  if (!vUrl.startsWith('http')) {
-                    vUrl = `${base}${vUrl}`;
-                  }
-                  if (!dUrl.startsWith('http')) {
-                    dUrl = `${base}${dUrl}`;
-                  }
-                  return {
-                    id: m.id,
-                    courtId: m.courtId,
-                    courtName: m.courtName,
-                    cameraId: m.cameraId,
-                    cameraName: m.cameraName,
-                    date: m.date,
-                    time: m.time,
-                    title: `Partido ${m.time}`,
-                    videoUrl: vUrl,
-                    downloadUrl: dUrl,
-                    durationMinutes: 60,
-                    createdAt: m.detectedAt || new Date().toISOString(),
-                  };
-                });
+                const mapped: RecordedMatch[] = data.matches
+                  .filter(
+                    (m: any) =>
+                      !m.id?.startsWith('part_') &&
+                      !m.fileName?.startsWith('part_') &&
+                      !m.videoUrl?.includes('/part_')
+                  )
+                  .map((m: any) => {
+                    let vUrl = m.videoUrl || '';
+                    let dUrl = m.downloadUrl || m.videoUrl || '';
+                    if (!vUrl.startsWith('http')) {
+                      vUrl = `${base}${vUrl}`;
+                    }
+                    if (!dUrl.startsWith('http')) {
+                      dUrl = `${base}${dUrl}`;
+                    }
+                    return {
+                      id: m.id,
+                      fileName: m.fileName || m.id,
+                      courtId: m.courtId,
+                      courtName: m.courtName,
+                      cameraId: m.cameraId,
+                      cameraName: m.cameraName,
+                      date: m.date,
+                      time: m.time,
+                      startHour: typeof m.startHour === 'number' ? m.startHour : undefined,
+                      title: `Partido ${m.time}`,
+                      videoUrl: vUrl,
+                      downloadUrl: dUrl,
+                      durationMinutes: 60,
+                      createdAt: m.detectedAt || new Date().toISOString(),
+                    };
+                  });
                 setLocalServerMatches(mapped);
                 break;
               }
@@ -278,6 +288,7 @@ export default function MatchesPage() {
             videoUrl: vUrl,
             downloadUrl: dUrl,
             fileName: data.match?.fileName || data.match?.id,
+            hour: preparingSlot.hour,
           });
           setPreparingSlot(null);
         } else if (data.message) {
@@ -297,6 +308,71 @@ export default function MatchesPage() {
   const allMatches = useMemo(() => {
     return [...(dbMatches || []), ...localServerMatches];
   }, [dbMatches, localServerMatches]);
+
+  // Función infalible para verificar si un partido corresponde exactamente a este turno de 1 hora
+  const isMatchForSlot = (
+    m: RecordedMatch,
+    slot: { hour: number; label: string; startStr: string }
+  ) => {
+    if (m.id?.startsWith('part_') || m.fileName?.startsWith('part_') || m.videoUrl?.includes('/part_')) {
+      return false;
+    }
+    const matchCourt = m.courtId === selectedCourtId;
+    const matchCam = (m.cameraId || 'cam-1') === selectedCameraId;
+    const matchDate = m.date === selectedDate || (isToday && m.date?.toLowerCase() === 'hoy');
+
+    let matchTime = false;
+    if (typeof (m as any).startHour === 'number') {
+      matchTime = (m as any).startHour === slot.hour;
+    } else if (m.time) {
+      const trimmed = m.time.trim();
+      const expectedPrefix = `${slot.hour.toString().padStart(2, '0')}:00`;
+      matchTime = trimmed.startsWith(expectedPrefix) || trimmed.startsWith(`${slot.hour.toString().padStart(2, '0')}:`);
+    }
+
+    return matchCourt && matchCam && matchDate && matchTime;
+  };
+
+  // Re-optimizar forzando descarga desde el DVR Dahua si el video tuvo algún problema
+  const handleForceReoptimize = (hour?: number, label?: string) => {
+    const targetHour = hour ?? activePlayingSlot?.hour;
+    const targetLabel = label ?? activePlayingSlot?.timeLabel ?? '';
+    if (typeof targetHour !== 'number') return;
+
+    setActivePlayingSlot(null);
+    setPreparingSlot({
+      courtId: selectedCourtId,
+      cameraId: selectedCameraId,
+      date: selectedDate,
+      hour: targetHour,
+      label: targetLabel,
+      message: 'Re-descargando y optimizando grabación HD desde el DVR Dahua...',
+    });
+
+    if (serverBaseUrl) {
+      fetch(
+        `${serverBaseUrl}/api/prepare-match?courtId=${selectedCourtId}&cameraId=${selectedCameraId}&date=${selectedDate}&hour=${targetHour}&force=true`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ready && data.match) {
+            let vUrl = data.match.videoUrl;
+            let dUrl = data.match.downloadUrl || vUrl;
+            if (!vUrl.startsWith('http')) vUrl = `${serverBaseUrl}${vUrl}`;
+            if (!dUrl.startsWith('http')) dUrl = `${serverBaseUrl}${dUrl}`;
+            setPreparingSlot(null);
+            setActivePlayingSlot({
+              timeLabel: targetLabel,
+              videoUrl: vUrl,
+              downloadUrl: dUrl,
+              fileName: data.match.fileName || data.match.id,
+              hour: targetHour,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  };
 
   // Handle clicking a specific 1-hour slot
   const handleSelectSlot = (slotLabel: string, hourIndex: number) => {
@@ -324,21 +400,21 @@ export default function MatchesPage() {
       return;
     }
 
-    // Buscar si ya está el video disponible para esta cancha, cámara, fecha y turno
-    const matchedInDb = allMatches.find((m) => {
-      const matchCourt = m.courtId === selectedCourtId;
-      const matchCam = (m.cameraId || 'cam-1') === selectedCameraId;
-      const matchDate = m.date === selectedDate || (isToday && m.date?.toLowerCase() === 'hoy');
-      const matchTime = m.time?.includes(slotLabel) || m.time?.includes(slotLabel.split(' ')[0]);
-      return matchCourt && matchCam && matchDate && matchTime;
-    });
+    // Buscar si ya está el video disponible para esta cancha, cámara, fecha y turno exacto
+    const slotObj = {
+      hour: hourIndex,
+      label: slotLabel,
+      startStr: `${hourIndex.toString().padStart(2, '0')}:00`,
+    };
+    const matchedInDb = allMatches.find((m) => isMatchForSlot(m, slotObj));
 
     if (matchedInDb && matchedInDb.videoUrl) {
       setActivePlayingSlot({
         timeLabel: slotLabel,
         videoUrl: matchedInDb.videoUrl,
         downloadUrl: matchedInDb.downloadUrl || matchedInDb.videoUrl,
-        fileName: matchedInDb.id || (matchedInDb as any).fileName,
+        fileName: matchedInDb.fileName || matchedInDb.id,
+        hour: hourIndex,
       });
       return;
     }
@@ -370,6 +446,7 @@ export default function MatchesPage() {
               videoUrl: vUrl,
               downloadUrl: dUrl,
               fileName: data.match.fileName || data.match.id,
+              hour: hourIndex,
             });
           }
         })
@@ -627,13 +704,7 @@ export default function MatchesPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
           {HOURS_24.map((slot) => {
             // Determine real video availability from all matches (local server + db)
-            const matchForSlot = allMatches.find((m) => {
-              const matchCourt = m.courtId === selectedCourtId;
-              const matchCam = (m.cameraId || 'cam-1') === selectedCameraId;
-              const matchDate = m.date === selectedDate || (isToday && m.date?.toLowerCase() === 'hoy');
-              const matchTime = m.time?.includes(slot.label) || m.time?.includes(slot.startStr);
-              return matchCourt && matchCam && matchDate && matchTime;
-            });
+            const matchForSlot = allMatches.find((m) => isMatchForSlot(m, slot));
             const hasVideo = !!matchForSlot && !!matchForSlot.videoUrl;
             const isBeingPrepared =
               preparingSlot &&
@@ -796,6 +867,7 @@ export default function MatchesPage() {
               </DialogHeader>
 
               {/* Video Player con soporte de captura de momento para clip */}
+              {/* Video Player con soporte de captura de momento para clip y re-optimización */}
               <div className="rounded-xl overflow-hidden shadow-2xl bg-black">
                 <VideoPlayer
                   src={activePlayingSlot.videoUrl}
@@ -803,6 +875,7 @@ export default function MatchesPage() {
                   courtName={activeCameraInfo.name}
                   title={`Turno: ${activePlayingSlot.timeLabel} (${selectedDate})`}
                   autoPlay={true}
+                  onReoptimize={() => handleForceReoptimize()}
                   onTimeUpdateProp={(curr) => setCurrentPlaybackSec(curr)}
                   onClipClick={(curr) => handleOpenClipModal(curr)}
                 />
@@ -858,6 +931,19 @@ export default function MatchesPage() {
                     Cerrar
                   </Button>
                 </div>
+              </div>
+
+              {/* Re-optimizar si hay cualquier problema */}
+              <div className="flex items-center justify-between text-xs text-zinc-500 pt-2 border-t border-white/5">
+                <span>¿El video no carga o se corta?</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => handleForceReoptimize()}
+                  className="text-xs text-amber-400 hover:text-amber-300 p-0 h-auto font-medium"
+                >
+                  Forzar re-optimización desde el DVR
+                </Button>
               </div>
             </div>
           )}

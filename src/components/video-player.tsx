@@ -14,6 +14,7 @@ interface VideoPlayerProps {
   autoPlay?: boolean;
   courtName?: string;
   onRefresh?: () => void;
+  onReoptimize?: () => void;
   onTimeUpdateProp?: (currentTimeSec: number, durationSec: number) => void;
   onClipClick?: (currentTimeSec: number) => void;
 }
@@ -26,6 +27,7 @@ export function VideoPlayer({
   autoPlay = true,
   courtName,
   onRefresh,
+  onReoptimize,
   onTimeUpdateProp,
   onClipClick,
 }: VideoPlayerProps) {
@@ -344,7 +346,16 @@ export function VideoPlayer({
           <p className="text-sm text-zinc-400 max-w-sm mb-4">
             El video está siendo procesado por el DVR o el enlace no es accesible.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            {onReoptimize && (
+              <Button
+                size="sm"
+                onClick={onReoptimize}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-bold gap-2 text-xs"
+              >
+                <RotateCw className="h-4 w-4" /> Optimizar / Re-descargar del DVR
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={handleReload}

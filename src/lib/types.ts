@@ -91,12 +91,14 @@ export interface CourtCamera {
 
 export interface RecordedMatch {
   id: string;
+  fileName?: string;
   courtId: string;
   courtName: string;
   cameraId?: string; // 'cam-1' | 'cam-2'
   cameraName?: string; // 'Cámara 1' | 'Cámara 2'
   date: string;
   time: string;
+  startHour?: number;
   title: string;
   videoUrl: string;
   thumbnailUrl?: string;

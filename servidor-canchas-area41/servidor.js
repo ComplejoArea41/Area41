@@ -208,13 +208,41 @@ function enforceStorageLimit() {
 function scanLocalFiles() {
   try {
     if (!fs.existsSync(WATCH_DIR)) return;
+
+    // 1. Limpiar entradas de readyMatches cuyos archivos ya no existen o son inválidos
+    for (const [key, _] of readyMatches.entries()) {
+      const p = path.join(WATCH_DIR, key);
+      if (!fs.existsSync(p)) {
+        readyMatches.delete(key);
+      } else {
+        try {
+          const st = fs.statSync(p);
+          if (st.size < 1000000 || key.startsWith('part_') || key.startsWith('temp_') || key.startsWith('download_') || key.startsWith('.')) {
+            readyMatches.delete(key);
+          }
+        } catch (_) {
+          readyMatches.delete(key);
+        }
+      }
+    }
+
+    // 2. Escanear directorio de grabaciones
     const files = fs.readdirSync(WATCH_DIR);
     for (const f of files) {
+      // Ignorar y limpiar archivos temporales, ocultos o clips
+      if (f.startsWith('part_') || f.startsWith('temp_') || f.startsWith('download_') || f.startsWith('.') || f.startsWith('clip_')) {
+        if (f.startsWith('part_') || f.startsWith('temp_')) {
+          try { fs.unlinkSync(path.join(WATCH_DIR, f)); } catch (_) {}
+        }
+        continue;
+      }
+
       if (f.toLowerCase().endsWith('.mp4')) {
         const fullPath = path.join(WATCH_DIR, f);
         try {
           const stats = fs.statSync(fullPath);
-          if (stats.size > 10000) {
+          // Sólo registrar grabaciones completas de al menos 1 MB
+          if (stats.size > 1000000) {
             parseAndRegisterMatch(f, stats.size);
           }
         } catch (_) {}
@@ -284,7 +312,7 @@ function parseAndRegisterMatch(fileName, sizeBytes) {
 // DESCARGA DIRECTA POR PIPE DE DAHUA A MP4 OPTIMIZADO (FASTSTART)
 // Sin crear archivo .dav temporal: ahorra 50% de disco y es 2x más rápido
 // ============================================================================
-function downloadAndRemuxMatch(channel, dateStr, hour) {
+function downloadAndRemuxMatch(channel, dateStr, hour, force = false) {
   return new Promise((resolve, reject) => {
     const camInfo = CHANNEL_MAP[channel];
     if (!camInfo) return reject(new Error('Canal no válido: ' + channel));
@@ -294,15 +322,29 @@ function downloadAndRemuxMatch(channel, dateStr, hour) {
     const endHourStr = ((hour + 1) % 24).toString().padStart(2, '0');
     const targetFileName = `${camInfo.courtId}_${camInfo.cameraId}_${dateStr}_${startHourStr}-00.mp4`;
     const targetMp4Path = path.join(WATCH_DIR, targetFileName);
-    const tempMp4Path = path.join(WATCH_DIR, `part_${targetFileName}`);
 
-    // Si ya existe y es válido
-    if (fs.existsSync(targetMp4Path)) {
+    // Carpeta temporal aislada para evitar que archivos a medio descargar aparezcan en la app
+    const tempDir = path.join(WATCH_DIR, '.temp');
+    if (!fs.existsSync(tempDir)) {
+      try { fs.mkdirSync(tempDir, { recursive: true }); } catch (_) {}
+    }
+    const tempMp4Path = path.join(tempDir, `download_${targetFileName}`);
+
+    // Si ya existe y es válido y no se pidió forzar
+    if (!force && fs.existsSync(targetMp4Path)) {
       const st = fs.statSync(targetMp4Path);
-      if (st.size > 100000) {
+      if (st.size > 1000000) {
         parseAndRegisterMatch(targetFileName, st.size);
         return resolve({ fileName: targetFileName, path: targetMp4Path, size: st.size });
       }
+    }
+
+    // Si es forzado, eliminar archivo previo corrupto
+    if (force && fs.existsSync(targetMp4Path)) {
+      try {
+        fs.unlinkSync(targetMp4Path);
+        readyMatches.delete(targetFileName);
+      } catch (_) {}
     }
 
     enforceStorageLimit();
@@ -340,7 +382,10 @@ function downloadAndRemuxMatch(channel, dateStr, hour) {
 
         addLog(`📥 Extrayendo y optimizando video: [${camInfo.courtName} - ${camInfo.cameraName}] ${dateStr} ${startHourStr}:00 hs`);
 
-        // Lanzar ffmpeg directamente desde stdin (pipe)
+        // Limpiar temporal previo si quedó de una interrupción
+        try { if (fs.existsSync(tempMp4Path)) fs.unlinkSync(tempMp4Path); } catch (_) {}
+
+        // Lanzar ffmpeg directamente desde stdin (pipe) hacia la carpeta temporal
         const ff = spawn(ffmpegPath, [
           '-y',
           '-f', 'h264',
@@ -356,8 +401,14 @@ function downloadAndRemuxMatch(channel, dateStr, hour) {
         ff.on('close', (code) => {
           if (code === 0 && fs.existsSync(tempMp4Path)) {
             const st = fs.statSync(tempMp4Path);
-            if (st.size > 100000) {
-              try { fs.renameSync(tempMp4Path, targetMp4Path); } catch (_) {}
+            if (st.size > 1000000) {
+              try {
+                if (fs.existsSync(targetMp4Path)) fs.unlinkSync(targetMp4Path);
+                fs.renameSync(tempMp4Path, targetMp4Path);
+              } catch (_) {}
+              // Eliminar posibles referencias viejas o part_
+              readyMatches.delete(`part_${targetFileName}`);
+              readyMatches.delete(targetFileName);
               parseAndRegisterMatch(targetFileName, st.size);
               enforceStorageLimit();
               addLog(`✅ ¡LISTO PARA VER ONLINE! [${camInfo.courtName} - ${camInfo.cameraName}] ${dateStr} ${startHourStr}:00 hs (${(st.size / (1024 * 1024)).toFixed(1)} MB)`);
@@ -487,18 +538,29 @@ const server = http.createServer(async (req, res) => {
     const cameraId = parsedUrl.searchParams.get('cameraId') || 'cam-1';
     const date = parsedUrl.searchParams.get('date') || new Date().toISOString().split('T')[0];
     const hour = parseInt(parsedUrl.searchParams.get('hour') || '18', 10);
+    const force = parsedUrl.searchParams.get('force') === 'true';
 
     const channel = getChannelNumber(courtId, cameraId);
     const startHourStr = hour.toString().padStart(2, '0');
     const targetFileName = `${courtId}_${cameraId}_${date}_${startHourStr}-00.mp4`;
     const targetPath = path.join(WATCH_DIR, targetFileName);
 
-    // Si ya existe
-    if (fs.existsSync(targetPath)) {
+    // Si ya existe y no se forzó re-descarga
+    if (!force && fs.existsSync(targetPath)) {
       const match = readyMatches.get(targetFileName);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, ready: true, match }));
-      return;
+      if (match) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, ready: true, match }));
+        return;
+      }
+    }
+
+    // Si se solicitó forzar, eliminar archivo previo corrupto
+    if (force && fs.existsSync(targetPath)) {
+      try {
+        fs.unlinkSync(targetPath);
+        readyMatches.delete(targetFileName);
+      } catch (_) {}
     }
 
     // Si ya se está descargando ahora mismo
@@ -518,9 +580,9 @@ const server = http.createServer(async (req, res) => {
 
     // Iniciar preparación con máxima prioridad
     activeOnDemandJob = { key: jobKey, startTime: Date.now() };
-    addLog(`⚡ Solicitud inmediata del usuario: preparando ${targetFileName}...`);
+    addLog(`⚡ Solicitud inmediata del usuario (force=${force}): preparando ${targetFileName}...`);
 
-    downloadAndRemuxMatch(channel, date, hour)
+    downloadAndRemuxMatch(channel, date, hour, force)
       .then((resMatch) => {
         activeOnDemandJob = null;
         if (resMatch) {
