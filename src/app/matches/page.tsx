@@ -121,7 +121,14 @@ export default function MatchesPage() {
     timeLabel: string;
     videoUrl: string;
     downloadUrl?: string;
+    fileName?: string;
   } | null>(null);
+
+  // Estados para recorte y descarga de jugadas de 30 segundos (goles)
+  const [clipModalOpen, setClipModalOpen] = useState(false);
+  const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
+  const [clipStartSec, setClipStartSec] = useState<number>(0);
+  const [isDownloadingClip, setIsDownloadingClip] = useState(false);
 
   // Available cameras for current court
   const currentCameras = useMemo(() => {
@@ -270,6 +277,7 @@ export default function MatchesPage() {
             timeLabel: preparingSlot.label,
             videoUrl: vUrl,
             downloadUrl: dUrl,
+            fileName: data.match?.fileName || data.match?.id,
           });
           setPreparingSlot(null);
         } else if (data.message) {
@@ -330,6 +338,7 @@ export default function MatchesPage() {
         timeLabel: slotLabel,
         videoUrl: matchedInDb.videoUrl,
         downloadUrl: matchedInDb.downloadUrl || matchedInDb.videoUrl,
+        fileName: matchedInDb.id || (matchedInDb as any).fileName,
       });
       return;
     }
@@ -360,6 +369,7 @@ export default function MatchesPage() {
               timeLabel: slotLabel,
               videoUrl: vUrl,
               downloadUrl: dUrl,
+              fileName: data.match.fileName || data.match.id,
             });
           }
         })
@@ -406,6 +416,50 @@ export default function MatchesPage() {
       title: 'Iniciando descarga',
       description: 'El video se está descargando en tu dispositivo.',
     });
+  };
+
+  const formatSec = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleOpenClipModal = (timeSec?: number) => {
+    const at = typeof timeSec === 'number' ? timeSec : currentPlaybackSec;
+    // Preseleccionar 15 segundos antes de la jugada (para capturar la acción completa)
+    const start = Math.max(0, Math.floor(at - 15));
+    setClipStartSec(start);
+    setClipModalOpen(true);
+  };
+
+  const handleDownloadClip = () => {
+    if (!activePlayingSlot) return;
+    const base = serverBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+    const fileName =
+      activePlayingSlot.fileName ||
+      activePlayingSlot.videoUrl.split('/').pop()?.split('?')[0] ||
+      '';
+
+    setIsDownloadingClip(true);
+    const clipUrl = `${base}/download-clip?fileName=${encodeURIComponent(fileName)}&start=${clipStartSec}&duration=30`;
+
+    const a = document.createElement('a');
+    a.href = clipUrl;
+    a.target = '_blank';
+    a.download = `Gol_Area41_${formatSec(clipStartSec).replace(':', 'm')}s_30seg.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    toast({
+      title: 'Descargando jugada de 30 segundos...',
+      description: 'El clip optimizado (~14 MB) se está descargando en tu dispositivo.',
+    });
+
+    setTimeout(() => {
+      setIsDownloadingClip(false);
+      setClipModalOpen(false);
+    }, 2000);
   };
 
   return (
@@ -741,7 +795,7 @@ export default function MatchesPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              {/* Video Player */}
+              {/* Video Player con soporte de captura de momento para clip */}
               <div className="rounded-xl overflow-hidden shadow-2xl bg-black">
                 <VideoPlayer
                   src={activePlayingSlot.videoUrl}
@@ -749,26 +803,39 @@ export default function MatchesPage() {
                   courtName={activeCameraInfo.name}
                   title={`Turno: ${activePlayingSlot.timeLabel} (${selectedDate})`}
                   autoPlay={true}
+                  onTimeUpdateProp={(curr) => setCurrentPlaybackSec(curr)}
+                  onClipClick={(curr) => handleOpenClipModal(curr)}
                 />
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center justify-between pt-2">
-                <div className="text-xs text-zinc-400 font-mono">
-                  Grabación completa en alta definición
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="text-xs text-zinc-400 font-mono text-center sm:text-left">
+                  Momento del video: <span className="text-emerald-400 font-bold">{formatSec(currentPlaybackSec)}</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                  <Button
+                    size="sm"
+                    onClick={() => handleOpenClipModal()}
+                    className="gap-2 font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 text-xs sm:text-sm"
+                  >
+                    <Film className="h-4 w-4" />
+                    Descargar Jugada / Gol (30s)
+                  </Button>
+
                   {activePlayingSlot.downloadUrl && (
                     <Button
                       size="sm"
+                      variant="outline"
                       onClick={() =>
                         handleDownload(activePlayingSlot.downloadUrl!, activePlayingSlot.timeLabel)
                       }
-                      className="gap-2 font-bold bg-primary hover:bg-primary/90 text-primary-foreground"
+                      className="gap-1.5 text-xs text-zinc-400 border-white/10 hover:text-white"
+                      title="Descargar partido completo de 60 minutos (1.6 GB)"
                     >
-                      <Download className="h-4 w-4" />
-                      Descargar
+                      <Download className="h-3.5 w-3.5" />
+                      Partido completo
                     </Button>
                   )}
 
@@ -794,6 +861,109 @@ export default function MatchesPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: RECORTAR Y DESCARGAR JUGADA / GOL (30 SEGUNDOS) */}
+      <Dialog open={clipModalOpen} onOpenChange={setClipModalOpen}>
+        <DialogContent className="max-w-md w-[92vw] p-5 sm:p-6 bg-zinc-950 border-white/15 text-foreground space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+              <Film className="h-6 w-6" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-bold text-white">
+                Descargar Clip de 30 Segundos
+              </DialogTitle>
+              <DialogDescription className="text-xs text-zinc-400">
+                Ideal para enviar por WhatsApp o subir a redes (~14 MB)
+              </DialogDescription>
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/80 border border-white/10 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-zinc-400">Franja a recortar:</span>
+              <span className="font-mono font-bold text-emerald-400 text-sm">
+                {formatSec(clipStartSec)} a {formatSec(clipStartSec + 30)} (30 seg)
+              </span>
+            </div>
+
+            {/* Slider de ajuste */}
+            <div className="space-y-1">
+              <input
+                type="range"
+                min={0}
+                max={3570}
+                value={clipStartSec}
+                onChange={(e) => setClipStartSec(Number(e.target.value))}
+                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+              <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+                <span>00:00</span>
+                <span>Inicio: {formatSec(clipStartSec)}</span>
+                <span>60:00</span>
+              </div>
+            </div>
+
+            {/* Botones de ajuste fino */}
+            <div className="flex items-center justify-center gap-1.5 pt-1 flex-wrap">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setClipStartSec((prev) => Math.max(0, prev - 10))}
+                className="h-7 text-[11px] px-2 border-white/10"
+              >
+                -10 seg
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setClipStartSec(Math.max(0, Math.floor(currentPlaybackSec - 15)))}
+                className="h-7 text-[11px] px-2.5 bg-zinc-800 border-white/15 text-zinc-200"
+              >
+                Centrar en jugada ({formatSec(currentPlaybackSec)})
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setClipStartSec((prev) => prev + 10)}
+                className="h-7 text-[11px] px-2 border-white/10"
+              >
+                +10 seg
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <Button
+              type="button"
+              onClick={handleDownloadClip}
+              disabled={isDownloadingClip}
+              className="w-full gap-2 font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 py-5 text-sm"
+            >
+              <Download className="h-4 w-4" />
+              {isDownloadingClip ? 'Generando clip...' : 'Descargar Clip de 30 Segundos (~14 MB)'}
+            </Button>
+
+            {activePlayingSlot?.downloadUrl && (
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClipModalOpen(false);
+                    handleDownload(activePlayingSlot.downloadUrl!, activePlayingSlot.timeLabel);
+                  }}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2 transition-colors cursor-pointer"
+                >
+                  Descargar partido completo de 60 min (1.6 GB - consume más internet)
+                </button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { Volume2, VolumeX, Maximize2, Minimize2, RotateCw, Play, Pause, AlertCircle, RotateCcw, FastForward } from 'lucide-react';
+import { Volume2, VolumeX, Maximize2, Minimize2, RotateCw, Play, Pause, AlertCircle, RotateCcw, FastForward, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -14,6 +14,8 @@ interface VideoPlayerProps {
   autoPlay?: boolean;
   courtName?: string;
   onRefresh?: () => void;
+  onTimeUpdateProp?: (currentTimeSec: number, durationSec: number) => void;
+  onClipClick?: (currentTimeSec: number) => void;
 }
 
 export function VideoPlayer({
@@ -24,6 +26,8 @@ export function VideoPlayer({
   autoPlay = true,
   courtName,
   onRefresh,
+  onTimeUpdateProp,
+  onClipClick,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -176,6 +180,9 @@ export function VideoPlayer({
       setCurrentTime(video.currentTime);
       if (!isNaN(video.duration)) {
         setDuration(video.duration);
+      }
+      if (onTimeUpdateProp) {
+        onTimeUpdateProp(video.currentTime, video.duration || 0);
       }
     }
   };
@@ -438,6 +445,20 @@ export function VideoPlayer({
           </div>
 
           <div className="flex items-center gap-2">
+            {!isLive && onClipClick && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onClipClick(currentTime)}
+                className="h-8 gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs px-2.5 rounded-lg shadow-md shadow-emerald-500/20"
+                title="Recortar jugada o gol de 30 segundos"
+              >
+                <Film className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Cortar gol (30s)</span>
+                <span className="sm:hidden">30s</span>
+              </Button>
+            )}
+
             <Button
               type="button"
               size="icon"

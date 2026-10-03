@@ -52,11 +52,14 @@ export default function WelcomePage() {
                         <Video className="h-10 w-10 text-white" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-xl font-semibold text-card-foreground">Reviví tu Partido</h3>
-                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">HD</span>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider shadow-sm">
+                          PRÓXIMAMENTE
+                        </span>
+                        <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">HD</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">Mirá tu partido completo y descargá tus jugadas.</p>
+                      <p className="text-sm text-muted-foreground">Próximamente disponible • Mirá tu partido y descargá tus goles en clips de 30 segundos.</p>
                     </div>
                   </div>
                 </Button>

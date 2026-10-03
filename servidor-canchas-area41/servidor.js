@@ -604,7 +604,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 5. Descarga directa de archivo
+  // 5. Descarga directa de archivo completo
   if (pathname.startsWith('/download/')) {
     const fileName = path.basename(pathname.replace('/download/', ''));
     const filePath = path.join(WATCH_DIR, fileName);
@@ -622,6 +622,79 @@ const server = http.createServer(async (req, res) => {
       'Content-Disposition': `attachment; filename="${fileName}"`,
     });
     fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  // 6. Recorte y Descarga de Clip de 30 Segundos (Goles / Jugadas livianas para WhatsApp y redes)
+  if (pathname === '/api/clip' || pathname === '/download-clip') {
+    const rawFileName = parsedUrl.searchParams.get('fileName') || '';
+    const fileName = path.basename(rawFileName);
+    const startSec = Math.max(0, parseInt(parsedUrl.searchParams.get('start') || '0', 10));
+    const duration = Math.min(60, Math.max(10, parseInt(parsedUrl.searchParams.get('duration') || '30', 10))); // 30 seg por defecto
+
+    const sourcePath = path.join(WATCH_DIR, fileName);
+    if (!fs.existsSync(sourcePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Video completo no encontrado en el servidor' }));
+      return;
+    }
+
+    const minStr = Math.floor(startSec / 60).toString().padStart(2, '0');
+    const secStr = (startSec % 60).toString().padStart(2, '0');
+    const clipDownloadName = `Jugada_Area41_min_${minStr}m${secStr}s_30seg.mp4`;
+
+    const clipsDir = path.join(WATCH_DIR, 'clips');
+    if (!fs.existsSync(clipsDir)) {
+      try { fs.mkdirSync(clipsDir, { recursive: true }); } catch (_) {}
+    }
+
+    const clipFileName = `clip_${path.parse(fileName).name}_s${startSec}_d${duration}.mp4`;
+    const clipFilePath = path.join(clipsDir, clipFileName);
+
+    // Servir clip si ya fue procesado antes
+    if (fs.existsSync(clipFilePath) && fs.statSync(clipFilePath).size > 10000) {
+      const stat = fs.statSync(clipFilePath);
+      res.writeHead(200, {
+        'Content-Type': 'video/mp4',
+        'Content-Length': stat.size,
+        'Content-Disposition': `attachment; filename="${clipDownloadName}"`,
+      });
+      fs.createReadStream(clipFilePath).pipe(res);
+      return;
+    }
+
+    addLog(`✂️ Generando clip de ${duration}s para ${fileName} desde min ${minStr}:${secStr}...`);
+
+    const { execFile } = require('child_process');
+    execFile(
+      ffmpegPath,
+      [
+        '-y',
+        '-ss', startSec.toString(),
+        '-i', sourcePath,
+        '-t', duration.toString(),
+        '-c', 'copy',
+        '-movflags', '+faststart',
+        clipFilePath,
+      ],
+      (err) => {
+        if (err || !fs.existsSync(clipFilePath)) {
+          addLog(`❌ Error generando clip: ${err ? err.message : 'no creado'}`);
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end('Error al recortar clip');
+          return;
+        }
+
+        const stat = fs.statSync(clipFilePath);
+        addLog(`✅ Clip de 30s generado con éxito (${(stat.size / (1024 * 1024)).toFixed(1)} MB)!`);
+        res.writeHead(200, {
+          'Content-Type': 'video/mp4',
+          'Content-Length': stat.size,
+          'Content-Disposition': `attachment; filename="${clipDownloadName}"`,
+        });
+        fs.createReadStream(clipFilePath).pipe(res);
+      }
+    );
     return;
   }
 
